@@ -1,0 +1,67 @@
+/**
+ * Barcha API route-larining ro'yxati.
+ * Frontend permission matrix ni shu ma'lumot asosida quriladi.
+ * Yangi route qo'shilganda shu ro'yxatni ham yangilang.
+ */
+
+export type RouteEntry = {
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+  path: string;
+  description: string;
+  group: string;
+};
+
+export const ROUTES_REGISTRY: RouteEntry[] = [
+  // ─── Uploads ──────────────────────────────────────────────────────────────
+  { group: "Uploads", method: "POST", path: "/api/uploads/photo", description: "Rasm yuklash" },
+
+  // ─── Users ────────────────────────────────────────────────────────────────
+  { group: "Users", method: "GET", path: "/api/users", description: "Barcha foydalanuvchilar" },
+  { group: "Users", method: "GET", path: "/api/users/:id", description: "Foydalanuvchi (ID bo'yicha)" },
+  { group: "Users", method: "POST", path: "/api/users", description: "Yangi foydalanuvchi" },
+  { group: "Users", method: "PUT", path: "/api/users/:id", description: "Foydalanuvchi tahrirlash" },
+  { group: "Users", method: "DELETE", path: "/api/users/:id", description: "Foydalanuvchi o'chirish" },
+
+  // ─── Patients ─────────────────────────────────────────────────────────────
+  { group: "Patients", method: "GET", path: "/api/patients", description: "Barcha bemorlar" },
+  { group: "Patients", method: "GET", path: "/api/patients/:id", description: "Bemor (ID bo'yicha)" },
+  { group: "Patients", method: "POST", path: "/api/patients", description: "Yangi bemor" },
+  { group: "Patients", method: "PATCH", path: "/api/patients/:id", description: "Bemor tahrirlash" },
+  { group: "Patients", method: "DELETE", path: "/api/patients/:id", description: "Bemor o'chirish" },
+  { group: "Patients", method: "GET", path: "/api/patients/:id/timeline", description: "Bemor timeline" },
+
+  // ─── Departments ──────────────────────────────────────────────────────────
+  { group: "Departments", method: "GET", path: "/api/departments", description: "Barcha bo'limlar" },
+  { group: "Departments", method: "GET", path: "/api/departments/:id", description: "Bo'lim (ID bo'yicha)" },
+  { group: "Departments", method: "POST", path: "/api/departments", description: "Yangi bo'lim" },
+  { group: "Departments", method: "PATCH", path: "/api/departments/:id", description: "Bo'lim tahrirlash" },
+  { group: "Departments", method: "DELETE", path: "/api/departments/:id", description: "Bo'lim o'chirish" },
+
+  // ─── Rooms ────────────────────────────────────────────────────────────────
+  { group: "Rooms", method: "GET", path: "/api/rooms", description: "Barcha xonalar" },
+  { group: "Rooms", method: "GET", path: "/api/rooms/:id", description: "Xona (ID bo'yicha)" },
+  { group: "Rooms", method: "POST", path: "/api/rooms", description: "Yangi xona" },
+  { group: "Rooms", method: "PATCH", path: "/api/rooms/:id", description: "Xona tahrirlash" },
+  { group: "Rooms", method: "DELETE", path: "/api/rooms/:id", description: "Xona o'chirish" },
+
+  // ─── Assignments ──────────────────────────────────────────────────────────
+  { group: "Assignments", method: "GET", path: "/api/assignments", description: "Barcha tayinlovlar" },
+  { group: "Assignments", method: "GET", path: "/api/assignments/:id", description: "Tayinlov (ID bo'yicha)" },
+  { group: "Assignments", method: "POST", path: "/api/assignments", description: "Yangi tayinlov" },
+  { group: "Assignments", method: "PATCH", path: "/api/assignments/:id", description: "Tayinlov tahrirlash" },
+  { group: "Assignments", method: "DELETE", path: "/api/assignments/:id", description: "Tayinlov o'chirish" },
+
+  // ─── Payments ─────────────────────────────────────────────────────────────
+  { group: "Payments", method: "GET", path: "/api/payments", description: "Barcha to'lovlar" },
+  { group: "Payments", method: "GET", path: "/api/payments/:id", description: "To'lov (ID bo'yicha)" },
+  { group: "Payments", method: "POST", path: "/api/payments", description: "Yangi to'lov" },
+  { group: "Payments", method: "PATCH", path: "/api/payments/:id", description: "To'lov tahrirlash" },
+  { group: "Payments", method: "DELETE", path: "/api/payments/:id", description: "To'lov o'chirish" },
+
+  // ─── Appointments ─────────────────────────────────────────────────────────
+  { group: "Appointments", method: "GET", path: "/api/appointments", description: "Barcha uchrashuvlar" },
+  { group: "Appointments", method: "GET", path: "/api/appointments/:id", description: "Uchrashuv (ID bo'yicha)" },
+  { group: "Appointments", method: "POST", path: "/api/appointments", description: "Yangi uchrashuv" },
+  { group: "Appointments", method: "PATCH", path: "/api/appointments/:id", description: "Uchrashuv tahrirlash" },
+  { group: "Appointments", method: "DELETE", path: "/api/appointments/:id", description: "Uchrashuv o'chirish" },
+];

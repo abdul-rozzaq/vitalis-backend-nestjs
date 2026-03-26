@@ -1,0 +1,260 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id         String    @id @default(uuid())
+  first_name String    @db.VarChar(64)
+  last_name  String    @db.VarChar(64)
+  email      String    @unique
+  password   String
+  birthday   DateTime? @db.Date
+  phone      String?   @db.VarChar(20)
+  photo      String?   @db.VarChar(500)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  role        Role         @relation(fields: [roleId], references: [id])
+  roleId      String
+  isSuperUser Boolean      @default(false) @map("is_super_user")
+  assignments Assignment[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique @db.VarChar(64)
+  description String?
+  createdAt   DateTime @default(now())
+
+  users       User[]
+  permissions Permission[]
+
+  @@map("roles")
+}
+
+model Region {
+  id        String     @id @default(uuid())
+  name      String     @unique @db.VarChar(64)
+  districts District[]
+
+  @@map("regions")
+}
+
+model District {
+  id       String    @id @default(uuid())
+  name     String    @db.VarChar(64)
+  regionId String
+  region   Region    @relation(fields: [regionId], references: [id])
+  patients Patient[]
+
+  @@unique([name, regionId])
+  @@map("districts")
+}
+
+model Patient {
+  id           String        @id @default(uuid())
+  first_name   String        @db.VarChar(64)
+  last_name    String        @db.VarChar(64)
+  phone_number String        @db.VarChar(15)
+  gender       String        @db.VarChar(10)
+  birth_date   DateTime      @db.Date
+  address      String?       @db.VarChar(255)
+  district     District      @relation(fields: [districtId], references: [id])
+  districtId   String
+  payments     Payment[]
+  appointments Appointment[]
+
+  @@map("patients")
+}
+
+model Department {
+  id          String  @id @default(uuid())
+  name        String  @db.VarChar(64)
+  description String?
+  price       Float?
+
+  parentId String?
+  parent   Department?  @relation("DepartmentTree", fields: [parentId], references: [id])
+  children Department[] @relation("DepartmentTree")
+
+  payments    Payment[]
+  assignments Assignment[]
+
+  @@map("departments")
+}
+
+// ─── Assignments ────────────────────────────────────────────────────────────
+
+enum RoomType {
+  WARD // Yotoqxona
+  EXAMINATION // Ko'rik xonasi
+
+  @@map("room_types")
+}
+
+/// Binodagi xonalar (220-xona, Operatsion xona, va h.k.)
+model Room {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(64)
+  capacity    Int      @default(1)
+  description String?
+  roomType    RoomType @map("room_type")
+
+  assignments Assignment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("rooms")
+}
+
+/// Ish soati — Assignment ga biriktirilgan haftalik jadval qatori
+model Schedule {
+  id String @id @default(uuid())
+
+  /// 1=Dushanba, 2=Seshanba, ..., 7=Yakshanba
+  dayOfWeek Int
+
+  startTime String @db.VarChar(5) // "09:00"
+  endTime   String @db.VarChar(5) // "18:00"
+
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignmentId String
+
+  @@map("schedules")
+}
+
+/// Xodimni (shifokor / hamshira) departmentga va xonaga biriktirish
+model Assignment {
+  id String @id @default(uuid())
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  department   Department @relation(fields: [departmentId], references: [id])
+  departmentId String
+
+  room   Room?   @relation(fields: [roomId], references: [id])
+  roomId String?
+
+  schedules    Schedule[]
+  appointments Appointment[]
+  payments     Payment[]
+  files        AssignmentFile[]
+
+  /// Assignment faolmi yoki yo'qmi
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, departmentId])
+  @@map("assignments")
+}
+
+model AssignmentFile {
+  id           String     @id @default(uuid())
+  name         String
+  url          String
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@map("assignment_files")
+}
+
+/// Rol uchun ruxsat: qaysi HTTP method + path ga kirish joiz
+model Permission {
+  id     String @id @default(uuid())
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  /// HTTP method: GET, POST, PATCH, DELETE
+  method String @db.VarChar(10)
+
+  /// Normalized path: /api/users, /api/users/:id
+  path String @db.VarChar(200)
+
+  @@unique([roleId, method, path])
+  @@map("permissions")
+}
+
+model Payment {
+  id     String         @id @default(uuid())
+  amount Float
+  method PaymentMethod?
+  status PaymentStatus  @default(UNPAID)
+
+  patient   Patient @relation(fields: [patientId], references: [id])
+  patientId String
+
+  department   Department @relation(fields: [departmentId], references: [id])
+  departmentId String
+
+  assignment   Assignment? @relation(fields: [assignmentId], references: [id])
+  assignmentId String?
+
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  appointmentId String?      @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  PAYPAL
+
+  @@map("payment_methods")
+}
+
+enum PaymentStatus {
+  PAID
+  UNPAID
+
+  @@map("payment_statuses")
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+
+  @@map("appointment_statuses")
+}
+
+model Appointment {
+  id       String            @id @default(uuid())
+  dateTime DateTime
+  status   AppointmentStatus @default(PENDING)
+
+  patient   Patient @relation(fields: [patientId], references: [id])
+  patientId String
+
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+  assignmentId String
+
+  payment Payment?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("appointments")
+}
