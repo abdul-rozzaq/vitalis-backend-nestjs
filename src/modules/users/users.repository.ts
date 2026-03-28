@@ -14,8 +14,8 @@ export class UsersRepository {
     return this.prisma.user.findUnique({ where: { id }, include: { role: true } });
   }
 
-  async findByEmail(email: string): Promise<UserWithRole | null> {
-    return this.prisma.user.findUnique({ where: { email }, include: { role: true } });
+  async findByPhone(phone: string): Promise<UserWithRole | null> {
+    return this.prisma.user.findUnique({ where: { phone }, include: { role: true } });
   }
 
   async create(data: Prisma.UserUncheckedCreateInput): Promise<UserWithRole> {

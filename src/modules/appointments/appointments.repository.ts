@@ -11,19 +11,21 @@ const appointmentInclude = {
 export class AppointmentsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(search?: string) {
+  async list(search?: string, departmentId?: string) {
     return this.prisma.appointment.findMany({
       include: appointmentInclude,
-      where: search
-        ? {
-            OR: [
-              { patient: { first_name: { contains: search, mode: 'insensitive' } } },
-              { patient: { last_name: { contains: search, mode: 'insensitive' } } },
-              { assignment: { user: { first_name: { contains: search, mode: 'insensitive' } } } },
-              { assignment: { user: { last_name: { contains: search, mode: 'insensitive' } } } },
-            ],
-          }
-        : undefined,
+      where: {
+        ...(departmentId && { assignment: { departmentId } }),
+        ...(search && {
+          OR: [
+            { patient: { first_name: { contains: search, mode: 'insensitive' } } },
+            { patient: { last_name: { contains: search, mode: 'insensitive' } } },
+            { assignment: { user: { first_name: { contains: search, mode: 'insensitive' } } } },
+            { assignment: { user: { last_name: { contains: search, mode: 'insensitive' } } } },
+          ],
+        }),
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 

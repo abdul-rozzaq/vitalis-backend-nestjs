@@ -17,10 +17,9 @@ model User {
   id         String    @id @default(uuid())
   first_name String    @db.VarChar(64)
   last_name  String    @db.VarChar(64)
-  email      String    @unique
+  phone      String    @unique @db.VarChar(20)
   password   String
   birthday   DateTime? @db.Date
-  phone      String?   @db.VarChar(20)
   photo      String?   @db.VarChar(500)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
@@ -64,18 +63,34 @@ model District {
   @@map("districts")
 }
 
+enum DocumentType {
+  PASSPORT
+  BIRTH_CERTIFICATE
+  FOREIGN_PASSPORT
+  RESIDENCE_PERMIT
+
+  @@map("document_types")
+}
+
 model Patient {
-  id           String        @id @default(uuid())
-  first_name   String        @db.VarChar(64)
-  last_name    String        @db.VarChar(64)
-  phone_number String        @db.VarChar(15)
-  gender       String        @db.VarChar(10)
-  birth_date   DateTime      @db.Date
-  address      String?       @db.VarChar(255)
-  district     District      @relation(fields: [districtId], references: [id])
-  districtId   String
-  payments     Payment[]
-  appointments Appointment[]
+  id              String        @id @default(uuid())
+  first_name      String        @db.VarChar(64)
+  last_name       String        @db.VarChar(64)
+  phone_number    String        @db.VarChar(15)
+  gender          String        @db.VarChar(10)
+  birth_date      DateTime      @db.Date
+  address         String?       @db.VarChar(255)
+  document_type   DocumentType?
+  document_series String?       @db.VarChar(10)
+  document_number String?       @db.VarChar(20)
+  pinfl           String?       @unique @db.VarChar(14)
+  district        District      @relation(fields: [districtId], references: [id])
+  districtId      String
+  payments        Payment[]
+  appointments    Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("patients")
 }

@@ -286,9 +286,9 @@ export type DistrictMinOrderByAggregateInput = {
   regionId?: Prisma.SortOrder
 }
 
-export type DistrictNullableScalarRelationFilter = {
-  is?: Prisma.DistrictWhereInput | null
-  isNot?: Prisma.DistrictWhereInput | null
+export type DistrictScalarRelationFilter = {
+  is?: Prisma.DistrictWhereInput
+  isNot?: Prisma.DistrictWhereInput
 }
 
 export type DistrictCreateNestedManyWithoutRegionInput = {
@@ -339,12 +339,10 @@ export type DistrictCreateNestedOneWithoutPatientsInput = {
   connect?: Prisma.DistrictWhereUniqueInput
 }
 
-export type DistrictUpdateOneWithoutPatientsNestedInput = {
+export type DistrictUpdateOneRequiredWithoutPatientsNestedInput = {
   create?: Prisma.XOR<Prisma.DistrictCreateWithoutPatientsInput, Prisma.DistrictUncheckedCreateWithoutPatientsInput>
   connectOrCreate?: Prisma.DistrictCreateOrConnectWithoutPatientsInput
   upsert?: Prisma.DistrictUpsertWithoutPatientsInput
-  disconnect?: Prisma.DistrictWhereInput | boolean
-  delete?: Prisma.DistrictWhereInput | boolean
   connect?: Prisma.DistrictWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.DistrictUpdateToOneWithWhereWithoutPatientsInput, Prisma.DistrictUpdateWithoutPatientsInput>, Prisma.DistrictUncheckedUpdateWithoutPatientsInput>
 }

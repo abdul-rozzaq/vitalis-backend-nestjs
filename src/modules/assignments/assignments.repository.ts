@@ -3,7 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 
 const assignmentInclude = {
-  user: { select: { id: true, first_name: true, last_name: true, email: true, role: true } },
+  user: { select: { id: true, first_name: true, last_name: true, role: true } },
   department: true,
   room: true,
   schedules: true,

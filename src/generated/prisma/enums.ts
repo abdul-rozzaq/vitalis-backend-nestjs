@@ -9,6 +9,16 @@
 * 🟢 You can import this file directly.
 */
 
+export const DocumentType = {
+  PASSPORT: 'PASSPORT',
+  BIRTH_CERTIFICATE: 'BIRTH_CERTIFICATE',
+  FOREIGN_PASSPORT: 'FOREIGN_PASSPORT',
+  RESIDENCE_PERMIT: 'RESIDENCE_PERMIT'
+} as const
+
+export type DocumentType = (typeof DocumentType)[keyof typeof DocumentType]
+
+
 export const RoomType = {
   WARD: 'WARD',
   EXAMINATION: 'EXAMINATION'

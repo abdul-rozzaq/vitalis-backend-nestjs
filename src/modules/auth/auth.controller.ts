@@ -1,8 +1,8 @@
-import { Controller, Post, Get, Body } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { RegisterDto, LoginDto } from './auth.dto';
+import { RegisterDto, LoginDto, ChangePasswordDto } from './auth.dto';
 import { type JwtPayload } from '../../common/types/jwt-payload.type';
 
 @Controller('auth')
@@ -18,11 +18,16 @@ export class AuthController {
   @Public()
   @Post('login')
   login(@Body() dto: LoginDto) {
-    return this.authService.login(dto.email, dto.password);
+    return this.authService.login(dto.phone, dto.password);
   }
 
   @Get('me')
   getMe(@CurrentUser() user: JwtPayload) {
     return this.authService.getMe(user.userId);
+  }
+
+  @Patch('change-password')
+  changePassword(@CurrentUser() user: JwtPayload, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(user.userId, dto);
   }
 }

@@ -24,8 +24,8 @@ export class AppointmentsService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async list(search?: string) {
-    return this.repository.list(search);
+  async list(search?: string, departmentId?: string) {
+    return this.repository.list(search, departmentId);
   }
 
   async retrieve(id: string) {

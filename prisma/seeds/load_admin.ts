@@ -16,11 +16,11 @@ const DEFAULT_ROLES = [
 ];
 
 async function main() {
-  const [adminEmail, adminPassword] = process.argv.slice(2);
+  const [adminPhone, adminPassword] = process.argv.slice(2);
 
-  if (!adminEmail || !adminPassword) {
-    console.error("Iltimos, admin email va parolini kiriting");
-    console.error("Misol: npm run load-admin admin@example.com password123");
+  if (!adminPhone || !adminPassword) {
+    console.error("Iltimos, admin telefon raqami va parolini kiriting");
+    console.error("Misol: npm run load-admin +998901234567 password123");
     process.exit(1);
   }
 
@@ -56,12 +56,12 @@ async function main() {
     const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
     const admin = await prisma.user.upsert({
-      where: { email: adminEmail },
+      where: { phone: adminPhone },
       update: { password: hashedPassword, roleId: adminRole.id, isSuperUser: true },
       create: {
         first_name: "Admin",
         last_name: "Admin",
-        email: adminEmail,
+        phone: adminPhone,
         password: hashedPassword,
         isSuperUser: true,
         role: { connect: { id: adminRole.id } },
@@ -70,7 +70,7 @@ async function main() {
     });
 
     console.log("✅ Admin user tayyor:");
-    console.log(`   Email : ${admin.email}`);
+    console.log(`   Phone : ${admin.phone}`);
     console.log(`   Role  : ${admin.role.name}`);
   } finally {
     await prisma.$disconnect();

@@ -1,5 +1,4 @@
 import {
-  IsEmail,
   IsString,
   IsUUID,
   MinLength,
@@ -7,6 +6,7 @@ import {
   IsBoolean,
   IsOptional,
   IsDate,
+  Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -21,8 +21,10 @@ export class CreateUserDto {
   @MaxLength(50, { message: 'Last name must be at most 50 characters' })
   last_name: string;
 
-  @IsEmail({}, { message: 'Invalid email address' })
-  email: string;
+  @IsString()
+  @MaxLength(20)
+  @Matches(/^\+998[0-9]{9}$/, { message: 'Phone must be a valid Uzbek number (+998XXXXXXXXX)' })
+  phone: string;
 
   @IsString()
   @MinLength(6, { message: 'Password must be at least 6 characters' })
@@ -40,11 +42,6 @@ export class CreateUserDto {
   @Type(() => Date)
   @IsDate()
   birthday?: Date | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  phone?: string | null;
 
   @IsOptional()
   @IsString()
@@ -66,8 +63,10 @@ export class UpdateUserDto {
   last_name?: string;
 
   @IsOptional()
-  @IsEmail()
-  email?: string;
+  @IsString()
+  @MaxLength(20)
+  @Matches(/^\+998[0-9]{9}$/, { message: 'Phone must be a valid Uzbek number (+998XXXXXXXXX)' })
+  phone?: string;
 
   @IsOptional()
   @IsUUID()
@@ -81,11 +80,6 @@ export class UpdateUserDto {
   @Type(() => Date)
   @IsDate()
   birthday?: Date | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  phone?: string | null;
 
   @IsOptional()
   @IsString()

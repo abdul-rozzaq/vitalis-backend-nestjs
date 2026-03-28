@@ -21,6 +21,7 @@ import { PermissionsModule } from './modules/permissions/permissions.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { RegionsModule } from './modules/regions/regions.module';
 import { DistrictsModule } from './modules/districts/districts.module';
+import { StatsModule } from './modules/stats/stats.module';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionGuard } from './common/guards/permission.guard';
@@ -57,6 +58,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
     UploadsModule,
     RegionsModule,
     DistrictsModule,
+    StatsModule,
   ],
   controllers: [AppController],
   providers: [

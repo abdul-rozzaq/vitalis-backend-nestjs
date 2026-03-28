@@ -7,8 +7,8 @@ export class AppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
 
   @Get()
-  findAll(@Query('search') search?: string) {
-    return this.appointmentsService.list(search);
+  findAll(@Query('search') search?: string, @Query('departmentId') departmentId?: string) {
+    return this.appointmentsService.list(search, departmentId);
   }
 
   @Get(':id')

@@ -86,10 +86,9 @@ export const UserScalarFieldEnum = {
   id: 'id',
   first_name: 'first_name',
   last_name: 'last_name',
-  email: 'email',
+  phone: 'phone',
   password: 'password',
   birthday: 'birthday',
-  phone: 'phone',
   photo: 'photo',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
@@ -135,7 +134,13 @@ export const PatientScalarFieldEnum = {
   gender: 'gender',
   birth_date: 'birth_date',
   address: 'address',
-  districtId: 'districtId'
+  document_type: 'document_type',
+  document_series: 'document_series',
+  document_number: 'document_number',
+  pinfl: 'pinfl',
+  districtId: 'districtId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 } as const
 
 export type PatientScalarFieldEnum = (typeof PatientScalarFieldEnum)[keyof typeof PatientScalarFieldEnum]

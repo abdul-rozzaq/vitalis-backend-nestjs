@@ -32,7 +32,13 @@ export type PatientMinAggregateOutputType = {
   gender: string | null
   birth_date: Date | null
   address: string | null
+  document_type: $Enums.DocumentType | null
+  document_series: string | null
+  document_number: string | null
+  pinfl: string | null
   districtId: string | null
+  createdAt: Date | null
+  updatedAt: Date | null
 }
 
 export type PatientMaxAggregateOutputType = {
@@ -43,7 +49,13 @@ export type PatientMaxAggregateOutputType = {
   gender: string | null
   birth_date: Date | null
   address: string | null
+  document_type: $Enums.DocumentType | null
+  document_series: string | null
+  document_number: string | null
+  pinfl: string | null
   districtId: string | null
+  createdAt: Date | null
+  updatedAt: Date | null
 }
 
 export type PatientCountAggregateOutputType = {
@@ -54,7 +66,13 @@ export type PatientCountAggregateOutputType = {
   gender: number
   birth_date: number
   address: number
+  document_type: number
+  document_series: number
+  document_number: number
+  pinfl: number
   districtId: number
+  createdAt: number
+  updatedAt: number
   _all: number
 }
 
@@ -67,7 +85,13 @@ export type PatientMinAggregateInputType = {
   gender?: true
   birth_date?: true
   address?: true
+  document_type?: true
+  document_series?: true
+  document_number?: true
+  pinfl?: true
   districtId?: true
+  createdAt?: true
+  updatedAt?: true
 }
 
 export type PatientMaxAggregateInputType = {
@@ -78,7 +102,13 @@ export type PatientMaxAggregateInputType = {
   gender?: true
   birth_date?: true
   address?: true
+  document_type?: true
+  document_series?: true
+  document_number?: true
+  pinfl?: true
   districtId?: true
+  createdAt?: true
+  updatedAt?: true
 }
 
 export type PatientCountAggregateInputType = {
@@ -89,7 +119,13 @@ export type PatientCountAggregateInputType = {
   gender?: true
   birth_date?: true
   address?: true
+  document_type?: true
+  document_series?: true
+  document_number?: true
+  pinfl?: true
   districtId?: true
+  createdAt?: true
+  updatedAt?: true
   _all?: true
 }
 
@@ -171,9 +207,15 @@ export type PatientGroupByOutputType = {
   last_name: string
   phone_number: string
   gender: string
-  birth_date: Date | null
+  birth_date: Date
   address: string | null
-  districtId: string | null
+  document_type: $Enums.DocumentType | null
+  document_series: string | null
+  document_number: string | null
+  pinfl: string | null
+  districtId: string
+  createdAt: Date
+  updatedAt: Date
   _count: PatientCountAggregateOutputType | null
   _min: PatientMinAggregateOutputType | null
   _max: PatientMaxAggregateOutputType | null
@@ -203,10 +245,16 @@ export type PatientWhereInput = {
   last_name?: Prisma.StringFilter<"Patient"> | string
   phone_number?: Prisma.StringFilter<"Patient"> | string
   gender?: Prisma.StringFilter<"Patient"> | string
-  birth_date?: Prisma.DateTimeNullableFilter<"Patient"> | Date | string | null
+  birth_date?: Prisma.DateTimeFilter<"Patient"> | Date | string
   address?: Prisma.StringNullableFilter<"Patient"> | string | null
-  districtId?: Prisma.StringNullableFilter<"Patient"> | string | null
-  district?: Prisma.XOR<Prisma.DistrictNullableScalarRelationFilter, Prisma.DistrictWhereInput> | null
+  document_type?: Prisma.EnumDocumentTypeNullableFilter<"Patient"> | $Enums.DocumentType | null
+  document_series?: Prisma.StringNullableFilter<"Patient"> | string | null
+  document_number?: Prisma.StringNullableFilter<"Patient"> | string | null
+  pinfl?: Prisma.StringNullableFilter<"Patient"> | string | null
+  districtId?: Prisma.StringFilter<"Patient"> | string
+  createdAt?: Prisma.DateTimeFilter<"Patient"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"Patient"> | Date | string
+  district?: Prisma.XOR<Prisma.DistrictScalarRelationFilter, Prisma.DistrictWhereInput>
   payments?: Prisma.PaymentListRelationFilter
   appointments?: Prisma.AppointmentListRelationFilter
 }
@@ -217,9 +265,15 @@ export type PatientOrderByWithRelationInput = {
   last_name?: Prisma.SortOrder
   phone_number?: Prisma.SortOrder
   gender?: Prisma.SortOrder
-  birth_date?: Prisma.SortOrderInput | Prisma.SortOrder
+  birth_date?: Prisma.SortOrder
   address?: Prisma.SortOrderInput | Prisma.SortOrder
-  districtId?: Prisma.SortOrderInput | Prisma.SortOrder
+  document_type?: Prisma.SortOrderInput | Prisma.SortOrder
+  document_series?: Prisma.SortOrderInput | Prisma.SortOrder
+  document_number?: Prisma.SortOrderInput | Prisma.SortOrder
+  pinfl?: Prisma.SortOrderInput | Prisma.SortOrder
+  districtId?: Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
   district?: Prisma.DistrictOrderByWithRelationInput
   payments?: Prisma.PaymentOrderByRelationAggregateInput
   appointments?: Prisma.AppointmentOrderByRelationAggregateInput
@@ -227,6 +281,7 @@ export type PatientOrderByWithRelationInput = {
 
 export type PatientWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  pinfl?: string
   AND?: Prisma.PatientWhereInput | Prisma.PatientWhereInput[]
   OR?: Prisma.PatientWhereInput[]
   NOT?: Prisma.PatientWhereInput | Prisma.PatientWhereInput[]
@@ -234,13 +289,18 @@ export type PatientWhereUniqueInput = Prisma.AtLeast<{
   last_name?: Prisma.StringFilter<"Patient"> | string
   phone_number?: Prisma.StringFilter<"Patient"> | string
   gender?: Prisma.StringFilter<"Patient"> | string
-  birth_date?: Prisma.DateTimeNullableFilter<"Patient"> | Date | string | null
+  birth_date?: Prisma.DateTimeFilter<"Patient"> | Date | string
   address?: Prisma.StringNullableFilter<"Patient"> | string | null
-  districtId?: Prisma.StringNullableFilter<"Patient"> | string | null
-  district?: Prisma.XOR<Prisma.DistrictNullableScalarRelationFilter, Prisma.DistrictWhereInput> | null
+  document_type?: Prisma.EnumDocumentTypeNullableFilter<"Patient"> | $Enums.DocumentType | null
+  document_series?: Prisma.StringNullableFilter<"Patient"> | string | null
+  document_number?: Prisma.StringNullableFilter<"Patient"> | string | null
+  districtId?: Prisma.StringFilter<"Patient"> | string
+  createdAt?: Prisma.DateTimeFilter<"Patient"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"Patient"> | Date | string
+  district?: Prisma.XOR<Prisma.DistrictScalarRelationFilter, Prisma.DistrictWhereInput>
   payments?: Prisma.PaymentListRelationFilter
   appointments?: Prisma.AppointmentListRelationFilter
-}, "id">
+}, "id" | "pinfl">
 
 export type PatientOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -248,9 +308,15 @@ export type PatientOrderByWithAggregationInput = {
   last_name?: Prisma.SortOrder
   phone_number?: Prisma.SortOrder
   gender?: Prisma.SortOrder
-  birth_date?: Prisma.SortOrderInput | Prisma.SortOrder
+  birth_date?: Prisma.SortOrder
   address?: Prisma.SortOrderInput | Prisma.SortOrder
-  districtId?: Prisma.SortOrderInput | Prisma.SortOrder
+  document_type?: Prisma.SortOrderInput | Prisma.SortOrder
+  document_series?: Prisma.SortOrderInput | Prisma.SortOrder
+  document_number?: Prisma.SortOrderInput | Prisma.SortOrder
+  pinfl?: Prisma.SortOrderInput | Prisma.SortOrder
+  districtId?: Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
   _count?: Prisma.PatientCountOrderByAggregateInput
   _max?: Prisma.PatientMaxOrderByAggregateInput
   _min?: Prisma.PatientMinOrderByAggregateInput
@@ -265,9 +331,15 @@ export type PatientScalarWhereWithAggregatesInput = {
   last_name?: Prisma.StringWithAggregatesFilter<"Patient"> | string
   phone_number?: Prisma.StringWithAggregatesFilter<"Patient"> | string
   gender?: Prisma.StringWithAggregatesFilter<"Patient"> | string
-  birth_date?: Prisma.DateTimeNullableWithAggregatesFilter<"Patient"> | Date | string | null
+  birth_date?: Prisma.DateTimeWithAggregatesFilter<"Patient"> | Date | string
   address?: Prisma.StringNullableWithAggregatesFilter<"Patient"> | string | null
-  districtId?: Prisma.StringNullableWithAggregatesFilter<"Patient"> | string | null
+  document_type?: Prisma.EnumDocumentTypeNullableWithAggregatesFilter<"Patient"> | $Enums.DocumentType | null
+  document_series?: Prisma.StringNullableWithAggregatesFilter<"Patient"> | string | null
+  document_number?: Prisma.StringNullableWithAggregatesFilter<"Patient"> | string | null
+  pinfl?: Prisma.StringNullableWithAggregatesFilter<"Patient"> | string | null
+  districtId?: Prisma.StringWithAggregatesFilter<"Patient"> | string
+  createdAt?: Prisma.DateTimeWithAggregatesFilter<"Patient"> | Date | string
+  updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Patient"> | Date | string
 }
 
 export type PatientCreateInput = {
@@ -276,9 +348,15 @@ export type PatientCreateInput = {
   last_name: string
   phone_number: string
   gender: string
-  birth_date?: Date | string | null
+  birth_date: Date | string
   address?: string | null
-  district?: Prisma.DistrictCreateNestedOneWithoutPatientsInput
+  document_type?: $Enums.DocumentType | null
+  document_series?: string | null
+  document_number?: string | null
+  pinfl?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  district: Prisma.DistrictCreateNestedOneWithoutPatientsInput
   payments?: Prisma.PaymentCreateNestedManyWithoutPatientInput
   appointments?: Prisma.AppointmentCreateNestedManyWithoutPatientInput
 }
@@ -289,9 +367,15 @@ export type PatientUncheckedCreateInput = {
   last_name: string
   phone_number: string
   gender: string
-  birth_date?: Date | string | null
+  birth_date: Date | string
   address?: string | null
-  districtId?: string | null
+  document_type?: $Enums.DocumentType | null
+  document_series?: string | null
+  document_number?: string | null
+  pinfl?: string | null
+  districtId: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
   payments?: Prisma.PaymentUncheckedCreateNestedManyWithoutPatientInput
   appointments?: Prisma.AppointmentUncheckedCreateNestedManyWithoutPatientInput
 }
@@ -302,9 +386,15 @@ export type PatientUpdateInput = {
   last_name?: Prisma.StringFieldUpdateOperationsInput | string
   phone_number?: Prisma.StringFieldUpdateOperationsInput | string
   gender?: Prisma.StringFieldUpdateOperationsInput | string
-  birth_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  birth_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  district?: Prisma.DistrictUpdateOneWithoutPatientsNestedInput
+  document_type?: Prisma.NullableEnumDocumentTypeFieldUpdateOperationsInput | $Enums.DocumentType | null
+  document_series?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_number?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinfl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  district?: Prisma.DistrictUpdateOneRequiredWithoutPatientsNestedInput
   payments?: Prisma.PaymentUpdateManyWithoutPatientNestedInput
   appointments?: Prisma.AppointmentUpdateManyWithoutPatientNestedInput
 }
@@ -315,9 +405,15 @@ export type PatientUncheckedUpdateInput = {
   last_name?: Prisma.StringFieldUpdateOperationsInput | string
   phone_number?: Prisma.StringFieldUpdateOperationsInput | string
   gender?: Prisma.StringFieldUpdateOperationsInput | string
-  birth_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  birth_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  districtId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_type?: Prisma.NullableEnumDocumentTypeFieldUpdateOperationsInput | $Enums.DocumentType | null
+  document_series?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_number?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinfl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  districtId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   payments?: Prisma.PaymentUncheckedUpdateManyWithoutPatientNestedInput
   appointments?: Prisma.AppointmentUncheckedUpdateManyWithoutPatientNestedInput
 }
@@ -328,9 +424,15 @@ export type PatientCreateManyInput = {
   last_name: string
   phone_number: string
   gender: string
-  birth_date?: Date | string | null
+  birth_date: Date | string
   address?: string | null
-  districtId?: string | null
+  document_type?: $Enums.DocumentType | null
+  document_series?: string | null
+  document_number?: string | null
+  pinfl?: string | null
+  districtId: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
 }
 
 export type PatientUpdateManyMutationInput = {
@@ -339,8 +441,14 @@ export type PatientUpdateManyMutationInput = {
   last_name?: Prisma.StringFieldUpdateOperationsInput | string
   phone_number?: Prisma.StringFieldUpdateOperationsInput | string
   gender?: Prisma.StringFieldUpdateOperationsInput | string
-  birth_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  birth_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_type?: Prisma.NullableEnumDocumentTypeFieldUpdateOperationsInput | $Enums.DocumentType | null
+  document_series?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_number?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinfl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type PatientUncheckedUpdateManyInput = {
@@ -349,9 +457,15 @@ export type PatientUncheckedUpdateManyInput = {
   last_name?: Prisma.StringFieldUpdateOperationsInput | string
   phone_number?: Prisma.StringFieldUpdateOperationsInput | string
   gender?: Prisma.StringFieldUpdateOperationsInput | string
-  birth_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  birth_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  districtId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_type?: Prisma.NullableEnumDocumentTypeFieldUpdateOperationsInput | $Enums.DocumentType | null
+  document_series?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_number?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinfl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  districtId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type PatientListRelationFilter = {
@@ -372,7 +486,13 @@ export type PatientCountOrderByAggregateInput = {
   gender?: Prisma.SortOrder
   birth_date?: Prisma.SortOrder
   address?: Prisma.SortOrder
+  document_type?: Prisma.SortOrder
+  document_series?: Prisma.SortOrder
+  document_number?: Prisma.SortOrder
+  pinfl?: Prisma.SortOrder
   districtId?: Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
 }
 
 export type PatientMaxOrderByAggregateInput = {
@@ -383,7 +503,13 @@ export type PatientMaxOrderByAggregateInput = {
   gender?: Prisma.SortOrder
   birth_date?: Prisma.SortOrder
   address?: Prisma.SortOrder
+  document_type?: Prisma.SortOrder
+  document_series?: Prisma.SortOrder
+  document_number?: Prisma.SortOrder
+  pinfl?: Prisma.SortOrder
   districtId?: Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
 }
 
 export type PatientMinOrderByAggregateInput = {
@@ -394,7 +520,13 @@ export type PatientMinOrderByAggregateInput = {
   gender?: Prisma.SortOrder
   birth_date?: Prisma.SortOrder
   address?: Prisma.SortOrder
+  document_type?: Prisma.SortOrder
+  document_series?: Prisma.SortOrder
+  document_number?: Prisma.SortOrder
+  pinfl?: Prisma.SortOrder
   districtId?: Prisma.SortOrder
+  createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
 }
 
 export type PatientScalarRelationFilter = {
@@ -444,6 +576,10 @@ export type PatientUncheckedUpdateManyWithoutDistrictNestedInput = {
   deleteMany?: Prisma.PatientScalarWhereInput | Prisma.PatientScalarWhereInput[]
 }
 
+export type NullableEnumDocumentTypeFieldUpdateOperationsInput = {
+  set?: $Enums.DocumentType | null
+}
+
 export type PatientCreateNestedOneWithoutPaymentsInput = {
   create?: Prisma.XOR<Prisma.PatientCreateWithoutPaymentsInput, Prisma.PatientUncheckedCreateWithoutPaymentsInput>
   connectOrCreate?: Prisma.PatientCreateOrConnectWithoutPaymentsInput
@@ -478,8 +614,14 @@ export type PatientCreateWithoutDistrictInput = {
   last_name: string
   phone_number: string
   gender: string
-  birth_date?: Date | string | null
+  birth_date: Date | string
   address?: string | null
+  document_type?: $Enums.DocumentType | null
+  document_series?: string | null
+  document_number?: string | null
+  pinfl?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
   payments?: Prisma.PaymentCreateNestedManyWithoutPatientInput
   appointments?: Prisma.AppointmentCreateNestedManyWithoutPatientInput
 }
@@ -490,8 +632,14 @@ export type PatientUncheckedCreateWithoutDistrictInput = {
   last_name: string
   phone_number: string
   gender: string
-  birth_date?: Date | string | null
+  birth_date: Date | string
   address?: string | null
+  document_type?: $Enums.DocumentType | null
+  document_series?: string | null
+  document_number?: string | null
+  pinfl?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
   payments?: Prisma.PaymentUncheckedCreateNestedManyWithoutPatientInput
   appointments?: Prisma.AppointmentUncheckedCreateNestedManyWithoutPatientInput
 }
@@ -531,9 +679,15 @@ export type PatientScalarWhereInput = {
   last_name?: Prisma.StringFilter<"Patient"> | string
   phone_number?: Prisma.StringFilter<"Patient"> | string
   gender?: Prisma.StringFilter<"Patient"> | string
-  birth_date?: Prisma.DateTimeNullableFilter<"Patient"> | Date | string | null
+  birth_date?: Prisma.DateTimeFilter<"Patient"> | Date | string
   address?: Prisma.StringNullableFilter<"Patient"> | string | null
-  districtId?: Prisma.StringNullableFilter<"Patient"> | string | null
+  document_type?: Prisma.EnumDocumentTypeNullableFilter<"Patient"> | $Enums.DocumentType | null
+  document_series?: Prisma.StringNullableFilter<"Patient"> | string | null
+  document_number?: Prisma.StringNullableFilter<"Patient"> | string | null
+  pinfl?: Prisma.StringNullableFilter<"Patient"> | string | null
+  districtId?: Prisma.StringFilter<"Patient"> | string
+  createdAt?: Prisma.DateTimeFilter<"Patient"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"Patient"> | Date | string
 }
 
 export type PatientCreateWithoutPaymentsInput = {
@@ -542,9 +696,15 @@ export type PatientCreateWithoutPaymentsInput = {
   last_name: string
   phone_number: string
   gender: string
-  birth_date?: Date | string | null
+  birth_date: Date | string
   address?: string | null
-  district?: Prisma.DistrictCreateNestedOneWithoutPatientsInput
+  document_type?: $Enums.DocumentType | null
+  document_series?: string | null
+  document_number?: string | null
+  pinfl?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  district: Prisma.DistrictCreateNestedOneWithoutPatientsInput
   appointments?: Prisma.AppointmentCreateNestedManyWithoutPatientInput
 }
 
@@ -554,9 +714,15 @@ export type PatientUncheckedCreateWithoutPaymentsInput = {
   last_name: string
   phone_number: string
   gender: string
-  birth_date?: Date | string | null
+  birth_date: Date | string
   address?: string | null
-  districtId?: string | null
+  document_type?: $Enums.DocumentType | null
+  document_series?: string | null
+  document_number?: string | null
+  pinfl?: string | null
+  districtId: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
   appointments?: Prisma.AppointmentUncheckedCreateNestedManyWithoutPatientInput
 }
 
@@ -582,9 +748,15 @@ export type PatientUpdateWithoutPaymentsInput = {
   last_name?: Prisma.StringFieldUpdateOperationsInput | string
   phone_number?: Prisma.StringFieldUpdateOperationsInput | string
   gender?: Prisma.StringFieldUpdateOperationsInput | string
-  birth_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  birth_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  district?: Prisma.DistrictUpdateOneWithoutPatientsNestedInput
+  document_type?: Prisma.NullableEnumDocumentTypeFieldUpdateOperationsInput | $Enums.DocumentType | null
+  document_series?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_number?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinfl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  district?: Prisma.DistrictUpdateOneRequiredWithoutPatientsNestedInput
   appointments?: Prisma.AppointmentUpdateManyWithoutPatientNestedInput
 }
 
@@ -594,9 +766,15 @@ export type PatientUncheckedUpdateWithoutPaymentsInput = {
   last_name?: Prisma.StringFieldUpdateOperationsInput | string
   phone_number?: Prisma.StringFieldUpdateOperationsInput | string
   gender?: Prisma.StringFieldUpdateOperationsInput | string
-  birth_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  birth_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  districtId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_type?: Prisma.NullableEnumDocumentTypeFieldUpdateOperationsInput | $Enums.DocumentType | null
+  document_series?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_number?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinfl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  districtId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   appointments?: Prisma.AppointmentUncheckedUpdateManyWithoutPatientNestedInput
 }
 
@@ -606,9 +784,15 @@ export type PatientCreateWithoutAppointmentsInput = {
   last_name: string
   phone_number: string
   gender: string
-  birth_date?: Date | string | null
+  birth_date: Date | string
   address?: string | null
-  district?: Prisma.DistrictCreateNestedOneWithoutPatientsInput
+  document_type?: $Enums.DocumentType | null
+  document_series?: string | null
+  document_number?: string | null
+  pinfl?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  district: Prisma.DistrictCreateNestedOneWithoutPatientsInput
   payments?: Prisma.PaymentCreateNestedManyWithoutPatientInput
 }
 
@@ -618,9 +802,15 @@ export type PatientUncheckedCreateWithoutAppointmentsInput = {
   last_name: string
   phone_number: string
   gender: string
-  birth_date?: Date | string | null
+  birth_date: Date | string
   address?: string | null
-  districtId?: string | null
+  document_type?: $Enums.DocumentType | null
+  document_series?: string | null
+  document_number?: string | null
+  pinfl?: string | null
+  districtId: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
   payments?: Prisma.PaymentUncheckedCreateNestedManyWithoutPatientInput
 }
 
@@ -646,9 +836,15 @@ export type PatientUpdateWithoutAppointmentsInput = {
   last_name?: Prisma.StringFieldUpdateOperationsInput | string
   phone_number?: Prisma.StringFieldUpdateOperationsInput | string
   gender?: Prisma.StringFieldUpdateOperationsInput | string
-  birth_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  birth_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  district?: Prisma.DistrictUpdateOneWithoutPatientsNestedInput
+  document_type?: Prisma.NullableEnumDocumentTypeFieldUpdateOperationsInput | $Enums.DocumentType | null
+  document_series?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_number?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinfl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  district?: Prisma.DistrictUpdateOneRequiredWithoutPatientsNestedInput
   payments?: Prisma.PaymentUpdateManyWithoutPatientNestedInput
 }
 
@@ -658,9 +854,15 @@ export type PatientUncheckedUpdateWithoutAppointmentsInput = {
   last_name?: Prisma.StringFieldUpdateOperationsInput | string
   phone_number?: Prisma.StringFieldUpdateOperationsInput | string
   gender?: Prisma.StringFieldUpdateOperationsInput | string
-  birth_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  birth_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  districtId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_type?: Prisma.NullableEnumDocumentTypeFieldUpdateOperationsInput | $Enums.DocumentType | null
+  document_series?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_number?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinfl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  districtId?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   payments?: Prisma.PaymentUncheckedUpdateManyWithoutPatientNestedInput
 }
 
@@ -670,8 +872,14 @@ export type PatientCreateManyDistrictInput = {
   last_name: string
   phone_number: string
   gender: string
-  birth_date?: Date | string | null
+  birth_date: Date | string
   address?: string | null
+  document_type?: $Enums.DocumentType | null
+  document_series?: string | null
+  document_number?: string | null
+  pinfl?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
 }
 
 export type PatientUpdateWithoutDistrictInput = {
@@ -680,8 +888,14 @@ export type PatientUpdateWithoutDistrictInput = {
   last_name?: Prisma.StringFieldUpdateOperationsInput | string
   phone_number?: Prisma.StringFieldUpdateOperationsInput | string
   gender?: Prisma.StringFieldUpdateOperationsInput | string
-  birth_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  birth_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_type?: Prisma.NullableEnumDocumentTypeFieldUpdateOperationsInput | $Enums.DocumentType | null
+  document_series?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_number?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinfl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   payments?: Prisma.PaymentUpdateManyWithoutPatientNestedInput
   appointments?: Prisma.AppointmentUpdateManyWithoutPatientNestedInput
 }
@@ -692,8 +906,14 @@ export type PatientUncheckedUpdateWithoutDistrictInput = {
   last_name?: Prisma.StringFieldUpdateOperationsInput | string
   phone_number?: Prisma.StringFieldUpdateOperationsInput | string
   gender?: Prisma.StringFieldUpdateOperationsInput | string
-  birth_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  birth_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_type?: Prisma.NullableEnumDocumentTypeFieldUpdateOperationsInput | $Enums.DocumentType | null
+  document_series?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_number?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinfl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   payments?: Prisma.PaymentUncheckedUpdateManyWithoutPatientNestedInput
   appointments?: Prisma.AppointmentUncheckedUpdateManyWithoutPatientNestedInput
 }
@@ -704,8 +924,14 @@ export type PatientUncheckedUpdateManyWithoutDistrictInput = {
   last_name?: Prisma.StringFieldUpdateOperationsInput | string
   phone_number?: Prisma.StringFieldUpdateOperationsInput | string
   gender?: Prisma.StringFieldUpdateOperationsInput | string
-  birth_date?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  birth_date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_type?: Prisma.NullableEnumDocumentTypeFieldUpdateOperationsInput | $Enums.DocumentType | null
+  document_series?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  document_number?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  pinfl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 
@@ -756,8 +982,14 @@ export type PatientSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   gender?: boolean
   birth_date?: boolean
   address?: boolean
+  document_type?: boolean
+  document_series?: boolean
+  document_number?: boolean
+  pinfl?: boolean
   districtId?: boolean
-  district?: boolean | Prisma.Patient$districtArgs<ExtArgs>
+  createdAt?: boolean
+  updatedAt?: boolean
+  district?: boolean | Prisma.DistrictDefaultArgs<ExtArgs>
   payments?: boolean | Prisma.Patient$paymentsArgs<ExtArgs>
   appointments?: boolean | Prisma.Patient$appointmentsArgs<ExtArgs>
   _count?: boolean | Prisma.PatientCountOutputTypeDefaultArgs<ExtArgs>
@@ -771,8 +1003,14 @@ export type PatientSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   gender?: boolean
   birth_date?: boolean
   address?: boolean
+  document_type?: boolean
+  document_series?: boolean
+  document_number?: boolean
+  pinfl?: boolean
   districtId?: boolean
-  district?: boolean | Prisma.Patient$districtArgs<ExtArgs>
+  createdAt?: boolean
+  updatedAt?: boolean
+  district?: boolean | Prisma.DistrictDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["patient"]>
 
 export type PatientSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -783,8 +1021,14 @@ export type PatientSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   gender?: boolean
   birth_date?: boolean
   address?: boolean
+  document_type?: boolean
+  document_series?: boolean
+  document_number?: boolean
+  pinfl?: boolean
   districtId?: boolean
-  district?: boolean | Prisma.Patient$districtArgs<ExtArgs>
+  createdAt?: boolean
+  updatedAt?: boolean
+  district?: boolean | Prisma.DistrictDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["patient"]>
 
 export type PatientSelectScalar = {
@@ -795,27 +1039,33 @@ export type PatientSelectScalar = {
   gender?: boolean
   birth_date?: boolean
   address?: boolean
+  document_type?: boolean
+  document_series?: boolean
+  document_number?: boolean
+  pinfl?: boolean
   districtId?: boolean
+  createdAt?: boolean
+  updatedAt?: boolean
 }
 
-export type PatientOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "first_name" | "last_name" | "phone_number" | "gender" | "birth_date" | "address" | "districtId", ExtArgs["result"]["patient"]>
+export type PatientOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "first_name" | "last_name" | "phone_number" | "gender" | "birth_date" | "address" | "document_type" | "document_series" | "document_number" | "pinfl" | "districtId" | "createdAt" | "updatedAt", ExtArgs["result"]["patient"]>
 export type PatientInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  district?: boolean | Prisma.Patient$districtArgs<ExtArgs>
+  district?: boolean | Prisma.DistrictDefaultArgs<ExtArgs>
   payments?: boolean | Prisma.Patient$paymentsArgs<ExtArgs>
   appointments?: boolean | Prisma.Patient$appointmentsArgs<ExtArgs>
   _count?: boolean | Prisma.PatientCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type PatientIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  district?: boolean | Prisma.Patient$districtArgs<ExtArgs>
+  district?: boolean | Prisma.DistrictDefaultArgs<ExtArgs>
 }
 export type PatientIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  district?: boolean | Prisma.Patient$districtArgs<ExtArgs>
+  district?: boolean | Prisma.DistrictDefaultArgs<ExtArgs>
 }
 
 export type $PatientPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Patient"
   objects: {
-    district: Prisma.$DistrictPayload<ExtArgs> | null
+    district: Prisma.$DistrictPayload<ExtArgs>
     payments: Prisma.$PaymentPayload<ExtArgs>[]
     appointments: Prisma.$AppointmentPayload<ExtArgs>[]
   }
@@ -825,9 +1075,15 @@ export type $PatientPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     last_name: string
     phone_number: string
     gender: string
-    birth_date: Date | null
+    birth_date: Date
     address: string | null
-    districtId: string | null
+    document_type: $Enums.DocumentType | null
+    document_series: string | null
+    document_number: string | null
+    pinfl: string | null
+    districtId: string
+    createdAt: Date
+    updatedAt: Date
   }, ExtArgs["result"]["patient"]>
   composites: {}
 }
@@ -1222,7 +1478,7 @@ readonly fields: PatientFieldRefs;
  */
 export interface Prisma__PatientClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
-  district<T extends Prisma.Patient$districtArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Patient$districtArgs<ExtArgs>>): Prisma.Prisma__DistrictClient<runtime.Types.Result.GetResult<Prisma.$DistrictPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  district<T extends Prisma.DistrictDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DistrictDefaultArgs<ExtArgs>>): Prisma.Prisma__DistrictClient<runtime.Types.Result.GetResult<Prisma.$DistrictPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   payments<T extends Prisma.Patient$paymentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Patient$paymentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PaymentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   appointments<T extends Prisma.Patient$appointmentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Patient$appointmentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AppointmentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
@@ -1261,7 +1517,13 @@ export interface PatientFieldRefs {
   readonly gender: Prisma.FieldRef<"Patient", 'String'>
   readonly birth_date: Prisma.FieldRef<"Patient", 'DateTime'>
   readonly address: Prisma.FieldRef<"Patient", 'String'>
+  readonly document_type: Prisma.FieldRef<"Patient", 'DocumentType'>
+  readonly document_series: Prisma.FieldRef<"Patient", 'String'>
+  readonly document_number: Prisma.FieldRef<"Patient", 'String'>
+  readonly pinfl: Prisma.FieldRef<"Patient", 'String'>
   readonly districtId: Prisma.FieldRef<"Patient", 'String'>
+  readonly createdAt: Prisma.FieldRef<"Patient", 'DateTime'>
+  readonly updatedAt: Prisma.FieldRef<"Patient", 'DateTime'>
 }
     
 
@@ -1660,25 +1922,6 @@ export type PatientDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Inter
    * Limit how many Patients to delete.
    */
   limit?: number
-}
-
-/**
- * Patient.district
- */
-export type Patient$districtArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the District
-   */
-  select?: Prisma.DistrictSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the District
-   */
-  omit?: Prisma.DistrictOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.DistrictInclude<ExtArgs> | null
-  where?: Prisma.DistrictWhereInput
 }
 
 /**

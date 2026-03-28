@@ -1421,10 +1421,9 @@ export const UserScalarFieldEnum = {
   id: 'id',
   first_name: 'first_name',
   last_name: 'last_name',
-  email: 'email',
+  phone: 'phone',
   password: 'password',
   birthday: 'birthday',
-  phone: 'phone',
   photo: 'photo',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
@@ -1470,7 +1469,13 @@ export const PatientScalarFieldEnum = {
   gender: 'gender',
   birth_date: 'birth_date',
   address: 'address',
-  districtId: 'districtId'
+  document_type: 'document_type',
+  document_series: 'document_series',
+  document_number: 'document_number',
+  pinfl: 'pinfl',
+  districtId: 'districtId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 } as const
 
 export type PatientScalarFieldEnum = (typeof PatientScalarFieldEnum)[keyof typeof PatientScalarFieldEnum]
@@ -1636,6 +1641,20 @@ export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaM
  * Reference to a field of type 'Boolean'
  */
 export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
+    
+
+
+/**
+ * Reference to a field of type 'DocumentType'
+ */
+export type EnumDocumentTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DocumentType'>
+    
+
+
+/**
+ * Reference to a field of type 'DocumentType[]'
+ */
+export type ListEnumDocumentTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DocumentType[]'>
     
 
 

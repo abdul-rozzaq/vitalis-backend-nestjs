@@ -19,10 +19,10 @@ export class UsersService {
   }
 
   async createUser(data: Prisma.UserUncheckedCreateInput): Promise<Omit<UserWithRole, 'password'>> {
-    const existingUser = await this.repository.findByEmail(data.email);
+    const existingUser = await this.repository.findByPhone(data.phone as string);
 
     if (existingUser) {
-      throw new AppException('User with this email already exists', 400);
+      throw new AppException('User with this phone number already exists', 400);
     }
 
     const hashedPassword = await bcrypt.hash(data.password as string, 10);
