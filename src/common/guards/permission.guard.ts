@@ -8,6 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtPayload } from '../types/jwt-payload.type';
 import { Request } from 'express';
+import { SKIP_PERMISSION_CHECK_KEY } from '../decorators/skip-permission-check.decorator';
 
 // ─── In-memory Permission Cache ──────────────────────────────────────────────
 // Key: "roleId:METHOD:/normalized/path"  Value: { allowed, expiresAt }  TTL: 5 min
@@ -53,6 +54,13 @@ export class PermissionGuard implements CanActivate {
     ]);
 
     if (isPublic) return true;
+
+    const skipPermissionCheck = this.reflector.getAllAndOverride<boolean>(
+      SKIP_PERMISSION_CHECK_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+
+    if (skipPermissionCheck) return true;
 
     const request = context.switchToHttp().getRequest<Request>();
     const user = (request as any).user as JwtPayload;

@@ -13,14 +13,14 @@ export type RouteEntry = {
 
 export const ROUTES_REGISTRY: RouteEntry[] = [
   // ─── Uploads ──────────────────────────────────────────────────────────────
-  { group: "Uploads", method: "POST", path: "/api/uploads/photo", description: "Rasm yuklash" },
+  { group: "Yuklashlar", method: "POST", path: "/api/uploads/photo", description: "Rasm yuklash" },
 
   // ─── Users ────────────────────────────────────────────────────────────────
-  { group: "Users", method: "GET", path: "/api/users", description: "Barcha foydalanuvchilar" },
-  { group: "Users", method: "GET", path: "/api/users/:id", description: "Foydalanuvchi (ID bo'yicha)" },
-  { group: "Users", method: "POST", path: "/api/users", description: "Yangi foydalanuvchi" },
-  { group: "Users", method: "PUT", path: "/api/users/:id", description: "Foydalanuvchi tahrirlash" },
-  { group: "Users", method: "DELETE", path: "/api/users/:id", description: "Foydalanuvchi o'chirish" },
+  { group: "Foydalanuvchilar", method: "GET", path: "/api/users", description: "Barcha foydalanuvchilar" },
+  { group: "Foydalanuvchilar", method: "GET", path: "/api/users/:id", description: "Foydalanuvchi (ID bo'yicha)" },
+  { group: "Foydalanuvchilar", method: "POST", path: "/api/users", description: "Yangi foydalanuvchi" },
+  { group: "Foydalanuvchilar", method: "PUT", path: "/api/users/:id", description: "Foydalanuvchi tahrirlash" },
+  { group: "Foydalanuvchilar", method: "DELETE", path: "/api/users/:id", description: "Foydalanuvchi o'chirish" },
 
   // ─── Patients ─────────────────────────────────────────────────────────────
   { group: "Patients", method: "GET", path: "/api/patients", description: "Barcha bemorlar" },
@@ -64,4 +64,6 @@ export const ROUTES_REGISTRY: RouteEntry[] = [
   { group: "Appointments", method: "POST", path: "/api/appointments", description: "Yangi uchrashuv" },
   { group: "Appointments", method: "PATCH", path: "/api/appointments/:id", description: "Uchrashuv tahrirlash" },
   { group: "Appointments", method: "DELETE", path: "/api/appointments/:id", description: "Uchrashuv o'chirish" },
+  { group: "Appointments", method: "POST", path: "/api/appointments/:id/access-code", description: "Kirish kodi yaratish" },
+  { group: "Appointments", method: "GET", path: "/api/appointments/:id/access-code", description: "Kirish kodini ko'rish" },
 ];

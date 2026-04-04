@@ -4,6 +4,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RegisterDto, LoginDto, ChangePasswordDto } from './auth.dto';
 import { type JwtPayload } from '../../common/types/jwt-payload.type';
+import { SkipPermissionCheck } from '../../common/decorators/skip-permission-check.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -22,6 +23,7 @@ export class AuthController {
   }
 
   @Get('me')
+  @SkipPermissionCheck()
   getMe(@CurrentUser() user: JwtPayload) {
     return this.authService.getMe(user.userId);
   }

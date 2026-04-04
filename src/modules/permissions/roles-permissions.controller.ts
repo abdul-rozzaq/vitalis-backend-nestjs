@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { PermissionsService } from './permissions.service';
 import { RequireAdmin } from '../../common/decorators/require-admin.decorator';
+import { SkipPermissionCheck } from '../../common/decorators/skip-permission-check.decorator';
 
 @Controller('roles/:roleId/permissions')
 export class RolesPermissionsController {
@@ -18,6 +19,7 @@ export class RolesPermissionsController {
 
   /** GET /api/roles/:roleId/permissions */
   @Get()
+  @SkipPermissionCheck()
   list(@Param('roleId') roleId: string) {
     return this.permissionsService.list(roleId);
   }

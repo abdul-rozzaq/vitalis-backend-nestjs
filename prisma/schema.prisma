@@ -256,9 +256,10 @@ enum AppointmentStatus {
 }
 
 model Appointment {
-  id       String            @id @default(uuid())
-  dateTime DateTime
-  status   AppointmentStatus @default(PENDING)
+  id         String            @id @default(uuid())
+  dateTime   DateTime
+  status     AppointmentStatus @default(PENDING)
+  accessCode String?           @db.VarChar(6)
 
   patient   Patient @relation(fields: [patientId], references: [id])
   patientId String

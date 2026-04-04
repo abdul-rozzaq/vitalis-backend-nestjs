@@ -33,4 +33,14 @@ export class AppointmentsController {
   remove(@Param('id') id: string) {
     return this.appointmentsService.delete(id);
   }
+
+  @Post(':id/access-code')
+  generateAccessCode(@Param('id') id: string) {
+    return this.appointmentsService.generateAccessCode(id);
+  }
+
+  @Get(':id/access-code')
+  getAccessCode(@Param('id') id: string) {
+    return this.appointmentsService.getAccessCode(id);
+  }
 }

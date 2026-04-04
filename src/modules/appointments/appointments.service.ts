@@ -85,4 +85,21 @@ export class AppointmentsService {
   async delete(id: string) {
     return this.repository.delete(id);
   }
+
+  async generateAccessCode(id: string): Promise<{ accessCode: string }> {
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    await this.prisma.appointment.update({
+      where: { id },
+      data: { accessCode: code },
+    });
+    return { accessCode: code };
+  }
+
+  async getAccessCode(id: string): Promise<{ accessCode: string | null }> {
+    const appt = await this.prisma.appointment.findUnique({
+      where: { id },
+      select: { accessCode: true },
+    });
+    return { accessCode: appt?.accessCode ?? null };
+  }
 }
