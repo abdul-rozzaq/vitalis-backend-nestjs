@@ -168,7 +168,6 @@ model Assignment {
   schedules    Schedule[]
   appointments Appointment[]
   payments     Payment[]
-  files        AssignmentFile[]
 
   /// Assignment faolmi yoki yo'qmi
   isActive Boolean @default(true)
@@ -178,17 +177,6 @@ model Assignment {
 
   @@unique([userId, departmentId])
   @@map("assignments")
-}
-
-model AssignmentFile {
-  id           String     @id @default(uuid())
-  name         String
-  url          String
-  assignmentId String
-  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  createdAt    DateTime   @default(now())
-
-  @@map("assignment_files")
 }
 
 /// Rol uchun ruxsat: qaysi HTTP method + path ga kirish joiz
@@ -223,7 +211,7 @@ model Payment {
   assignmentId String?
 
   appointment   Appointment? @relation(fields: [appointmentId], references: [id])
-  appointmentId String?      @unique
+  appointmentId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -256,10 +244,9 @@ enum AppointmentStatus {
 }
 
 model Appointment {
-  id         String            @id @default(uuid())
-  dateTime   DateTime
-  status     AppointmentStatus @default(PENDING)
-  accessCode String?           @db.VarChar(6)
+  id       String            @id @default(uuid())
+  dateTime DateTime
+  status   AppointmentStatus @default(PENDING)
 
   patient   Patient @relation(fields: [patientId], references: [id])
   patientId String
@@ -267,10 +254,22 @@ model Appointment {
   assignment   Assignment @relation(fields: [assignmentId], references: [id])
   assignmentId String
 
-  payment Payment?
+  payments Payment[]
+  files    AppointmentFile[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("appointments")
+}
+
+model AppointmentFile {
+  id            String      @id @default(uuid())
+  name          String
+  url           String
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@map("appointment_files")
 }

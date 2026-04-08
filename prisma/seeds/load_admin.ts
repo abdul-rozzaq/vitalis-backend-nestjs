@@ -5,8 +5,6 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import * as bcrypt from "bcryptjs";
 import "dotenv/config";
 
-console.log(bcrypt.hash)
-
 const DEFAULT_ROLES = [
   { name: "USER", description: "Oddiy foydalanuvchi" },
   { name: "NURSE", description: "Hamshira" },

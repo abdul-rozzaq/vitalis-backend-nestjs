@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma } from '../../generated/prisma/client';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../prisma/prisma.service";
+import { Prisma } from "../../generated/prisma/client";
 
 const assignmentInclude = {
   user: { select: { id: true, first_name: true, last_name: true, role: true } },
@@ -9,13 +9,19 @@ const assignmentInclude = {
   schedules: true,
 } satisfies Prisma.AssignmentInclude;
 
-export type AssignmentDetail = Prisma.AssignmentGetPayload<{ include: typeof assignmentInclude }>;
+export type AssignmentDetail = Prisma.AssignmentGetPayload<{
+  include: typeof assignmentInclude;
+}>;
 
 @Injectable()
 export class AssignmentsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(filters?: { departmentId?: string; userId?: string; isActive?: boolean }): Promise<AssignmentDetail[]> {
+  async list(filters?: {
+    departmentId?: string;
+    userId?: string;
+    isActive?: boolean;
+  }): Promise<AssignmentDetail[]> {
     return this.prisma.assignment.findMany({
       where: {
         departmentId: filters?.departmentId,
@@ -23,23 +29,32 @@ export class AssignmentsRepository {
         isActive: filters?.isActive,
       },
       include: assignmentInclude,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
   }
 
   async retrieve(id: string): Promise<AssignmentDetail | null> {
-    return this.prisma.assignment.findUnique({ where: { id }, include: assignmentInclude });
+    return this.prisma.assignment.findUnique({
+      where: { id },
+      include: assignmentInclude,
+    });
   }
 
   async create(
-    data: Omit<Prisma.AssignmentCreateInput, 'schedules'>,
+    data: Omit<Prisma.AssignmentCreateInput, "schedules">,
     schedules?: { dayOfWeek?: number; startTime: string; endTime: string }[],
   ): Promise<AssignmentDetail> {
-    const normalizedSchedules = schedules?.map((s) => ({ ...s, dayOfWeek: s.dayOfWeek ?? 0 }));
+    const normalizedSchedules = schedules?.map((s) => ({
+      ...s,
+      dayOfWeek: s.dayOfWeek ?? 0,
+    }));
     return this.prisma.assignment.create({
       data: {
         ...data,
-        ...(normalizedSchedules && normalizedSchedules.length > 0 && { schedules: { create: normalizedSchedules } }),
+        ...(normalizedSchedules &&
+          normalizedSchedules.length > 0 && {
+            schedules: { create: normalizedSchedules },
+          }),
       },
       include: assignmentInclude,
     });
@@ -50,7 +65,10 @@ export class AssignmentsRepository {
     data: Prisma.AssignmentUpdateInput,
     schedules?: { dayOfWeek?: number; startTime: string; endTime: string }[],
   ): Promise<AssignmentDetail> {
-    const normalizedSchedules = schedules?.map((s) => ({ ...s, dayOfWeek: s.dayOfWeek ?? 0 }));
+    const normalizedSchedules = schedules?.map((s) => ({
+      ...s,
+      dayOfWeek: s.dayOfWeek ?? 0,
+    }));
     return this.prisma.assignment.update({
       where: { id },
       data: {
@@ -67,6 +85,9 @@ export class AssignmentsRepository {
   }
 
   async delete(id: string): Promise<AssignmentDetail> {
-    return this.prisma.assignment.delete({ where: { id }, include: assignmentInclude });
+    return this.prisma.assignment.delete({
+      where: { id },
+      include: assignmentInclude,
+    });
   }
 }

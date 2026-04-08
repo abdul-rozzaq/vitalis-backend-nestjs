@@ -1,4 +1,7 @@
 -- CreateEnum
+CREATE TYPE "document_types" AS ENUM ('PASSPORT', 'BIRTH_CERTIFICATE', 'FOREIGN_PASSPORT', 'RESIDENCE_PERMIT');
+
+-- CreateEnum
 CREATE TYPE "room_types" AS ENUM ('WARD', 'EXAMINATION');
 
 -- CreateEnum
@@ -15,10 +18,9 @@ CREATE TABLE "users" (
     "id" TEXT NOT NULL,
     "first_name" VARCHAR(64) NOT NULL,
     "last_name" VARCHAR(64) NOT NULL,
-    "email" TEXT NOT NULL,
+    "phone" VARCHAR(20) NOT NULL,
     "password" TEXT NOT NULL,
     "birthday" DATE,
-    "phone" VARCHAR(20),
     "photo" VARCHAR(500),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -39,14 +41,38 @@ CREATE TABLE "roles" (
 );
 
 -- CreateTable
+CREATE TABLE "regions" (
+    "id" TEXT NOT NULL,
+    "name" VARCHAR(64) NOT NULL,
+
+    CONSTRAINT "regions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "districts" (
+    "id" TEXT NOT NULL,
+    "name" VARCHAR(64) NOT NULL,
+    "regionId" TEXT NOT NULL,
+
+    CONSTRAINT "districts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "patients" (
     "id" TEXT NOT NULL,
     "first_name" VARCHAR(64) NOT NULL,
     "last_name" VARCHAR(64) NOT NULL,
     "phone_number" VARCHAR(15) NOT NULL,
     "gender" VARCHAR(10) NOT NULL,
-    "birth_date" DATE,
+    "birth_date" DATE NOT NULL,
     "address" VARCHAR(255),
+    "document_type" "document_types",
+    "document_series" VARCHAR(10),
+    "document_number" VARCHAR(20),
+    "pinfl" VARCHAR(14),
+    "districtId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "patients_pkey" PRIMARY KEY ("id")
 );
@@ -100,17 +126,6 @@ CREATE TABLE "assignments" (
 );
 
 -- CreateTable
-CREATE TABLE "assignment_files" (
-    "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "url" TEXT NOT NULL,
-    "assignmentId" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "assignment_files_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "permissions" (
     "id" TEXT NOT NULL,
     "roleId" TEXT NOT NULL,
@@ -149,11 +164,31 @@ CREATE TABLE "appointments" (
     CONSTRAINT "appointments_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "appointment_files" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
+    "appointmentId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "appointment_files_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
-CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+CREATE UNIQUE INDEX "users_phone_key" ON "users"("phone");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "roles_name_key" ON "roles"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "regions_name_key" ON "regions"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "districts_name_regionId_key" ON "districts"("name", "regionId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "patients_pinfl_key" ON "patients"("pinfl");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "assignments_userId_departmentId_key" ON "assignments"("userId", "departmentId");
@@ -161,11 +196,14 @@ CREATE UNIQUE INDEX "assignments_userId_departmentId_key" ON "assignments"("user
 -- CreateIndex
 CREATE UNIQUE INDEX "permissions_roleId_method_path_key" ON "permissions"("roleId", "method", "path");
 
--- CreateIndex
-CREATE UNIQUE INDEX "payments_appointmentId_key" ON "payments"("appointmentId");
-
 -- AddForeignKey
 ALTER TABLE "users" ADD CONSTRAINT "users_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "districts" ADD CONSTRAINT "districts_regionId_fkey" FOREIGN KEY ("regionId") REFERENCES "regions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "patients" ADD CONSTRAINT "patients_districtId_fkey" FOREIGN KEY ("districtId") REFERENCES "districts"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "departments" ADD CONSTRAINT "departments_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "departments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -181,9 +219,6 @@ ALTER TABLE "assignments" ADD CONSTRAINT "assignments_departmentId_fkey" FOREIGN
 
 -- AddForeignKey
 ALTER TABLE "assignments" ADD CONSTRAINT "assignments_roomId_fkey" FOREIGN KEY ("roomId") REFERENCES "rooms"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "assignment_files" ADD CONSTRAINT "assignment_files_assignmentId_fkey" FOREIGN KEY ("assignmentId") REFERENCES "assignments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "permissions" ADD CONSTRAINT "permissions_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "roles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -205,3 +240,6 @@ ALTER TABLE "appointments" ADD CONSTRAINT "appointments_patientId_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "appointments" ADD CONSTRAINT "appointments_assignmentId_fkey" FOREIGN KEY ("assignmentId") REFERENCES "assignments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "appointment_files" ADD CONSTRAINT "appointment_files_appointmentId_fkey" FOREIGN KEY ("appointmentId") REFERENCES "appointments"("id") ON DELETE CASCADE ON UPDATE CASCADE;

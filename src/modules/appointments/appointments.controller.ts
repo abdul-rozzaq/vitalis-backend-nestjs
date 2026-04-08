@@ -1,18 +1,35 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query } from '@nestjs/common';
-import { AppointmentsService } from './appointments.service';
-import { CreateAppointmentDto, UpdateAppointmentDto } from './appointments.dto';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  Query,
+} from "@nestjs/common";
+import { AppointmentsService } from "./appointments.service";
+import {
+  CreateAppointmentDto,
+  CreateAppointmentFileDto,
+  UpdateAppointmentDto,
+} from "./appointments.dto";
 
-@Controller('appointments')
+@Controller("appointments")
 export class AppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
 
   @Get()
-  findAll(@Query('search') search?: string, @Query('departmentId') departmentId?: string) {
-    return this.appointmentsService.list(search, departmentId);
+  findAll(
+    @Query("search") search?: string,
+    @Query("departmentId") departmentId?: string,
+    @Query("patientId") patientId?: string,
+  ) {
+    return this.appointmentsService.list(search, departmentId, patientId);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
+  @Get(":id")
+  findOne(@Param("id") id: string) {
     return this.appointmentsService.retrieve(id);
   }
 
@@ -21,26 +38,18 @@ export class AppointmentsController {
     return this.appointmentsService.create(dto as any);
   }
 
-  @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body() dto: UpdateAppointmentDto,
-  ) {
+  @Post(":id/files")
+  addFile(@Param("id") id: string, @Body() dto: CreateAppointmentFileDto) {
+    return this.appointmentsService.addFile(id, dto);
+  }
+
+  @Patch(":id")
+  update(@Param("id") id: string, @Body() dto: UpdateAppointmentDto) {
     return this.appointmentsService.update(id, dto as any);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
+  @Delete(":id")
+  remove(@Param("id") id: string) {
     return this.appointmentsService.delete(id);
-  }
-
-  @Post(':id/access-code')
-  generateAccessCode(@Param('id') id: string) {
-    return this.appointmentsService.generateAccessCode(id);
-  }
-
-  @Get(':id/access-code')
-  getAccessCode(@Param('id') id: string) {
-    return this.appointmentsService.getAccessCode(id);
   }
 }

@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { AppointmentsRepository } from './appointments.repository';
-import { AppException } from '../../common/exceptions/app.exception';
-import { PrismaService } from '../../prisma/prisma.service';
-import { AppointmentStatus } from '../../generated/prisma/client';
+import { Injectable } from "@nestjs/common";
+import { AppointmentsRepository } from "./appointments.repository";
+import { AppException } from "../../common/exceptions/app.exception";
+import { PrismaService } from "../../prisma/prisma.service";
+import { AppointmentStatus } from "../../generated/prisma/client";
 
 interface CreateAppointmentDto {
   dateTime: string;
@@ -15,6 +15,12 @@ interface UpdateAppointmentDto {
   dateTime?: string;
   status?: AppointmentStatus;
   patientId?: string;
+  assignmentId?: string;
+}
+
+interface CreateAppointmentFileDto {
+  name: string;
+  url: string;
 }
 
 @Injectable()
@@ -24,8 +30,8 @@ export class AppointmentsService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async list(search?: string, departmentId?: string) {
-    return this.repository.list(search, departmentId);
+  async list(search?: string, departmentId?: string, patientId?: string) {
+    return this.repository.list(search, departmentId, patientId);
   }
 
   async retrieve(id: string) {
@@ -33,20 +39,23 @@ export class AppointmentsService {
   }
 
   async create(data: CreateAppointmentDto) {
+    const appointmentDate = new Date(data.dateTime);
+
     const assignment = await this.prisma.assignment.findUnique({
       where: { id: data.assignmentId },
       include: { department: true },
     });
 
     if (!assignment) {
-      throw new AppException('Assignment not found', 404);
+      throw new AppException("Assignment not found", 404);
     }
 
     const [appointment] = await this.prisma.$transaction(async (tx) => {
       const created = await tx.appointment.create({
         data: {
-          dateTime: new Date(data.dateTime).toISOString(),
-          status: (data.status || AppointmentStatus.PENDING) as AppointmentStatus,
+          dateTime: appointmentDate,
+          status: (data.status ||
+            AppointmentStatus.PENDING) as AppointmentStatus,
           patient: { connect: { id: data.patientId } },
           assignment: { connect: { id: data.assignmentId } },
         },
@@ -59,7 +68,8 @@ export class AppointmentsService {
       await tx.payment.create({
         data: {
           amount: assignment.department.price ?? 0,
-          status: 'UNPAID',
+          status: "UNPAID",
+          createdAt: appointmentDate,
           patient: { connect: { id: data.patientId } },
           department: { connect: { id: assignment.departmentId } },
           assignment: { connect: { id: assignment.id } },
@@ -78,28 +88,22 @@ export class AppointmentsService {
       ...(data.dateTime && { dateTime: new Date(data.dateTime) }),
       ...(data.status && { status: data.status }),
       ...(data.patientId && { patient: { connect: { id: data.patientId } } }),
+      ...(data.assignmentId && {
+        assignment: { connect: { id: data.assignmentId } },
+      }),
     };
     return this.repository.update(id, updateData);
   }
 
+  async addFile(id: string, dto: CreateAppointmentFileDto) {
+    const appointment = await this.repository.retrieve(id);
+    if (!appointment) {
+      throw new AppException("Appointment not found", 404);
+    }
+    return this.repository.addFile(id, dto);
+  }
+
   async delete(id: string) {
     return this.repository.delete(id);
-  }
-
-  async generateAccessCode(id: string): Promise<{ accessCode: string }> {
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    await this.prisma.appointment.update({
-      where: { id },
-      data: { accessCode: code },
-    });
-    return { accessCode: code };
-  }
-
-  async getAccessCode(id: string): Promise<{ accessCode: string | null }> {
-    const appt = await this.prisma.appointment.findUnique({
-      where: { id },
-      select: { accessCode: true },
-    });
-    return { accessCode: appt?.accessCode ?? null };
   }
 }

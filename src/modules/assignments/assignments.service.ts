@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { AssignmentsRepository } from './assignments.repository';
-import { AppException } from '../../common/exceptions/app.exception';
-import { Prisma } from '../../generated/prisma/client';
+import { Injectable } from "@nestjs/common";
+import { AssignmentsRepository } from "./assignments.repository";
+import { AppException } from "../../common/exceptions/app.exception";
+import { Prisma } from "../../generated/prisma/client";
 
 type CreateAssignmentDto = {
   userId: string;
@@ -21,17 +21,27 @@ type UpdateAssignmentDto = {
 export class AssignmentsService {
   constructor(private readonly repo: AssignmentsRepository) {}
 
-  async list(filters?: { departmentId?: string; userId?: string; isActive?: boolean }) {
+  async list(filters?: {
+    departmentId?: string;
+    userId?: string;
+    isActive?: boolean;
+  }) {
     return this.repo.list(filters);
   }
 
   async retrieve(id: string) {
     const assignment = await this.repo.retrieve(id);
-    if (!assignment) throw new AppException('Assignment not found', 404);
+    if (!assignment) throw new AppException("Assignment not found", 404);
     return assignment;
   }
 
-  async create({ schedules, userId, departmentId, roomId, ...rest }: CreateAssignmentDto) {
+  async create({
+    schedules,
+    userId,
+    departmentId,
+    roomId,
+    ...rest
+  }: CreateAssignmentDto) {
     const data: Prisma.AssignmentCreateInput = {
       ...rest,
       user: { connect: { id: userId } },
@@ -41,7 +51,10 @@ export class AssignmentsService {
     return this.repo.create(data, schedules);
   }
 
-  async update(id: string, { schedules, roomId, ...rest }: UpdateAssignmentDto) {
+  async update(
+    id: string,
+    { schedules, roomId, ...rest }: UpdateAssignmentDto,
+  ) {
     await this.retrieve(id);
     const data: Prisma.AssignmentUpdateInput = {
       ...rest,

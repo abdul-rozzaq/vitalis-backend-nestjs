@@ -9,8 +9,8 @@ import {
   Max,
   Matches,
   IsString,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+} from "class-validator";
+import { Type } from "class-transformer";
 
 export class ScheduleDto {
   @IsOptional()
@@ -20,11 +20,11 @@ export class ScheduleDto {
   dayOfWeek?: number;
 
   @IsString()
-  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'Format: HH:mm' })
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: "Format: HH:mm" })
   startTime: string;
 
   @IsString()
-  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'Format: HH:mm' })
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: "Format: HH:mm" })
   endTime: string;
 }
 
