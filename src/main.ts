@@ -9,7 +9,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true }),
   );
 
   app.enableCors({ origin: true, credentials: true });

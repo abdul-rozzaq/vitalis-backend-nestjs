@@ -254,8 +254,9 @@ model Appointment {
   assignment   Assignment @relation(fields: [assignmentId], references: [id])
   assignmentId String
 
-  payments Payment[]
-  files    AppointmentFile[]
+  payments     Payment[]
+  files        AppointmentFile[]
+  prescription Prescription?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -272,4 +273,59 @@ model AppointmentFile {
   createdAt     DateTime    @default(now())
 
   @@map("appointment_files")
+}
+
+// ─── Medicines & Prescriptions ───────────────────────────────────────────────
+
+/// Dori nomi (global katalog)
+model Medicine {
+  id        String   @id @default(uuid())
+  name      String   @unique @db.VarChar(128)
+  createdAt DateTime @default(now())
+
+  prescriptionItems PrescriptionItem[]
+
+  @@map("medicines")
+}
+
+enum MealRelation {
+  BEFORE_MEAL
+  AFTER_MEAL
+  WITH_MEAL
+  AT_SPECIFIC_TIME
+
+  @@map("meal_relations")
+}
+
+/// Appointment uchun recept (1:1)
+model Prescription {
+  id            String      @id @default(uuid())
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  items PrescriptionItem[]
+
+  @@map("prescriptions")
+}
+
+/// Receptdagi bitta dori satri
+model PrescriptionItem {
+  id             String       @id @default(uuid())
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  medicineId String
+  medicine   Medicine @relation(fields: [medicineId], references: [id])
+
+  dosage       String       @db.VarChar(64)
+  frequency    Int
+  startDate    DateTime     @db.Date
+  endDate      DateTime     @db.Date
+  mealRelation MealRelation
+  specificTime String?      @db.VarChar(5)
+  note         String?
+
+  @@map("prescription_items")
 }

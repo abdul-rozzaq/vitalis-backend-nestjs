@@ -7,6 +7,14 @@ const appointmentInclude = {
   assignment: { include: { department: true, user: true, room: true } },
   payments: { include: { department: true } },
   files: { orderBy: { createdAt: "desc" } },
+  prescription: {
+    include: {
+      items: {
+        include: { medicine: true },
+        orderBy: { medicine: { name: "asc" } },
+      },
+    },
+  },
 } as const;
 
 @Injectable()

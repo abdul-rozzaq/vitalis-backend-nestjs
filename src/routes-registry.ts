@@ -260,4 +260,38 @@ export const ROUTES_REGISTRY: RouteEntry[] = [
     path: "/api/uploads/file",
     description: "Fayl yuklash",
   },
+
+  // ─── Medicines ────────────────────────────────────────────────────────────
+  {
+    group: "Dorilar",
+    method: "GET",
+    path: "/api/medicines",
+    description: "Barcha dorilar",
+  },
+  {
+    group: "Dorilar",
+    method: "POST",
+    path: "/api/medicines/upsert",
+    description: "Dori topish yoki yaratish",
+  },
+
+  // ─── Prescriptions ────────────────────────────────────────────────────────
+  {
+    group: "Receptlar",
+    method: "GET",
+    path: "/api/prescriptions",
+    description: "Uchrashuv recepti",
+  },
+  {
+    group: "Receptlar",
+    method: "POST",
+    path: "/api/prescriptions",
+    description: "Recept saqlash (upsert)",
+  },
+  {
+    group: "Receptlar",
+    method: "DELETE",
+    path: "/api/prescriptions/:id",
+    description: "Receptni o'chirish",
+  },
 ];
