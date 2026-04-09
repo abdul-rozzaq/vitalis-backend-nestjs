@@ -30,7 +30,10 @@ export class UsersRepository {
     return this.prisma.user.delete({ where: { id }, include: { role: true } });
   }
 
-  async findAll(): Promise<UserWithRole[]> {
-    return this.prisma.user.findMany({ include: { role: true } });
+  async findAll(roleId?: string): Promise<UserWithRole[]> {
+    return this.prisma.user.findMany({
+      where: roleId ? { roleId } : undefined,
+      include: { role: true },
+    });
   }
 }

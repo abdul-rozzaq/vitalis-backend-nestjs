@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma } from '../../generated/prisma/client';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../prisma/prisma.service";
+import { Prisma } from "../../generated/prisma/client";
 
 const departmentInclude = {
   parent: true,
@@ -15,9 +15,16 @@ const departmentDetailInclude = {
 export class DepartmentsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list() {
+  async list(filter?: "parents" | "children") {
+    const where =
+      filter === "parents"
+        ? { parentId: null }
+        : filter === "children"
+          ? { NOT: { parentId: null } }
+          : undefined;
+
     return this.prisma.department.findMany({
-      where: { parentId: null },
+      where,
       include: departmentInclude,
     });
   }

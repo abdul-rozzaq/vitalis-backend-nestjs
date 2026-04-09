@@ -12,20 +12,6 @@ export type RouteEntry = {
 };
 
 export const ROUTES_REGISTRY: RouteEntry[] = [
-  // ─── Uploads ──────────────────────────────────────────────────────────────
-  {
-    group: "Yuklashlar",
-    method: "POST",
-    path: "/api/uploads/photo",
-    description: "Rasm yuklash",
-  },
-  {
-    group: "Yuklashlar",
-    method: "POST",
-    path: "/api/uploads/file",
-    description: "Fayl yuklash",
-  },
-
   // ─── Users ────────────────────────────────────────────────────────────────
   {
     group: "Foydalanuvchilar",
@@ -260,5 +246,18 @@ export const ROUTES_REGISTRY: RouteEntry[] = [
     method: "DELETE",
     path: "/api/appointments/:id",
     description: "Uchrashuv o'chirish",
+  },
+  // ─── Uploads ──────────────────────────────────────────────────────────────
+  {
+    group: "Yuklashlar",
+    method: "POST",
+    path: "/api/uploads/photo",
+    description: "Rasm yuklash",
+  },
+  {
+    group: "Yuklashlar",
+    method: "POST",
+    path: "/api/uploads/file",
+    description: "Fayl yuklash",
   },
 ];

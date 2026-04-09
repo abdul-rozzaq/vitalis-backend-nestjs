@@ -20,8 +20,8 @@ interface UpdateDepartmentDto {
 export class DepartmentsService {
   constructor(private readonly repository: DepartmentsRepository) {}
 
-  async list() {
-    return this.repository.list();
+  async list(filter?: 'parents' | 'children') {
+    return this.repository.list(filter);
   }
 
   async retrieve(id: string) {

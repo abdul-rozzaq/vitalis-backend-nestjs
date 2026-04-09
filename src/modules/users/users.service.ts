@@ -8,8 +8,9 @@ import * as bcrypt from 'bcryptjs';
 export class UsersService {
   constructor(private readonly repository: UsersRepository) {}
 
-  async getAllUsers(): Promise<Omit<UserWithRole, 'password'>[]> {
-    const users = await this.repository.findAll();
+  async getAllUsers(roleId?: string): Promise<Omit<UserWithRole, 'password'>[]> {
+    const users = await this.repository.findAll(roleId);
+    
     return users.map((user) => this.excludePassword(user));
   }
 
