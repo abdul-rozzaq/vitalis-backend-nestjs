@@ -72,6 +72,19 @@ enum DocumentType {
   @@map("document_types")
 }
 
+enum BloodType {
+  O_POSITIVE
+  O_NEGATIVE
+  A_POSITIVE
+  A_NEGATIVE
+  B_POSITIVE
+  B_NEGATIVE
+  AB_POSITIVE
+  AB_NEGATIVE
+
+  @@map("blood_types")
+}
+
 model Patient {
   id              String        @id @default(uuid())
   first_name      String        @db.VarChar(64)
@@ -80,6 +93,7 @@ model Patient {
   gender          String        @db.VarChar(10)
   birth_date      DateTime      @db.Date
   address         String?       @db.VarChar(255)
+  blood_type      BloodType?    @default(O_POSITIVE)
   document_type   DocumentType?
   document_series String?       @db.VarChar(10)
   document_number String?       @db.VarChar(20)

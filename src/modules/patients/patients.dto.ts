@@ -1,15 +1,34 @@
-import { IsString, IsOptional, MaxLength, IsEnum, IsDateString, IsUUID, Matches } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  MaxLength,
+  IsEnum,
+  IsDateString,
+  IsUUID,
+  Matches,
+} from "class-validator";
 
 export enum Gender {
-  MALE = 'male',
-  FEMALE = 'female',
+  MALE = "male",
+  FEMALE = "female",
 }
 
 export enum DocumentType {
-  PASSPORT = 'PASSPORT',
-  BIRTH_CERTIFICATE = 'BIRTH_CERTIFICATE',
-  FOREIGN_PASSPORT = 'FOREIGN_PASSPORT',
-  RESIDENCE_PERMIT = 'RESIDENCE_PERMIT',
+  PASSPORT = "PASSPORT",
+  BIRTH_CERTIFICATE = "BIRTH_CERTIFICATE",
+  FOREIGN_PASSPORT = "FOREIGN_PASSPORT",
+  RESIDENCE_PERMIT = "RESIDENCE_PERMIT",
+}
+
+export enum BloodType {
+  O_POSITIVE = "O_POSITIVE",
+  O_NEGATIVE = "O_NEGATIVE",
+  A_POSITIVE = "A_POSITIVE",
+  A_NEGATIVE = "A_NEGATIVE",
+  B_POSITIVE = "B_POSITIVE",
+  B_NEGATIVE = "B_NEGATIVE",
+  AB_POSITIVE = "AB_POSITIVE",
+  AB_NEGATIVE = "AB_NEGATIVE",
 }
 
 export class CreatePatientDto {
@@ -37,6 +56,10 @@ export class CreatePatientDto {
   address?: string | null;
 
   @IsOptional()
+  @IsEnum(BloodType)
+  blood_type?: BloodType | null;
+
+  @IsOptional()
   @IsEnum(DocumentType)
   document_type?: DocumentType | null;
 
@@ -52,7 +75,7 @@ export class CreatePatientDto {
 
   @IsOptional()
   @IsString()
-  @Matches(/^\d{14}$/, { message: 'PINFL must be exactly 14 digits' })
+  @Matches(/^\d{14}$/, { message: "PINFL must be exactly 14 digits" })
   pinfl?: string | null;
 
   @IsUUID()
@@ -89,6 +112,10 @@ export class UpdatePatientDto {
   address?: string | null;
 
   @IsOptional()
+  @IsEnum(BloodType)
+  blood_type?: BloodType | null;
+
+  @IsOptional()
   @IsEnum(DocumentType)
   document_type?: DocumentType | null;
 
@@ -104,7 +131,7 @@ export class UpdatePatientDto {
 
   @IsOptional()
   @IsString()
-  @Matches(/^\d{14}$/, { message: 'PINFL must be exactly 14 digits' })
+  @Matches(/^\d{14}$/, { message: "PINFL must be exactly 14 digits" })
   pinfl?: string | null;
 
   @IsOptional()
