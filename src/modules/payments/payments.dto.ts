@@ -1,15 +1,15 @@
-import { IsNumber, IsPositive, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsNumber, IsPositive, IsEnum, IsOptional, IsUUID } from "class-validator";
 
 export enum PaymentMethod {
-  CASH = 'CASH',
-  CREDIT_CARD = 'CREDIT_CARD',
-  DEBIT_CARD = 'DEBIT_CARD',
-  PAYPAL = 'PAYPAL',
+  CASH = "CASH",
+  CREDIT_CARD = "CREDIT_CARD",
+  DEBIT_CARD = "DEBIT_CARD",
+  PAYPAL = "PAYPAL",
 }
 
 export enum PaymentStatus {
-  PAID = 'PAID',
-  UNPAID = 'UNPAID',
+  PAID = "PAID",
+  UNPAID = "UNPAID",
 }
 
 export class CreatePaymentDto {

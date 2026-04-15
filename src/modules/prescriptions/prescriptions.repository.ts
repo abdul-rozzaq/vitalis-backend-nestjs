@@ -9,6 +9,24 @@ const prescriptionInclude = {
   },
 } as const;
 
+const prescriptionPrintInclude = {
+  appointment: {
+    include: {
+      patient: true,
+      assignment: {
+        include: {
+          department: true,
+          user: true,
+        },
+      },
+    },
+  },
+  items: {
+    include: { medicine: true },
+    orderBy: { medicine: { name: "asc" } },
+  },
+} as const;
+
 @Injectable()
 export class PrescriptionsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -59,5 +77,12 @@ export class PrescriptionsRepository {
 
   async delete(id: string) {
     return this.prisma.prescription.delete({ where: { id } });
+  }
+
+  async findByIdForPrint(id: string) {
+    return this.prisma.prescription.findUnique({
+      where: { id },
+      include: prescriptionPrintInclude,
+    });
   }
 }

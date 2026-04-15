@@ -1,11 +1,4 @@
-import {
-  IsDateString,
-  IsEnum,
-  IsOptional,
-  IsString,
-  IsUUID,
-  MinLength,
-} from "class-validator";
+import { IsDateString, IsEnum, IsOptional, IsString, IsUUID, MinLength } from "class-validator";
 
 export enum AppointmentStatus {
   PENDING = "PENDING",

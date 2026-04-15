@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcryptjs';
-import { AppException } from '../../common/exceptions/app.exception';
-import { UsersRepository } from '../users/users.repository';
-import { RegisterDto, ChangePasswordDto } from './auth.dto';
+import { Injectable } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import * as bcrypt from "bcryptjs";
+import { AppException } from "../../common/exceptions/app.exception";
+import { UsersRepository } from "../users/users.repository";
+import { RegisterDto, ChangePasswordDto } from "./auth.dto";
 
 @Injectable()
 export class AuthService {
@@ -16,14 +16,14 @@ export class AuthService {
     const existingUser = await this.usersRepository.findByPhone(data.phone);
 
     if (existingUser) {
-      throw new AppException('User with this phone number already exists', 400);
+      throw new AppException("User with this phone number already exists", 400);
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
     let roleId = data.roleId;
     if (!roleId) {
-      throw new AppException('roleId is required', 400);
+      throw new AppException("roleId is required", 400);
     }
 
     const user = await this.usersRepository.create({
@@ -41,13 +41,13 @@ export class AuthService {
     const user = await this.usersRepository.findByPhone(phone);
 
     if (!user) {
-      throw new AppException('Invalid phone number or password', 401);
+      throw new AppException("Invalid phone number or password", 401);
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      throw new AppException('Invalid phone number or password', 401);
+      throw new AppException("Invalid phone number or password", 401);
     }
 
     return this.generateAuthResponse(user);
@@ -57,7 +57,7 @@ export class AuthService {
     const user = await this.usersRepository.findById(id);
 
     if (!user) {
-      throw new AppException('User not found', 400);
+      throw new AppException("User not found", 400);
     }
 
     const { password, ...userWithoutPassword } = user;
@@ -68,18 +68,18 @@ export class AuthService {
     const user = await this.usersRepository.findById(userId);
 
     if (!user) {
-      throw new AppException('User not found', 404);
+      throw new AppException("User not found", 404);
     }
 
     const isValid = await bcrypt.compare(dto.currentPassword, user.password);
     if (!isValid) {
-      throw new AppException('Current password is incorrect', 400);
+      throw new AppException("Current password is incorrect", 400);
     }
 
     const hashed = await bcrypt.hash(dto.newPassword, 10);
     await this.usersRepository.update(userId, { password: hashed });
 
-    return { message: 'Password changed successfully' };
+    return { message: "Password changed successfully" };
   }
 
   private generateAuthResponse(user: any) {

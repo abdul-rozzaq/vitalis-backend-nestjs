@@ -1,30 +1,13 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
-  Body,
-  Query,
-} from "@nestjs/common";
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query } from "@nestjs/common";
 import { AppointmentsService } from "./appointments.service";
-import {
-  CreateAppointmentDto,
-  CreateAppointmentFileDto,
-  UpdateAppointmentDto,
-} from "./appointments.dto";
+import { CreateAppointmentDto, CreateAppointmentFileDto, UpdateAppointmentDto } from "./appointments.dto";
 
 @Controller("appointments")
 export class AppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
 
   @Get()
-  findAll(
-    @Query("search") search?: string,
-    @Query("departmentId") departmentId?: string,
-    @Query("patientId") patientId?: string,
-  ) {
+  findAll(@Query("search") search?: string, @Query("departmentId") departmentId?: string, @Query("patientId") patientId?: string) {
     return this.appointmentsService.list(search, departmentId, patientId);
   }
 

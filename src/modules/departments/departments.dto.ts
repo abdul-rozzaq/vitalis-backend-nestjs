@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsPositive, IsOptional, IsUUID, MinLength, MaxLength } from 'class-validator';
+import { IsString, IsNumber, IsPositive, IsOptional, IsUUID, MinLength, MaxLength } from "class-validator";
 
 export class CreateDepartmentDto {
   @IsString()

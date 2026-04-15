@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { PaymentsRepository } from './payments.repository';
-import { Prisma } from '../../generated/prisma/client';
+import { Injectable } from "@nestjs/common";
+import { PaymentsRepository } from "./payments.repository";
+import { Prisma } from "../../generated/prisma/client";
 
 @Injectable()
 export class PaymentsService {
@@ -14,15 +14,7 @@ export class PaymentsService {
     return this.repository.retrieve(id);
   }
 
-  async create(data: {
-    amount: number;
-    method?: string;
-    status?: string;
-    patientId: string;
-    departmentId: string;
-    assignmentId?: string;
-    appointmentId?: string;
-  }) {
+  async create(data: { amount: number; method?: string; status?: string; patientId: string; departmentId: string; assignmentId?: string; appointmentId?: string }) {
     const createData: Prisma.PaymentCreateInput = {
       amount: data.amount,
       ...(data.method && { method: data.method as any }),

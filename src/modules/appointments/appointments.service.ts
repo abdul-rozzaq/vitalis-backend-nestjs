@@ -54,8 +54,7 @@ export class AppointmentsService {
       const created = await tx.appointment.create({
         data: {
           dateTime: appointmentDate,
-          status: (data.status ||
-            AppointmentStatus.PENDING) as AppointmentStatus,
+          status: (data.status || AppointmentStatus.PENDING) as AppointmentStatus,
           patient: { connect: { id: data.patientId } },
           assignment: { connect: { id: data.assignmentId } },
         },

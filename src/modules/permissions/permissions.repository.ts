@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma } from '../../generated/prisma/client';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../prisma/prisma.service";
+import { Prisma } from "../../generated/prisma/client";
 
 export type PermissionDetail = Prisma.PermissionGetPayload<Record<string, never>>;
 
@@ -11,7 +11,7 @@ export class PermissionsRepository {
   async listByRole(roleId: string): Promise<PermissionDetail[]> {
     return this.prisma.permission.findMany({
       where: { roleId },
-      orderBy: [{ path: 'asc' }, { method: 'asc' }],
+      orderBy: [{ path: "asc" }, { method: "asc" }],
     });
   }
 
@@ -22,10 +22,7 @@ export class PermissionsRepository {
     return found !== null;
   }
 
-  async syncForRole(
-    roleId: string,
-    permissions: { method: string; path: string }[],
-  ): Promise<PermissionDetail[]> {
+  async syncForRole(roleId: string, permissions: { method: string; path: string }[]): Promise<PermissionDetail[]> {
     await this.prisma.permission.deleteMany({ where: { roleId } });
 
     if (permissions.length === 0) return [];

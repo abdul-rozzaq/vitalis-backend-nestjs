@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma } from '../../generated/prisma/client';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../prisma/prisma.service";
+import { Prisma } from "../../generated/prisma/client";
 
 @Injectable()
 export class DistrictsRepository {
@@ -9,7 +9,7 @@ export class DistrictsRepository {
   list(regionId?: string) {
     return this.prisma.district.findMany({
       where: regionId ? { regionId } : undefined,
-      orderBy: { name: 'asc' },
+      orderBy: { name: "asc" },
     });
   }
 

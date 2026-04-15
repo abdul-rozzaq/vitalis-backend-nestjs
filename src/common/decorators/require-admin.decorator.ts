@@ -1,3 +1,3 @@
-import { SetMetadata } from '@nestjs/common';
+import { SetMetadata } from "@nestjs/common";
 
-export const RequireAdmin = () => SetMetadata('requireAdmin', true);
+export const RequireAdmin = () => SetMetadata("requireAdmin", true);

@@ -10,8 +10,7 @@ export class RequestLoggerMiddleware implements NestMiddleware {
     const startedAt = process.hrtime.bigint();
 
     res.on("finish", () => {
-      const durationMs =
-        Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+      const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
       const statusCode = res.statusCode;
       const contentLength = res.getHeader("content-length") ?? "-";
       const protocol = `HTTP/${req.httpVersion}`;

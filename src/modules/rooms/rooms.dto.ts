@@ -1,8 +1,8 @@
-import { IsString, IsInt, IsPositive, IsOptional, IsEnum, MinLength, MaxLength } from 'class-validator';
+import { IsString, IsInt, IsPositive, IsOptional, IsEnum, MinLength, MaxLength } from "class-validator";
 
 export enum RoomType {
-  WARD = 'WARD',
-  EXAMINATION = 'EXAMINATION',
+  WARD = "WARD",
+  EXAMINATION = "EXAMINATION",
 }
 
 export class CreateRoomDto {

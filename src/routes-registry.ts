@@ -284,6 +284,12 @@ export const ROUTES_REGISTRY: RouteEntry[] = [
   },
   {
     group: "Receptlar",
+    method: "GET",
+    path: "/api/prescriptions/:id/print",
+    description: "Receptni chop etish uchun HTML",
+  },
+  {
+    group: "Receptlar",
     method: "POST",
     path: "/api/prescriptions",
     description: "Recept saqlash (upsert)",

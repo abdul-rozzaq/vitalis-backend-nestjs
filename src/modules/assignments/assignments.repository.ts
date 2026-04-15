@@ -17,11 +17,7 @@ export type AssignmentDetail = Prisma.AssignmentGetPayload<{
 export class AssignmentsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(filters?: {
-    departmentId?: string;
-    userId?: string;
-    isActive?: boolean;
-  }): Promise<AssignmentDetail[]> {
+  async list(filters?: { departmentId?: string; userId?: string; isActive?: boolean }): Promise<AssignmentDetail[]> {
     return this.prisma.assignment.findMany({
       where: {
         departmentId: filters?.departmentId,
@@ -40,10 +36,7 @@ export class AssignmentsRepository {
     });
   }
 
-  async create(
-    data: Omit<Prisma.AssignmentCreateInput, "schedules">,
-    schedules?: { dayOfWeek?: number; startTime: string; endTime: string }[],
-  ): Promise<AssignmentDetail> {
+  async create(data: Omit<Prisma.AssignmentCreateInput, "schedules">, schedules?: { dayOfWeek?: number; startTime: string; endTime: string }[]): Promise<AssignmentDetail> {
     const normalizedSchedules = schedules?.map((s) => ({
       ...s,
       dayOfWeek: s.dayOfWeek ?? 0,
@@ -60,11 +53,7 @@ export class AssignmentsRepository {
     });
   }
 
-  async update(
-    id: string,
-    data: Prisma.AssignmentUpdateInput,
-    schedules?: { dayOfWeek?: number; startTime: string; endTime: string }[],
-  ): Promise<AssignmentDetail> {
+  async update(id: string, data: Prisma.AssignmentUpdateInput, schedules?: { dayOfWeek?: number; startTime: string; endTime: string }[]): Promise<AssignmentDetail> {
     const normalizedSchedules = schedules?.map((s) => ({
       ...s,
       dayOfWeek: s.dayOfWeek ?? 0,

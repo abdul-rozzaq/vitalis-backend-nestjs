@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { DepartmentsRepository } from './departments.repository';
-import { Prisma } from '../../generated/prisma/client';
+import { Injectable } from "@nestjs/common";
+import { DepartmentsRepository } from "./departments.repository";
+import { Prisma } from "../../generated/prisma/client";
 
 interface CreateDepartmentDto {
   name: string;
@@ -20,7 +20,7 @@ interface UpdateDepartmentDto {
 export class DepartmentsService {
   constructor(private readonly repository: DepartmentsRepository) {}
 
-  async list(filter?: 'parents' | 'children') {
+  async list(filter?: "parents" | "children") {
     return this.repository.list(filter);
   }
 

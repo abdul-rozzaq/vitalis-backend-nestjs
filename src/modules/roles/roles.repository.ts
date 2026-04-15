@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma } from '../../generated/prisma/client';
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../prisma/prisma.service";
+import { Prisma } from "../../generated/prisma/client";
 
 export type RoleDetail = Prisma.RoleGetPayload<Record<string, never>>;
 
@@ -9,7 +9,7 @@ export class RolesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(): Promise<RoleDetail[]> {
-    return this.prisma.role.findMany({ orderBy: { name: 'asc' } });
+    return this.prisma.role.findMany({ orderBy: { name: "asc" } });
   }
 
   async retrieve(id: string): Promise<RoleDetail | null> {

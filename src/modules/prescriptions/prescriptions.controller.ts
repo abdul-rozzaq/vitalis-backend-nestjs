@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Delete,
-  Param,
-  Body,
-  Query,
-} from "@nestjs/common";
+import { Controller, Get, Post, Delete, Param, Body, Query, Header } from "@nestjs/common";
 import { PrescriptionsService } from "./prescriptions.service";
 import { UpsertPrescriptionDto } from "./prescriptions.dto";
 
@@ -27,5 +19,11 @@ export class PrescriptionsController {
   @Delete(":id")
   remove(@Param("id") id: string) {
     return this.prescriptionsService.delete(id);
+  }
+
+  @Get(":id/print")
+  @Header("Content-Type", "text/html; charset=utf-8")
+  print(@Param("id") id: string) {
+    return this.prescriptionsService.generatePrintableHtml(id);
   }
 }

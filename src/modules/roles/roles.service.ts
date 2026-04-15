@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { RolesRepository } from './roles.repository';
-import { AppException } from '../../common/exceptions/app.exception';
+import { Injectable } from "@nestjs/common";
+import { RolesRepository } from "./roles.repository";
+import { AppException } from "../../common/exceptions/app.exception";
 
 type CreateRoleDto = {
   name: string;
@@ -19,7 +19,7 @@ export class RolesService {
 
   async retrieve(id: string) {
     const role = await this.repo.retrieve(id);
-    if (!role) throw new AppException('Role not found', 404);
+    if (!role) throw new AppException("Role not found", 404);
     return role;
   }
 

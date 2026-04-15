@@ -16,12 +16,7 @@ export class DepartmentsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(filter?: "parents" | "children") {
-    const where =
-      filter === "parents"
-        ? { parentId: null }
-        : filter === "children"
-          ? { NOT: { parentId: null } }
-          : undefined;
+    const where = filter === "parents" ? { parentId: null } : filter === "children" ? { NOT: { parentId: null } } : undefined;
 
     return this.prisma.department.findMany({
       where,

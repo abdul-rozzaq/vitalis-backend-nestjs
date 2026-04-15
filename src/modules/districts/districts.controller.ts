@@ -1,18 +1,18 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query } from '@nestjs/common';
-import { DistrictsService } from './districts.service';
-import { CreateDistrictDto, UpdateDistrictDto } from './districts.dto';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query } from "@nestjs/common";
+import { DistrictsService } from "./districts.service";
+import { CreateDistrictDto, UpdateDistrictDto } from "./districts.dto";
 
-@Controller('districts')
+@Controller("districts")
 export class DistrictsController {
   constructor(private readonly districtsService: DistrictsService) {}
 
   @Get()
-  findAll(@Query('regionId') regionId?: string) {
+  findAll(@Query("regionId") regionId?: string) {
     return this.districtsService.list(regionId);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
+  @Get(":id")
+  findOne(@Param("id") id: string) {
     return this.districtsService.retrieve(id);
   }
 

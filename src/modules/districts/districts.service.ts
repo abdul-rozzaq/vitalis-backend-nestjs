@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { DistrictsRepository } from './districts.repository';
-import { CreateDistrictDto, UpdateDistrictDto } from './districts.dto';
+import { Injectable } from "@nestjs/common";
+import { DistrictsRepository } from "./districts.repository";
+import { CreateDistrictDto, UpdateDistrictDto } from "./districts.dto";
 
 @Injectable()
 export class DistrictsService {

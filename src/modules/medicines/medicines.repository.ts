@@ -7,9 +7,7 @@ export class MedicinesRepository {
 
   async findAll(search?: string) {
     return this.prisma.medicine.findMany({
-      where: search
-        ? { name: { contains: search, mode: "insensitive" } }
-        : undefined,
+      where: search ? { name: { contains: search, mode: "insensitive" } } : undefined,
       orderBy: { name: "asc" },
     });
   }

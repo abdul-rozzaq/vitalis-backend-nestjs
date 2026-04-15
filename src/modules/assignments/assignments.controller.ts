@@ -1,13 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
-  Body,
-  Query,
-} from "@nestjs/common";
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query } from "@nestjs/common";
 import { AssignmentsService } from "./assignments.service";
 import { CreateAssignmentDto, UpdateAssignmentDto } from "./assignments.dto";
 
@@ -16,11 +7,7 @@ export class AssignmentsController {
   constructor(private readonly assignmentsService: AssignmentsService) {}
 
   @Get()
-  findAll(
-    @Query("departmentId") departmentId?: string,
-    @Query("userId") userId?: string,
-    @Query("isActive") isActive?: string,
-  ) {
+  findAll(@Query("departmentId") departmentId?: string, @Query("userId") userId?: string, @Query("isActive") isActive?: string) {
     const filters: {
       departmentId?: string;
       userId?: string;

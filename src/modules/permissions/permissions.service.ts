@@ -1,10 +1,10 @@
-import { Injectable } from '@nestjs/common';
-import { PermissionsRepository } from './permissions.repository';
-import { RolesRepository } from '../roles/roles.repository';
-import { AppException } from '../../common/exceptions/app.exception';
-import { PermissionGuard } from '../../common/guards/permission.guard';
+import { Injectable } from "@nestjs/common";
+import { PermissionsRepository } from "./permissions.repository";
+import { RolesRepository } from "../roles/roles.repository";
+import { AppException } from "../../common/exceptions/app.exception";
+import { PermissionGuard } from "../../common/guards/permission.guard";
 
-const VALID_METHODS = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'] as const;
+const VALID_METHODS = ["GET", "POST", "PATCH", "PUT", "DELETE"] as const;
 
 @Injectable()
 export class PermissionsService {
@@ -16,7 +16,7 @@ export class PermissionsService {
 
   private async assertRoleExists(roleId: string) {
     const role = await this.rolesRepo.retrieve(roleId);
-    if (!role) throw new AppException('Role not found', 404);
+    if (!role) throw new AppException("Role not found", 404);
     return role;
   }
 
@@ -30,9 +30,9 @@ export class PermissionsService {
 
     for (const p of permissions) {
       if (!VALID_METHODS.includes(p.method.toUpperCase() as any)) {
-        throw new AppException(`Invalid method: ${p.method}. Allowed: ${VALID_METHODS.join(', ')}`, 400);
+        throw new AppException(`Invalid method: ${p.method}. Allowed: ${VALID_METHODS.join(", ")}`, 400);
       }
-      if (!p.path.startsWith('/')) {
+      if (!p.path.startsWith("/")) {
         throw new AppException(`Path must start with "/": ${p.path}`, 400);
       }
     }

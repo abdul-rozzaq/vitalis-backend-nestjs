@@ -11,14 +11,7 @@ export class StatsService {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    const [
-      patientsTotal,
-      appointmentsToday,
-      employeesTotal,
-      paymentsUnpaid,
-      recentPatients,
-      recentAppointments,
-    ] = await Promise.all([
+    const [patientsTotal, appointmentsToday, employeesTotal, paymentsUnpaid, recentPatients, recentAppointments] = await Promise.all([
       this.prisma.patient.count(),
       this.prisma.appointment.count({
         where: { dateTime: { gte: todayStart, lte: todayEnd } },

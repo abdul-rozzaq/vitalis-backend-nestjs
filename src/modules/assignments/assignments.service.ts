@@ -21,11 +21,7 @@ type UpdateAssignmentDto = {
 export class AssignmentsService {
   constructor(private readonly repo: AssignmentsRepository) {}
 
-  async list(filters?: {
-    departmentId?: string;
-    userId?: string;
-    isActive?: boolean;
-  }) {
+  async list(filters?: { departmentId?: string; userId?: string; isActive?: boolean }) {
     return this.repo.list(filters);
   }
 
@@ -35,13 +31,7 @@ export class AssignmentsService {
     return assignment;
   }
 
-  async create({
-    schedules,
-    userId,
-    departmentId,
-    roomId,
-    ...rest
-  }: CreateAssignmentDto) {
+  async create({ schedules, userId, departmentId, roomId, ...rest }: CreateAssignmentDto) {
     const data: Prisma.AssignmentCreateInput = {
       ...rest,
       user: { connect: { id: userId } },
@@ -51,10 +41,7 @@ export class AssignmentsService {
     return this.repo.create(data, schedules);
   }
 
-  async update(
-    id: string,
-    { schedules, roomId, ...rest }: UpdateAssignmentDto,
-  ) {
+  async update(id: string, { schedules, roomId, ...rest }: UpdateAssignmentDto) {
     await this.retrieve(id);
     const data: Prisma.AssignmentUpdateInput = {
       ...rest,

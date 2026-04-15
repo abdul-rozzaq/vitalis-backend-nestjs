@@ -1,15 +1,4 @@
-import {
-  IsUUID,
-  IsBoolean,
-  IsOptional,
-  IsArray,
-  ValidateNested,
-  IsInt,
-  Min,
-  Max,
-  Matches,
-  IsString,
-} from "class-validator";
+import { IsUUID, IsBoolean, IsOptional, IsArray, ValidateNested, IsInt, Min, Max, Matches, IsString } from "class-validator";
 import { Type } from "class-transformer";
 
 export class ScheduleDto {

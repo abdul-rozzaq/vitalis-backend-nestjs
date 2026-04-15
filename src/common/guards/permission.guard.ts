@@ -1,14 +1,9 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-  Injectable,
-} from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { PrismaService } from '../../prisma/prisma.service';
-import { JwtPayload } from '../types/jwt-payload.type';
-import { Request } from 'express';
-import { SKIP_PERMISSION_CHECK_KEY } from '../decorators/skip-permission-check.decorator';
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
+import { PrismaService } from "../../prisma/prisma.service";
+import { JwtPayload } from "../types/jwt-payload.type";
+import { Request } from "express";
+import { SKIP_PERMISSION_CHECK_KEY } from "../decorators/skip-permission-check.decorator";
 
 // ─── In-memory Permission Cache ──────────────────────────────────────────────
 // Key: "roleId:METHOD:/normalized/path"  Value: { allowed, expiresAt }  TTL: 5 min
@@ -21,10 +16,10 @@ const NUMERIC_SEGMENT = /\/\d+(?=\/|$)/g;
 
 function normalizePath(rawPath: string): string {
   return rawPath
-    .replace(UUID_REGEX, ':id')
-    .replace(OBJECT_ID_REGEX, ':id')
-    .replace(NUMERIC_SEGMENT, '/:id')
-    .replace(/\/:id\/:id/g, '/:id');
+    .replace(UUID_REGEX, ":id")
+    .replace(OBJECT_ID_REGEX, ":id")
+    .replace(NUMERIC_SEGMENT, "/:id")
+    .replace(/\/:id\/:id/g, "/:id");
 }
 
 @Injectable()
@@ -48,17 +43,11 @@ export class PermissionGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Skip public routes (already handled by JwtAuthGuard but check here too)
-    const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const isPublic = this.reflector.getAllAndOverride<boolean>("isPublic", [context.getHandler(), context.getClass()]);
 
     if (isPublic) return true;
 
-    const skipPermissionCheck = this.reflector.getAllAndOverride<boolean>(
-      SKIP_PERMISSION_CHECK_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const skipPermissionCheck = this.reflector.getAllAndOverride<boolean>(SKIP_PERMISSION_CHECK_KEY, [context.getHandler(), context.getClass()]);
 
     if (skipPermissionCheck) return true;
 
@@ -70,19 +59,16 @@ export class PermissionGuard implements CanActivate {
     const { roleId, roleName, isSuperUser } = user;
 
     // Superuser and ADMIN bypass all permission checks
-    if (isSuperUser || roleName === 'ADMIN') return true;
+    if (isSuperUser || roleName === "ADMIN") return true;
 
     // Check requireAdmin decorator
-    const requireAdmin = this.reflector.getAllAndOverride<boolean>('requireAdmin', [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requireAdmin = this.reflector.getAllAndOverride<boolean>("requireAdmin", [context.getHandler(), context.getClass()]);
 
-    if (requireAdmin) throw new ForbiddenException('Admin privileges required');
+    if (requireAdmin) throw new ForbiddenException("Admin privileges required");
 
     const method = request.method.toUpperCase();
     const rawUrl = request.originalUrl || request.url;
-    const normalized = normalizePath(rawUrl.replace(/\?.*$/, ''));
+    const normalized = normalizePath(rawUrl.replace(/\?.*$/, ""));
 
     const cacheKey = `${roleId}:${method}:${normalized}`;
 
@@ -104,7 +90,7 @@ export class PermissionGuard implements CanActivate {
     this.cache.set(cacheKey, { allowed, expiresAt: Date.now() + CACHE_TTL_MS });
 
     if (allowed) return true;
-    
+
     throw new ForbiddenException(`Permission denied — required: ${method} ${normalized}`);
   }
 }

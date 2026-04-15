@@ -27,11 +27,7 @@ export class PatientsRepository {
     return this.prisma.patient.findMany({
       where: search
         ? {
-            OR: [
-              { id: { contains: search, mode: "insensitive" } },
-              { first_name: { contains: search, mode: "insensitive" } },
-              { last_name: { contains: search, mode: "insensitive" } },
-            ],
+            OR: [{ id: { contains: search, mode: "insensitive" } }, { first_name: { contains: search, mode: "insensitive" } }, { last_name: { contains: search, mode: "insensitive" } }],
           }
         : undefined,
       include: { district: { include: { region: true } } },

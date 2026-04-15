@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { RoomsRepository } from './rooms.repository';
-import { AppException } from '../../common/exceptions/app.exception';
-import { Prisma } from '../../generated/prisma/client';
+import { Injectable } from "@nestjs/common";
+import { RoomsRepository } from "./rooms.repository";
+import { AppException } from "../../common/exceptions/app.exception";
+import { Prisma } from "../../generated/prisma/client";
 
 @Injectable()
 export class RoomsService {
@@ -13,7 +13,7 @@ export class RoomsService {
 
   async retrieve(id: string) {
     const room = await this.repo.retrieve(id);
-    if (!room) throw new AppException('Room not found', 404);
+    if (!room) throw new AppException("Room not found", 404);
     return room;
   }
 

@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common';
-import { DistrictsController } from './districts.controller';
-import { DistrictsService } from './districts.service';
-import { DistrictsRepository } from './districts.repository';
+import { Module } from "@nestjs/common";
+import { DistrictsController } from "./districts.controller";
+import { DistrictsService } from "./districts.service";
+import { DistrictsRepository } from "./districts.repository";
 
 @Module({
   controllers: [DistrictsController],
