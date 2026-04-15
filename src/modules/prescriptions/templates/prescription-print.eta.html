@@ -1,20 +1,16 @@
 <!doctype html>
-<html
-  lang="en"
-  data-document-type="medical-prescription"
-  data-export-compatible="pdf-ready-v1"
->
+<html lang="en" data-document-type="medical-prescription">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Prescription <%= it.document.metadata.prescriptionId %></title>
     <style>
       :root {
-        --text: #111827;
-        --muted: #6b7280;
-        --line: #d1d5db;
-        --line-strong: #9ca3af;
-        --bg-soft: #f9fafb;
+        --text: #0f172a;
+        --muted: #64748b;
+        --line: #dbe1ea;
+        --line-strong: #94a3b8;
+        --bg-soft: #f8fafc;
       }
 
       * {
@@ -28,7 +24,7 @@
 
       body {
         margin: 0;
-        font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+        font-family: "Inter", "Segoe UI", Roboto, Arial, sans-serif;
         color: var(--text);
         background: #fff;
       }
@@ -36,30 +32,31 @@
       .sheet {
         max-width: 210mm;
         margin: 0 auto;
-        padding: 8mm;
+        padding: 10mm;
       }
 
       .non-printable {
         display: flex;
         justify-content: flex-end;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
       }
 
       .print-btn {
         border: 1px solid var(--line-strong);
         background: #fff;
-        border-radius: 6px;
-        padding: 6px 12px;
+        border-radius: 8px;
+        padding: 8px 14px;
         font-size: 12px;
+        font-weight: 600;
         cursor: pointer;
       }
 
       .header {
         display: flex;
         justify-content: space-between;
-        gap: 16px;
+        gap: 20px;
         border-bottom: 2px solid var(--line-strong);
-        padding-bottom: 12px;
+        padding-bottom: 14px;
       }
 
       .brand {
@@ -69,15 +66,15 @@
       }
 
       .logo {
-        width: 56px;
-        height: 56px;
+        width: 58px;
+        height: 58px;
         border-radius: 8px;
         object-fit: cover;
         border: 1px solid var(--line);
       }
 
       .title {
-        font-size: 24px;
+        font-size: 26px;
         font-weight: 700;
         margin: 0;
       }
@@ -90,11 +87,11 @@
 
       .meta {
         text-align: right;
-        min-width: 240px;
+        min-width: 250px;
       }
 
       .meta h2 {
-        margin: 0;
+        margin: 0 0 6px;
         letter-spacing: 0.08em;
         font-size: 12px;
         font-weight: 700;
@@ -106,45 +103,33 @@
         font-size: 12px;
       }
 
-      .details-grid {
-        margin-top: 16px;
+      .summary-grid {
+        margin-top: 14px;
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 12px;
       }
 
-      .card {
+      .summary-card {
         border: 1px solid var(--line);
         border-radius: 8px;
-        padding: 10px;
-        background: #fff;
+        background: var(--bg-soft);
+        padding: 10px 12px;
       }
 
-      .card h3 {
-        margin: 0 0 8px;
-        font-size: 13px;
+      .summary-label {
+        margin: 0;
+        color: var(--muted);
+        font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 0.06em;
       }
 
-      .info-row {
-        display: flex;
-        justify-content: space-between;
-        gap: 8px;
-        margin: 4px 0;
-        border-bottom: 1px dashed #e5e7eb;
-        padding-bottom: 3px;
-      }
-
-      .label {
-        font-size: 12px;
-        color: var(--muted);
-      }
-
-      .value {
-        font-size: 12px;
-        font-weight: 500;
-        text-align: right;
+      .summary-value {
+        margin: 4px 0 0;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.35;
       }
 
       .medications {
@@ -186,6 +171,7 @@
         border: 1px solid var(--line);
         border-radius: 8px;
         padding: 10px;
+        background: #fff;
       }
 
       .notes h3 {
@@ -198,10 +184,6 @@
         font-size: 12px;
         line-height: 1.45;
         white-space: pre-line;
-      }
-
-      .future-slot {
-        display: none;
       }
 
       .footer {
@@ -242,8 +224,8 @@
       }
 
       .qr img {
-        width: 120px;
-        height: 120px;
+        width: 112px;
+        height: 112px;
         border: 1px solid var(--line);
         border-radius: 6px;
       }
@@ -262,7 +244,7 @@
         }
 
         .header,
-        .details-grid,
+        .summary-grid,
         .footer,
         .signatures {
           display: grid;
@@ -301,11 +283,7 @@
       <header class="header">
         <div class="brand">
           <% if (it.document.clinic.logoUrl) { %>
-          <img
-            src="<%= it.document.clinic.logoUrl %>"
-            alt="Clinic logo"
-            class="logo"
-          />
+          <img src="<%= it.document.clinic.logoUrl %>" alt="Clinic logo" class="logo" />
           <% } %>
           <div>
             <h1 class="title"><%= it.document.clinic.name %></h1>
@@ -317,32 +295,23 @@
           <p><strong>ID:</strong> <%= it.document.metadata.prescriptionId %></p>
           <p>
             <strong>Date:</strong>
-            <time datetime="<%= it.document.metadata.issueDateIso %>"
-              ><%= it.document.metadata.issueDate %></time
-            >
+            <time datetime="<%= it.document.metadata.issueDateIso %>"><%= it.document.metadata.issueDate %></time>
           </p>
         </div>
       </header>
 
-      <section class="details-grid">
-        <article class="card">
-          <h3>Patient Information</h3>
-          <% it.patientInfoRows.forEach((row) => { %>
-          <div class="info-row">
-            <span class="label"><%= row.label %></span>
-            <span class="value"><%= row.value %></span>
-          </div>
-          <% }) %>
+      <section class="summary-grid">
+        <article class="summary-card">
+          <p class="summary-label">Patient</p>
+          <p class="summary-value"><%= it.document.patient.fullName || "—" %></p>
         </article>
-
-        <article class="card">
-          <h3>Doctor Information</h3>
-          <% it.doctorInfoRows.forEach((row) => { %>
-          <div class="info-row">
-            <span class="label"><%= row.label %></span>
-            <span class="value"><%= row.value %></span>
-          </div>
-          <% }) %>
+        <article class="summary-card">
+          <p class="summary-label">Doctor</p>
+          <p class="summary-value"><%= it.document.doctor.fullName || "—" %></p>
+        </article>
+        <article class="summary-card">
+          <p class="summary-label">Department</p>
+          <p class="summary-value"><%= it.document.doctor.specialization || "—" %></p>
         </article>
       </section>
 
@@ -363,8 +332,7 @@
             <tr>
               <td colspan="6">No medications listed.</td>
             </tr>
-            <% } else { %> <% it.document.medications.forEach((item, index) => {
-            %>
+            <% } else { %> <% it.document.medications.forEach((item, index) => { %>
             <tr>
               <td><%= index + 1 %></td>
               <td><%= item.drugName || "—" %></td>
@@ -388,20 +356,13 @@
         <h3>Additional Notes</h3>
         <p><%= it.document.notes %></p>
       </section>
-      <% } %> <% it.document.referrals?.forEach((section) => { %>
-      <section class="future-slot" data-referral-key="<%= section.key %>">
-        <h3><%= section.title %></h3>
-        <p><%= section.content || "" %></p>
-      </section>
-      <% }) %>
+      <% } %>
 
       <footer class="footer">
         <div class="signatures">
           <div class="signature-box">
             <div class="signature-title">Doctor Signature</div>
-            <div class="signature-line">
-              <%= it.document.doctor.signaturePlaceholder %>
-            </div>
+            <div class="signature-line"><%= it.document.doctor.signaturePlaceholder %></div>
           </div>
           <div class="signature-box">
             <div class="signature-title">Clinic Stamp</div>
@@ -410,10 +371,7 @@
         </div>
 
         <div class="qr">
-          <img
-            src="<%= it.document.qrCodeDataUrl %>"
-            alt="Prescription verification QR"
-          />
+          <img src="<%= it.document.qrCodeDataUrl %>" alt="Prescription verification QR" />
           <p><%= it.document.metadata.verificationUrl %></p>
         </div>
       </footer>
