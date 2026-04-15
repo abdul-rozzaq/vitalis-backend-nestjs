@@ -14,9 +14,11 @@ export function calculateAge(dateOfBirth: Date | string | null | undefined): num
   if (!dateOfBirth) return undefined;
 
   const birthDate = dateOfBirth instanceof Date ? dateOfBirth : new Date(dateOfBirth);
+
   if (Number.isNaN(birthDate.getTime())) return undefined;
 
   const now = new Date();
+
   let age = now.getFullYear() - birthDate.getFullYear();
   const monthDiff = now.getMonth() - birthDate.getMonth();
 
