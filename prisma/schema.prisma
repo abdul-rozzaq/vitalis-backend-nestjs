@@ -102,11 +102,42 @@ model Patient {
   districtId      String
   payments        Payment[]
   appointments    Appointment[]
+  medicalCards    MedicalCard003[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("patients")
+}
+
+model MedicalCard003 {
+  id String @id @default(uuid())
+
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId String
+
+  admissionDate DateTime  @db.Date
+  dischargeDate DateTime? @db.Date
+
+  wardNumber     String? @db.VarChar(20)
+  departmentName String? @db.VarChar(128)
+  doctorName     String? @db.VarChar(128)
+  nurseName      String? @db.VarChar(128)
+
+  complaints    String? @db.Text
+  anamnesis     String? @db.Text
+  lifeAnamnesis String? @db.Text
+
+  diagnosisInitial String? @db.VarChar(500)
+  diagnosisFinal   String? @db.VarChar(500)
+
+  treatment  String? @db.Text
+  dailyNotes Json?   @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("medical_cards_003")
 }
 
 model Department {
