@@ -1,9 +1,55 @@
 services:
   backend:
     build: .
-    ports:
-      - "3000:3000"
+    image: rayyandev/vitalis-backend-nestjs:latest
+    container_name: vitalis-backend-nestjs
+    restart: always
     env_file:
       - .env
+
+    depends_on:
+      db:
+        condition: service_healthy
+
     environment:
-      - PORT=3000
+      DATABASE_URL: "postgresql://postgres:password@db:5432/vitalis_db?schema=public"
+      PORT: 3000
+      LOKI_HOST: "http://alloy:3100"
+
+    ports:
+      - "9000:3000"
+    command: >
+      sh -c "npx prisma migrate deploy &&
+             npm run start"
+
+  db:
+    image: postgres:17-alpine
+    container_name: vitalis-nestjs-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: vitalis_db
+
+    # ports:
+    #   - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d vitalis_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # alloy:
+  #   image: grafana/alloy:latest
+  #   container_name: alloy
+  #   ports:
+  #     - "3100:3100"
+  #     - "12345:12345" # debug UI
+  #   volumes:
+  #     - ../config.alloy:/etc/alloy/config.alloy
+  #   command: run /etc/alloy/config.alloy
+
+volumes:
+  postgres_data:
