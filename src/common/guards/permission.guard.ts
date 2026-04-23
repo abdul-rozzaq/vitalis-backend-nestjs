@@ -4,6 +4,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { JwtPayload } from "../types/jwt-payload.type";
 import { Request } from "express";
 import { SKIP_PERMISSION_CHECK_KEY } from "../decorators/skip-permission-check.decorator";
+import { RoleName } from "../enums/role-name.enum";
 
 // ─── In-memory Permission Cache ──────────────────────────────────────────────
 // Key: "roleId:METHOD:/normalized/path"  Value: { allowed, expiresAt }  TTL: 5 min
@@ -59,7 +60,7 @@ export class PermissionGuard implements CanActivate {
     const { roleId, roleName, isSuperUser } = user;
 
     // Superuser and ADMIN bypass all permission checks
-    if (isSuperUser || roleName === "ADMIN") return true;
+    if (isSuperUser || roleName === RoleName.ADMIN) return true;
 
     // Check requireAdmin decorator
     const requireAdmin = this.reflector.getAllAndOverride<boolean>("requireAdmin", [context.getHandler(), context.getClass()]);

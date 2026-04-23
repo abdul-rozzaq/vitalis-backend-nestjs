@@ -300,4 +300,42 @@ export const ROUTES_REGISTRY: RouteEntry[] = [
     path: "/api/prescriptions/:id",
     description: "Receptni o'chirish",
   },
+
+  // ─── Patient Cases ─────────────────────────────────────────────────────────
+  {
+    group: "Cases",
+    method: "POST",
+    path: "/api/cases",
+    description: "Yangi bemor ishi (check-in)",
+  },
+  {
+    group: "Cases",
+    method: "GET",
+    path: "/api/cases/:id",
+    description: "Ish tafsiloti",
+  },
+  {
+    group: "Cases",
+    method: "POST",
+    path: "/api/cases/:id/steps",
+    description: "Ishga qadam qo'shish",
+  },
+  {
+    group: "Cases",
+    method: "PATCH",
+    path: "/api/cases/:id/steps/:id",
+    description: "Qadam holatini yangilash",
+  },
+  {
+    group: "Cases",
+    method: "PATCH",
+    path: "/api/cases/:id/close",
+    description: "Ishni yopish",
+  },
+  {
+    group: "Cases",
+    method: "GET",
+    path: "/api/patients/:id/cases",
+    description: "Bemorning ishlari",
+  },
 ];

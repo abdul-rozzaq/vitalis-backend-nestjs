@@ -17,18 +17,18 @@ export class MedicalCardsService {
     });
   }
 
-  async findById(id: string) {
-    const card = await this.repository.findById(id);
+  async findById(id: string, userId: string, isDoctor: boolean) {
+    const card = await this.repository.findById(id, userId, isDoctor);
     if (!card) throw new NotFoundException(`MedicalCard003 ${id} not found`);
     return card;
   }
 
-  findByPatientId(patientId: string) {
-    return this.repository.findByPatientId(patientId);
+  findByPatientId(patientId: string, userId: string, isDoctor: boolean) {
+    return this.repository.findByPatientId(patientId, userId, isDoctor);
   }
 
-  async update(id: string, dto: UpdateMedicalCard003Dto) {
-    await this.findById(id);
+  async update(id: string, dto: UpdateMedicalCard003Dto, userId: string, isDoctor: boolean) {
+    await this.findById(id, userId, isDoctor);
     const { admissionDate, dischargeDate, dailyNotes, ...rest } = dto;
     return this.repository.update(id, {
       ...(admissionDate ? { admissionDate: new Date(admissionDate) } : {}),

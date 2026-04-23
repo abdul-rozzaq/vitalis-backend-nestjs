@@ -25,6 +25,7 @@ import { StatsModule } from "./modules/stats/stats.module";
 import { MedicinesModule } from "./modules/medicines/medicines.module";
 import { PrescriptionsModule } from "./modules/prescriptions/prescriptions.module";
 import { MedicalCardsModule } from "./modules/medical-cards/medical-cards.module";
+import { CasesModule } from "./modules/cases/cases.module";
 
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionGuard } from "./common/guards/permission.guard";
@@ -66,6 +67,7 @@ import { RequestLoggerMiddleware } from "./common/middleware/request-logger.midd
     MedicinesModule,
     PrescriptionsModule,
     MedicalCardsModule,
+    CasesModule,
   ],
   controllers: [AppController],
   providers: [

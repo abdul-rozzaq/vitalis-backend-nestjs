@@ -18,12 +18,19 @@ const mealRelationLabels = {
 export class PrescriptionsService {
   constructor(private readonly repository: PrescriptionsRepository) {}
 
-  getByAppointment(appointmentId: string) {
-    return this.repository.findByAppointmentId(appointmentId);
+  getByAppointment(appointmentId: string, userId: string, isDoctor: boolean) {
+    return this.repository.findByAppointmentId(appointmentId, userId, isDoctor);
+  }
+
+  getByCaseStep(caseStepId: string, userId: string, isDoctor: boolean) {
+    return this.repository.findByCaseStepId(caseStepId, userId, isDoctor);
   }
 
   upsert(dto: UpsertPrescriptionDto) {
-    return this.repository.upsert(dto.appointmentId, dto.items);
+    return this.repository.upsert(
+      { appointmentId: dto.appointmentId, caseStepId: dto.caseStepId },
+      dto.items,
+    );
   }
 
   delete(id: string) {

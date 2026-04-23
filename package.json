@@ -16,7 +16,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "load-admin": "ts-node -r tsconfig-paths/register prisma/seeds/load_admin.ts",
     "load-defaults": "ts-node -r tsconfig-paths/register prisma/seeds/load_defaults.ts",
-    "load-places": "ts-node -r tsconfig-paths/register prisma/seeds/load_places.ts"
+    "load-places": "ts-node -r tsconfig-paths/register prisma/seeds/load_places.ts",
+    "load-roles": "ts-node -r tsconfig-paths/register prisma/seeds/load_roles.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",

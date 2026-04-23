@@ -6,16 +6,16 @@ import { Prisma } from "../../generated/prisma/client";
 export class PatientsService {
   constructor(private readonly repository: PatientsRepository) {}
 
-  async getTimeline(id: string) {
-    return this.repository.getTimeline(id);
+  async getTimeline(id: string, userId: string, isDoctor: boolean) {
+    return this.repository.getTimeline(id, userId, isDoctor);
   }
 
-  async list(search?: string) {
-    return this.repository.list(search);
+  async list(userId: string, isDoctor: boolean, search?: string) {
+    return this.repository.list(userId, isDoctor, search);
   }
 
-  async retrieve(id: string) {
-    return this.repository.retrieve(id);
+  async retrieve(id: string, userId: string, isDoctor: boolean) {
+    return this.repository.retrieve(id, userId, isDoctor);
   }
 
   async create(data: Prisma.PatientCreateInput) {

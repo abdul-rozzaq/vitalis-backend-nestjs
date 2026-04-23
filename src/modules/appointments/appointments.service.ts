@@ -30,12 +30,12 @@ export class AppointmentsService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async list(search?: string, departmentId?: string, patientId?: string) {
-    return this.repository.list(search, departmentId, patientId);
+  async list(userId: string, isDoctor: boolean, search?: string, departmentId?: string, patientId?: string) {
+    return this.repository.list(userId, isDoctor, search, departmentId, patientId);
   }
 
-  async retrieve(id: string) {
-    return this.repository.retrieve(id);
+  async retrieve(id: string, userId: string, isDoctor: boolean) {
+    return this.repository.retrieve(id, userId, isDoctor);
   }
 
   async create(data: CreateAppointmentDto) {
@@ -94,8 +94,8 @@ export class AppointmentsService {
     return this.repository.update(id, updateData);
   }
 
-  async addFile(id: string, dto: CreateAppointmentFileDto) {
-    const appointment = await this.repository.retrieve(id);
+  async addFile(id: string, dto: CreateAppointmentFileDto, userId: string, isDoctor: boolean) {
+    const appointment = await this.repository.retrieve(id, userId, isDoctor);
     if (!appointment) {
       throw new AppException("Appointment not found", 404);
     }

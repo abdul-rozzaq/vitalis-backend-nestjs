@@ -40,8 +40,13 @@ export class PrescriptionItemDto {
 }
 
 export class UpsertPrescriptionDto {
+  @IsOptional()
   @IsUUID()
-  appointmentId: string;
+  appointmentId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  caseStepId?: string;
 
   @IsArray()
   @ValidateNested({ each: true })
