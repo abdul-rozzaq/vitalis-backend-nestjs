@@ -15,6 +15,15 @@ const appointmentInclude = {
       },
     },
   },
+  caseStep: {
+    select: {
+      id: true,
+      type: true,
+      status: true,
+      caseId: true,
+      case: { select: { id: true, status: true } },
+    },
+  },
 } as const;
 
 @Injectable()
