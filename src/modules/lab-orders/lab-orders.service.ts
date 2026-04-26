@@ -3,7 +3,7 @@ import { LabItemStatus } from "../../generated/prisma/client";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { PrismaService } from "../../prisma/prisma.service";
-import { UpdateLabOrderItemDto } from "./lab-orders.dto";
+import { AddLabOrderItemFileDto, UpdateLabOrderItemDto } from "./lab-orders.dto";
 import { LabOrdersRepository } from "./lab-orders.repository";
 
 @Injectable()
@@ -43,13 +43,30 @@ export class LabOrdersService {
 
     const updated = await this.repo.updateItem(itemId, {
       status: dto.status,
-      fileUrl: dto.fileUrl,
-      fileName: dto.fileName,
       note: dto.note,
       completedAt,
     });
 
     await this.repo.recalcOrderStatus(orderId);
     return updated;
+  }
+
+  async addFile(orderId: string, itemId: string, dto: AddLabOrderItemFileDto) {
+    const order = await this.repo.findById(orderId);
+    if (!order) throw new NotFoundException("Lab order not found");
+    if (!order.items.find((i) => i.id === itemId))
+      throw new NotFoundException("Lab order item not found");
+    return this.repo.addFile(itemId, dto.url, dto.name);
+  }
+
+  async removeFile(orderId: string, itemId: string, fileId: string) {
+    const order = await this.repo.findById(orderId);
+    if (!order) throw new NotFoundException("Lab order not found");
+    if (!order.items.find((i) => i.id === itemId))
+      throw new NotFoundException("Lab order item not found");
+    const file = await this.repo.findFile(fileId);
+    if (!file || file.labOrderItemId !== itemId)
+      throw new NotFoundException("File not found");
+    return this.repo.removeFile(fileId);
   }
 }

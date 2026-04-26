@@ -12,6 +12,7 @@ const LAB_ORDER_INCLUDE = {
     include: {
       service: { select: { id: true, name: true, price: true } },
       payment: { select: { id: true, amount: true, status: true, method: true } },
+      files: { orderBy: { createdAt: "asc" as const } },
     },
     orderBy: { createdAt: "asc" as const },
   },
@@ -45,13 +46,7 @@ export class LabOrdersRepository {
 
   updateItem(
     itemId: string,
-    data: {
-      status?: LabItemStatus;
-      fileUrl?: string;
-      fileName?: string;
-      note?: string;
-      completedAt?: Date;
-    },
+    data: { status?: LabItemStatus; note?: string; completedAt?: Date },
   ) {
     return this.prisma.labOrderItem.update({
       where: { id: itemId },
@@ -59,9 +54,24 @@ export class LabOrdersRepository {
       include: {
         service: { select: { id: true, name: true, price: true } },
         payment: { select: { id: true, amount: true, status: true, method: true } },
+        files: { orderBy: { createdAt: "asc" as const } },
         labOrder: { select: { id: true, status: true } },
       },
     });
+  }
+
+  addFile(itemId: string, url: string, name: string) {
+    return this.prisma.labOrderItemFile.create({
+      data: { url, name, labOrderItem: { connect: { id: itemId } } },
+    });
+  }
+
+  removeFile(fileId: string) {
+    return this.prisma.labOrderItemFile.delete({ where: { id: fileId } });
+  }
+
+  findFile(fileId: string) {
+    return this.prisma.labOrderItemFile.findUnique({ where: { id: fileId } });
   }
 
   async recalcOrderStatus(labOrderId: string) {

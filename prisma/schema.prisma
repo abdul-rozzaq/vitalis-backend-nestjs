@@ -485,7 +485,7 @@ model LabOrder {
   patient         Patient        @relation(fields: [patientId], references: [id])
   patientId       String
 
-  laboratory   Laboratory @relation(fields: [laboratoryId], references: [id])
+  laboratory   Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
   laboratoryId String
 
   items           LabOrderItem[]
@@ -512,11 +512,23 @@ model LabOrderItem {
   completedAt DateTime?
 
   payment     Payment?
+  files       LabOrderItemFile[]
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
   @@map("lab_order_items")
+}
+
+model LabOrderItemFile {
+  id             String       @id @default(uuid())
+  url            String
+  name           String
+  labOrderItem   LabOrderItem @relation(fields: [labOrderItemId], references: [id], onDelete: Cascade)
+  labOrderItemId String
+  createdAt      DateTime     @default(now())
+
+  @@map("lab_order_item_files")
 }
 
 // ─── Laboratories ─────────────────────────────────────────────────────────────

@@ -8,13 +8,13 @@ export class UpdateLabOrderItemDto {
 
   @IsOptional()
   @IsString()
-  fileUrl?: string;
-
-  @IsOptional()
-  @IsString()
-  fileName?: string;
-
-  @IsOptional()
-  @IsString()
   note?: string;
+}
+
+export class AddLabOrderItemFileDto {
+  @IsString()
+  url: string;
+
+  @IsString()
+  name: string;
 }

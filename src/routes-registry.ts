@@ -375,4 +375,16 @@ export const ROUTES_REGISTRY: RouteEntry[] = [
     path: "/api/lab-orders/:id/items/:id",
     description: "Laboratoriya xizmat natijasini yangilash",
   },
+  {
+    group: "Laboratoriya",
+    method: "POST",
+    path: "/api/lab-orders/:id/items/:id/files",
+    description: "Laboratoriya natijasiga fayl qo'shish",
+  },
+  {
+    group: "Laboratoriya",
+    method: "DELETE",
+    path: "/api/lab-orders/:id/items/:id/files/:id",
+    description: "Laboratoriya natijasidan fayl o'chirish",
+  },
 ];
