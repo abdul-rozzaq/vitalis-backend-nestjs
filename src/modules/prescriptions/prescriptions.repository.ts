@@ -31,19 +31,41 @@ const prescriptionPrintInclude = {
 export class PrescriptionsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findByAppointmentId(appointmentId: string) {
+  async findByAppointmentId(appointmentId: string, userId: string, isDoctor: boolean) {
+    if (isDoctor) {
+      return this.prisma.prescription.findFirst({
+        where: { appointmentId, appointment: { assignment: { userId } } },
+        include: prescriptionInclude,
+      });
+    }
     return this.prisma.prescription.findUnique({
       where: { appointmentId },
       include: prescriptionInclude,
     });
   }
 
-  async upsert(appointmentId: string, items: PrescriptionItemDto[]) {
+  async findByCaseStepId(caseStepId: string, userId: string, isDoctor: boolean) {
+    if (isDoctor) {
+      return this.prisma.prescription.findFirst({
+        where: { caseStepId, caseStep: { assignment: { userId } } },
+        include: prescriptionInclude,
+      });
+    }
+    return this.prisma.prescription.findUnique({
+      where: { caseStepId },
+      include: prescriptionInclude,
+    });
+  }
+
+  async upsert(key: { appointmentId?: string; caseStepId?: string }, items: PrescriptionItemDto[]) {
+    const whereClause = key.caseStepId ? { caseStepId: key.caseStepId } : { appointmentId: key.appointmentId! };
+    const createData = key.caseStepId ? { caseStepId: key.caseStepId } : { appointmentId: key.appointmentId };
+
     return this.prisma.$transaction(async (tx) => {
       // Find or create the prescription
       const prescription = await tx.prescription.upsert({
-        where: { appointmentId },
-        create: { appointmentId },
+        where: whereClause,
+        create: createData,
         update: {},
       });
 

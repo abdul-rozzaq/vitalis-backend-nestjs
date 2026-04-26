@@ -18,11 +18,24 @@ export class MedicalCardsRepository {
     return this.prisma.medicalCard003.create({ data, include: PATIENT_INCLUDE });
   }
 
-  findById(id: string) {
+  async findById(id: string, userId: string, isDoctor: boolean) {
+    if (isDoctor) {
+      return this.prisma.medicalCard003.findFirst({
+        where: { id, patient: { appointments: { some: { assignment: { userId } } } } },
+        include: PATIENT_INCLUDE,
+      });
+    }
     return this.prisma.medicalCard003.findUnique({ where: { id }, include: PATIENT_INCLUDE });
   }
 
-  findByPatientId(patientId: string) {
+  async findByPatientId(patientId: string, userId: string, isDoctor: boolean) {
+    if (isDoctor) {
+      const hasAccess = await this.prisma.appointment.findFirst({
+        where: { patientId, assignment: { userId } },
+        select: { id: true },
+      });
+      if (!hasAccess) return [];
+    }
     return this.prisma.medicalCard003.findMany({
       where: { patientId },
       orderBy: { createdAt: "desc" },

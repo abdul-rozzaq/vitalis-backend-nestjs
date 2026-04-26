@@ -6,8 +6,9 @@ import { Prisma } from "../../generated/prisma/client";
 export class PaymentsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list() {
+  async list(userId: string, isDoctor: boolean) {
     return this.prisma.payment.findMany({
+      where: isDoctor ? { assignment: { userId } } : undefined,
       include: {
         patient: true,
         department: true,
@@ -15,9 +16,12 @@ export class PaymentsRepository {
     });
   }
 
-  async retrieve(id: string) {
-    return this.prisma.payment.findUnique({
-      where: { id },
+  async retrieve(id: string, userId: string, isDoctor: boolean) {
+    return this.prisma.payment.findFirst({
+      where: {
+        id,
+        ...(isDoctor ? { assignment: { userId } } : {}),
+      },
       include: {
         patient: true,
         department: true,

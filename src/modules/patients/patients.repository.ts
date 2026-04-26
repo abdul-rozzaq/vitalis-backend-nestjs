@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { Prisma } from "../../generated/prisma/client";
 
@@ -6,9 +6,12 @@ import { Prisma } from "../../generated/prisma/client";
 export class PatientsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getTimeline(id: string) {
+  async getTimeline(id: string, userId: string, isDoctor: boolean) {
     return this.prisma.appointment.findMany({
-      where: { patientId: id },
+      where: {
+        patientId: id,
+        ...(isDoctor ? { assignment: { userId } } : {}),
+      },
       include: {
         assignment: {
           include: {
@@ -23,22 +26,34 @@ export class PatientsRepository {
     });
   }
 
-  async list(search?: string) {
+  async list(userId: string, isDoctor: boolean, search?: string) {
     return this.prisma.patient.findMany({
-      where: search
-        ? {
-            OR: [{ id: { contains: search, mode: "insensitive" } }, { first_name: { contains: search, mode: "insensitive" } }, { last_name: { contains: search, mode: "insensitive" } }],
-          }
-        : undefined,
+      where: {
+        ...(search
+          ? {
+              OR: [
+                { id: { contains: search, mode: "insensitive" } },
+                { first_name: { contains: search, mode: "insensitive" } },
+                { last_name: { contains: search, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+        ...(isDoctor ? { appointments: { some: { assignment: { userId } } } } : {}),
+      },
       include: { district: { include: { region: true } } },
     });
   }
 
-  async retrieve(id: string) {
-    return this.prisma.patient.findUnique({
-      where: { id },
+  async retrieve(id: string, userId: string, isDoctor: boolean) {
+    const patient = await this.prisma.patient.findFirst({
+      where: {
+        id,
+        ...(isDoctor ? { appointments: { some: { assignment: { userId } } } } : {}),
+      },
       include: { district: { include: { region: true } } },
     });
+    if (!patient) throw new NotFoundException("Patient not found");
+    return patient;
   }
 
   async create(data: Prisma.PatientCreateInput) {

@@ -1,19 +1,22 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query } from "@nestjs/common";
-import { AppointmentsService } from "./appointments.service";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import { JwtPayload } from "../../common/types/jwt-payload.type";
+import { RoleName } from "../../common/enums/role-name.enum";
 import { CreateAppointmentDto, CreateAppointmentFileDto, UpdateAppointmentDto } from "./appointments.dto";
+import { AppointmentsService } from "./appointments.service";
 
 @Controller("appointments")
 export class AppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
 
   @Get()
-  findAll(@Query("search") search?: string, @Query("departmentId") departmentId?: string, @Query("patientId") patientId?: string) {
-    return this.appointmentsService.list(search, departmentId, patientId);
+  findAll(@Query("search") search: string, @Query("departmentId") departmentId: string, @Query("patientId") patientId: string, @CurrentUser() user: JwtPayload) {
+    return this.appointmentsService.list(user.userId, user.roleName === RoleName.DOCTOR, search, departmentId, patientId);
   }
 
   @Get(":id")
-  findOne(@Param("id") id: string) {
-    return this.appointmentsService.retrieve(id);
+  findOne(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    return this.appointmentsService.retrieve(id, user.userId, user.roleName === RoleName.DOCTOR);
   }
 
   @Post()
@@ -22,8 +25,8 @@ export class AppointmentsController {
   }
 
   @Post(":id/files")
-  addFile(@Param("id") id: string, @Body() dto: CreateAppointmentFileDto) {
-    return this.appointmentsService.addFile(id, dto);
+  addFile(@Param("id") id: string, @Body() dto: CreateAppointmentFileDto, @CurrentUser() user: JwtPayload) {
+    return this.appointmentsService.addFile(id, dto, user.userId, user.roleName === RoleName.DOCTOR);
   }
 
   @Patch(":id")

@@ -26,8 +26,9 @@ model User {
 
   role        Role         @relation(fields: [roleId], references: [id])
   roleId      String
-  isSuperUser Boolean      @default(false) @map("is_super_user")
-  assignments Assignment[]
+  isSuperUser     Boolean               @default(false) @map("is_super_user")
+  assignments     Assignment[]
+  labAssignments  LaboratoryAssignment[]
 
   @@map("users")
 }
@@ -37,6 +38,7 @@ model Role {
   name        String   @unique @db.VarChar(64)
   description String?
   createdAt   DateTime @default(now())
+  isSystem    Boolean  @default(false) @map("is_system")
 
   users       User[]
   permissions Permission[]
@@ -103,8 +105,10 @@ model Patient {
   payments        Payment[]
   appointments    Appointment[]
   medicalCards    MedicalCard003[]
+  cases           PatientCase[]
+  labOrders       LabOrder[]
 
-  createdAt DateTime @default(now())
+  createdAt       DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("patients")
@@ -150,8 +154,8 @@ model Department {
   parent   Department?  @relation("DepartmentTree", fields: [parentId], references: [id])
   children Department[] @relation("DepartmentTree")
 
-  payments    Payment[]
-  assignments Assignment[]
+  payments      Payment[]
+  assignments   Assignment[]
 
   @@map("departments")
 }
@@ -213,6 +217,7 @@ model Assignment {
   schedules    Schedule[]
   appointments Appointment[]
   payments     Payment[]
+  caseSteps    CaseStep[]
 
   /// Assignment faolmi yoki yo'qmi
   isActive Boolean @default(true)
@@ -249,14 +254,20 @@ model Payment {
   patient   Patient @relation(fields: [patientId], references: [id])
   patientId String
 
-  department   Department @relation(fields: [departmentId], references: [id])
-  departmentId String
+  department   Department? @relation(fields: [departmentId], references: [id])
+  departmentId String?
 
   assignment   Assignment? @relation(fields: [assignmentId], references: [id])
   assignmentId String?
 
   appointment   Appointment? @relation(fields: [appointmentId], references: [id])
   appointmentId String?
+
+  labOrderItem      LabOrderItem?     @relation(fields: [labOrderItemId], references: [id])
+  labOrderItemId    String?           @unique
+
+  laboratoryService   LaboratoryService? @relation(fields: [laboratoryServiceId], references: [id])
+  laboratoryServiceId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -302,6 +313,7 @@ model Appointment {
   payments     Payment[]
   files        AppointmentFile[]
   prescription Prescription?
+  caseStep     CaseStep?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -342,11 +354,13 @@ enum MealRelation {
   @@map("meal_relations")
 }
 
-/// Appointment uchun recept (1:1)
+/// Appointment uchun recept (1:1). appointmentId — old path, caseStepId — new path.
 model Prescription {
   id            String      @id @default(uuid())
-  appointmentId String      @unique
-  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  appointmentId String?     @unique
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  caseStepId    String?     @unique
+  caseStep      CaseStep?   @relation(fields: [caseStepId], references: [id], onDelete: Cascade)
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -373,4 +387,179 @@ model PrescriptionItem {
   note         String?
 
   @@map("prescription_items")
+}
+
+// ─── Patient Case Workflow ───────────────────────────────────────────────────
+
+enum CaseStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+
+  @@map("case_statuses")
+}
+
+enum CaseStepType {
+  CHECKIN
+  CONSULTATION
+  LAB
+  PROCEDURE
+  REFERRAL
+  DISCHARGE
+
+  @@map("case_step_types")
+}
+
+enum CaseStepStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  CANCELLED
+
+  @@map("case_step_statuses")
+}
+
+model PatientCase {
+  id             String      @id @default(uuid())
+  patient        Patient     @relation(fields: [patientId], references: [id])
+  patientId      String
+  status         CaseStatus  @default(ACTIVE)
+  chiefComplaint String?     @db.Text
+  openedAt       DateTime    @default(now())
+  closedAt       DateTime?
+  steps          CaseStep[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("patient_cases")
+}
+
+model CaseStep {
+  id            String         @id @default(uuid())
+  case          PatientCase    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  caseId        String
+  type          CaseStepType
+  status        CaseStepStatus @default(PENDING)
+  assignment    Assignment?    @relation(fields: [assignmentId], references: [id])
+  assignmentId  String?
+  appointment   Appointment?   @relation(fields: [appointmentId], references: [id])
+  appointmentId String?        @unique
+  note          String?        @db.Text
+  completedAt   DateTime?
+  prescription  Prescription?
+  labOrder      LabOrder?
+
+  createdAt DateTime @default(now())
+
+  @@map("case_steps")
+}
+
+// ─── Laboratory Orders ───────────────────────────────────────────────────────
+
+enum LabOrderStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+
+  @@map("lab_order_statuses")
+}
+
+enum LabItemStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  CANCELLED
+
+  @@map("lab_item_statuses")
+}
+
+model LabOrder {
+  id              String         @id @default(uuid())
+  status          LabOrderStatus @default(PENDING)
+
+  caseStep        CaseStep       @relation(fields: [caseStepId], references: [id], onDelete: Cascade)
+  caseStepId      String         @unique
+
+  patient         Patient        @relation(fields: [patientId], references: [id])
+  patientId       String
+
+  laboratory   Laboratory @relation(fields: [laboratoryId], references: [id])
+  laboratoryId String
+
+  items           LabOrderItem[]
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@map("lab_orders")
+}
+
+model LabOrderItem {
+  id          String        @id @default(uuid())
+  status      LabItemStatus @default(PENDING)
+
+  labOrder    LabOrder      @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
+  labOrderId  String
+
+  service     LaboratoryService @relation(fields: [serviceId], references: [id])
+  serviceId   String
+
+  fileUrl     String?
+  fileName    String?
+  note        String?       @db.Text
+  completedAt DateTime?
+
+  payment     Payment?
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("lab_order_items")
+}
+
+// ─── Laboratories ─────────────────────────────────────────────────────────────
+
+model Laboratory {
+  id          String                 @id @default(uuid())
+  name        String                 @db.VarChar(64)
+  description String?
+  services    LaboratoryService[]
+  assignments LaboratoryAssignment[]
+  labOrders   LabOrder[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("laboratories")
+}
+
+model LaboratoryService {
+  id           String        @id @default(uuid())
+  name         String        @db.VarChar(64)
+  price        Float?
+  laboratory   Laboratory    @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
+  laboratoryId String
+  labOrderItems LabOrderItem[]
+  payments     Payment[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("laboratory_services")
+}
+
+model LaboratoryAssignment {
+  id           String     @id @default(uuid())
+  user         User       @relation(fields: [userId], references: [id])
+  userId       String
+  laboratory   Laboratory @relation(fields: [laboratoryId], references: [id])
+  laboratoryId String
+  isActive     Boolean    @default(true)
+
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, laboratoryId])
+  @@map("laboratory_assignments")
 }

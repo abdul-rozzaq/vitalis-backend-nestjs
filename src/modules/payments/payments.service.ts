@@ -6,21 +6,21 @@ import { Prisma } from "../../generated/prisma/client";
 export class PaymentsService {
   constructor(private readonly repository: PaymentsRepository) {}
 
-  async list() {
-    return this.repository.list();
+  async list(userId: string, isDoctor: boolean) {
+    return this.repository.list(userId, isDoctor);
   }
 
-  async retrieve(id: string) {
-    return this.repository.retrieve(id);
+  async retrieve(id: string, userId: string, isDoctor: boolean) {
+    return this.repository.retrieve(id, userId, isDoctor);
   }
 
-  async create(data: { amount: number; method?: string; status?: string; patientId: string; departmentId: string; assignmentId?: string; appointmentId?: string }) {
+  async create(data: { amount: number; method?: string; status?: string; patientId: string; departmentId?: string; assignmentId?: string; appointmentId?: string }) {
     const createData: Prisma.PaymentCreateInput = {
       amount: data.amount,
       ...(data.method && { method: data.method as any }),
       ...(data.status && { status: data.status as any }),
       patient: { connect: { id: data.patientId } },
-      department: { connect: { id: data.departmentId } },
+      ...(data.departmentId && { department: { connect: { id: data.departmentId } } }),
       ...(data.assignmentId && { assignment: { connect: { id: data.assignmentId } } }),
       ...(data.appointmentId && { appointment: { connect: { id: data.appointmentId } } }),
     };

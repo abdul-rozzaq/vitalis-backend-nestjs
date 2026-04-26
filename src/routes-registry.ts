@@ -300,4 +300,79 @@ export const ROUTES_REGISTRY: RouteEntry[] = [
     path: "/api/prescriptions/:id",
     description: "Receptni o'chirish",
   },
+
+  // ─── Patient Cases ─────────────────────────────────────────────────────────
+  {
+    group: "Cases",
+    method: "POST",
+    path: "/api/cases",
+    description: "Yangi bemor ishi (check-in)",
+  },
+  {
+    group: "Cases",
+    method: "GET",
+    path: "/api/cases/:id",
+    description: "Ish tafsiloti",
+  },
+  {
+    group: "Cases",
+    method: "POST",
+    path: "/api/cases/:id/steps",
+    description: "Ishga qadam qo'shish",
+  },
+  {
+    group: "Cases",
+    method: "PATCH",
+    path: "/api/cases/:id/steps/:id",
+    description: "Qadam holatini yangilash",
+  },
+  {
+    group: "Cases",
+    method: "PATCH",
+    path: "/api/cases/:id/close",
+    description: "Ishni yopish",
+  },
+  {
+    group: "Cases",
+    method: "GET",
+    path: "/api/patients/:id/cases",
+    description: "Bemorning ishlari",
+  },
+
+  // ─── Laboratories ─────────────────────────────────────────────────────────
+  { group: "Laboratoriyalar", method: "GET",    path: "/api/laboratories",                        description: "Laboratoriyalar ro'yxati" },
+  { group: "Laboratoriyalar", method: "GET",    path: "/api/laboratories/:id",                    description: "Laboratoriya tafsiloti" },
+  { group: "Laboratoriyalar", method: "POST",   path: "/api/laboratories",                        description: "Yangi laboratoriya" },
+  { group: "Laboratoriyalar", method: "PATCH",  path: "/api/laboratories/:id",                    description: "Laboratoriyani tahrirlash" },
+  { group: "Laboratoriyalar", method: "DELETE", path: "/api/laboratories/:id",                    description: "Laboratoriyani o'chirish" },
+  { group: "Laboratoriyalar", method: "POST",   path: "/api/laboratories/:id/services",           description: "Yangi xizmat qo'shish" },
+  { group: "Laboratoriyalar", method: "PATCH",  path: "/api/laboratories/:id/services/:id",       description: "Xizmatni tahrirlash" },
+  { group: "Laboratoriyalar", method: "DELETE", path: "/api/laboratories/:id/services/:id",       description: "Xizmatni o'chirish" },
+
+  // ─── Laboratory Assignments ───────────────────────────────────────────────
+  { group: "Lab Tayinlovlar", method: "GET",    path: "/api/laboratory-assignments",              description: "Lab tayinlovlar ro'yxati" },
+  { group: "Lab Tayinlovlar", method: "GET",    path: "/api/laboratory-assignments/:id",          description: "Lab tayinlov tafsiloti" },
+  { group: "Lab Tayinlovlar", method: "POST",   path: "/api/laboratory-assignments",              description: "Yangi lab tayinlov" },
+  { group: "Lab Tayinlovlar", method: "PATCH",  path: "/api/laboratory-assignments/:id",          description: "Lab tayinlovni yangilash" },
+  { group: "Lab Tayinlovlar", method: "DELETE", path: "/api/laboratory-assignments/:id",          description: "Lab tayinlovni o'chirish" },
+
+  // ─── Lab Orders ───────────────────────────────────────────────────────────
+  {
+    group: "Laboratoriya",
+    method: "GET",
+    path: "/api/lab-orders",
+    description: "Laboratoriya buyurtmalari ro'yxati",
+  },
+  {
+    group: "Laboratoriya",
+    method: "GET",
+    path: "/api/lab-orders/:id",
+    description: "Laboratoriya buyurtmasi tafsiloti",
+  },
+  {
+    group: "Laboratoriya",
+    method: "PATCH",
+    path: "/api/lab-orders/:id/items/:id",
+    description: "Laboratoriya xizmat natijasini yangilash",
+  },
 ];

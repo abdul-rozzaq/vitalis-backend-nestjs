@@ -15,38 +15,37 @@ const appointmentInclude = {
       },
     },
   },
+  caseStep: {
+    select: {
+      id: true,
+      type: true,
+      status: true,
+      caseId: true,
+      case: { select: { id: true, status: true } },
+    },
+  },
 } as const;
 
 @Injectable()
 export class AppointmentsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(search?: string, departmentId?: string, patientId?: string) {
+  async list(userId: string, isDoctor: boolean, search?: string, departmentId?: string, patientId?: string) {
     return this.prisma.appointment.findMany({
       include: appointmentInclude,
       where: {
         ...(patientId && { patientId }),
-        ...(departmentId && { assignment: { departmentId } }),
+        ...(isDoctor
+          ? { assignment: { userId } }
+          : departmentId
+          ? { assignment: { departmentId } }
+          : {}),
         ...(search && {
           OR: [
-            {
-              patient: {
-                first_name: { contains: search, mode: "insensitive" },
-              },
-            },
-            {
-              patient: { last_name: { contains: search, mode: "insensitive" } },
-            },
-            {
-              assignment: {
-                user: { first_name: { contains: search, mode: "insensitive" } },
-              },
-            },
-            {
-              assignment: {
-                user: { last_name: { contains: search, mode: "insensitive" } },
-              },
-            },
+            { patient: { first_name: { contains: search, mode: "insensitive" } } },
+            { patient: { last_name: { contains: search, mode: "insensitive" } } },
+            { assignment: { user: { first_name: { contains: search, mode: "insensitive" } } } },
+            { assignment: { user: { last_name: { contains: search, mode: "insensitive" } } } },
           ],
         }),
       },
@@ -54,9 +53,12 @@ export class AppointmentsRepository {
     });
   }
 
-  async retrieve(id: string) {
-    return this.prisma.appointment.findUnique({
-      where: { id },
+  async retrieve(id: string, userId: string, isDoctor: boolean) {
+    return this.prisma.appointment.findFirst({
+      where: {
+        id,
+        ...(isDoctor ? { assignment: { userId } } : {}),
+      },
       include: appointmentInclude,
     });
   }
