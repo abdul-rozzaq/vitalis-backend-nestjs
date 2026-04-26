@@ -21,6 +21,13 @@ const LAB_ORDER_INCLUDE = {
 export class LabOrdersRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  findAll() {
+    return this.prisma.labOrder.findMany({
+      include: LAB_ORDER_INCLUDE,
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
   findByLaboratoryIds(laboratoryIds: string[]) {
     return this.prisma.labOrder.findMany({
       where: { laboratoryId: { in: laboratoryIds } },

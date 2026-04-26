@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { LabItemStatus } from "../../generated/prisma/client";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
+import { RoleName } from "../../common/enums/role-name.enum";
 import { PrismaService } from "../../prisma/prisma.service";
 import { UpdateLabOrderItemDto } from "./lab-orders.dto";
 import { LabOrdersRepository } from "./lab-orders.repository";
@@ -13,6 +14,9 @@ export class LabOrdersService {
   ) {}
 
   async findMyOrders(user: JwtPayload) {
+    if (user.isSuperUser || user.roleName === RoleName.ADMIN) {
+      return this.repo.findAll();
+    }
     const labAssignments = await this.prisma.laboratoryAssignment.findMany({
       where: { userId: user.userId, isActive: true },
       select: { laboratoryId: true },
