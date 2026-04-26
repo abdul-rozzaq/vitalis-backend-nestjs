@@ -1,4 +1,4 @@
-import { IsEnum, IsISO8601, IsNumber, IsOptional, IsString, IsUUID } from "class-validator";
+import { IsArray, IsEnum, IsISO8601, IsNumber, IsOptional, IsString, IsUUID } from "class-validator";
 import { CaseStepStatus, CaseStepType } from "../../generated/prisma/client";
 
 export class CreateCaseDto {
@@ -33,6 +33,16 @@ export class AddCaseStepDto {
   @IsOptional()
   @IsUUID()
   departmentId?: string;
+
+  // LAB-specific
+  @IsOptional()
+  @IsUUID()
+  laboratoryId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID("4", { each: true })
+  serviceIds?: string[];
 }
 
 export class UpdateCaseStepDto {

@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { CaseStatus, CaseStepStatus, CaseStepType, Prisma } from "../../generated/prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 
-const STEP_INCLUDE = {
+export const STEP_INCLUDE = {
   assignment: { include: { department: true, user: true, room: true } },
   appointment: {
     include: {
@@ -18,6 +18,18 @@ const STEP_INCLUDE = {
   prescription: {
     include: {
       items: { include: { medicine: true }, orderBy: { medicine: { name: "asc" } } },
+    },
+  },
+  labOrder: {
+    include: {
+      laboratory: true,
+      items: {
+        include: {
+          service: { select: { id: true, name: true, price: true } },
+          payment: { select: { id: true, amount: true, status: true, method: true } },
+        },
+        orderBy: { createdAt: "asc" as const },
+      },
     },
   },
 } as const;

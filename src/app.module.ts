@@ -26,6 +26,9 @@ import { MedicinesModule } from "./modules/medicines/medicines.module";
 import { PrescriptionsModule } from "./modules/prescriptions/prescriptions.module";
 import { MedicalCardsModule } from "./modules/medical-cards/medical-cards.module";
 import { CasesModule } from "./modules/cases/cases.module";
+import { LabOrdersModule } from "./modules/lab-orders/lab-orders.module";
+import { LaboratoriesModule } from "./modules/laboratories/laboratories.module";
+import { LaboratoryAssignmentsModule } from "./modules/laboratory-assignments/laboratory-assignments.module";
 
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { PermissionGuard } from "./common/guards/permission.guard";
@@ -68,6 +71,9 @@ import { RequestLoggerMiddleware } from "./common/middleware/request-logger.midd
     PrescriptionsModule,
     MedicalCardsModule,
     CasesModule,
+    LabOrdersModule,
+    LaboratoriesModule,
+    LaboratoryAssignmentsModule,
   ],
   controllers: [AppController],
   providers: [

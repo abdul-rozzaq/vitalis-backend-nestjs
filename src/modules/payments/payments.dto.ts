@@ -28,8 +28,9 @@ export class CreatePaymentDto {
   @IsUUID()
   patientId: string;
 
+  @IsOptional()
   @IsUUID()
-  departmentId: string;
+  departmentId?: string;
 
   @IsOptional()
   @IsUUID()

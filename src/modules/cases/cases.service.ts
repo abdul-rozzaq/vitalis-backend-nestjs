@@ -5,7 +5,7 @@ import { JwtPayload } from "../../common/types/jwt-payload.type";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AddCaseStepDto, CreateCaseDto, UpdateCaseStepDto } from "./cases.dto";
-import { CasesRepository } from "./cases.repository";
+import { CasesRepository, STEP_INCLUDE } from "./cases.repository";
 
 @Injectable()
 export class CasesService {
@@ -74,7 +74,58 @@ export class CasesService {
       });
     }
 
-    if (dto.type === CaseStepType.LAB || dto.type === CaseStepType.PROCEDURE) {
+    if (dto.type === CaseStepType.LAB) {
+      if (!dto.laboratoryId) throw new AppException("laboratoryId required for LAB step", 400);
+      if (!dto.serviceIds?.length) throw new AppException("serviceIds required for LAB step", 400);
+
+      const services = await this.prisma.laboratoryService.findMany({
+        where: { id: { in: dto.serviceIds }, laboratoryId: dto.laboratoryId },
+      });
+      if (services.length !== dto.serviceIds.length) {
+        throw new AppException("One or more services not found or not belonging to this laboratory", 404);
+      }
+
+      return this.prisma.$transaction(async (tx) => {
+        const step = await tx.caseStep.create({
+          data: {
+            caseId,
+            type: CaseStepType.LAB,
+            status: CaseStepStatus.PENDING,
+            ...(dto.note ? { note: dto.note } : {}),
+          },
+        });
+
+        const labOrder = await tx.labOrder.create({
+          data: {
+            caseStep: { connect: { id: step.id } },
+            patient: { connect: { id: patientCase.patientId } },
+            laboratory: { connect: { id: dto.laboratoryId! } },
+          },
+        });
+
+        for (const svc of services) {
+          const item = await tx.labOrderItem.create({
+            data: {
+              labOrder: { connect: { id: labOrder.id } },
+              service: { connect: { id: svc.id } },
+            },
+          });
+          await tx.payment.create({
+            data: {
+              amount: svc.price ?? 0,
+              status: "UNPAID",
+              patient: { connect: { id: patientCase.patientId } },
+              laboratoryService: { connect: { id: svc.id } },
+              labOrderItem: { connect: { id: item.id } },
+            },
+          });
+        }
+
+        return tx.caseStep.findUnique({ where: { id: step.id }, include: STEP_INCLUDE });
+      });
+    }
+
+    if (dto.type === CaseStepType.PROCEDURE) {
       if (dto.assignmentId && dto.departmentId) {
         await this.prisma.payment.create({
           data: {
@@ -87,7 +138,7 @@ export class CasesService {
         });
       }
       return this.repo.createStep(caseId, {
-        type: dto.type,
+        type: CaseStepType.PROCEDURE,
         status: CaseStepStatus.PENDING,
         assignmentId: dto.assignmentId,
         note: dto.note,
