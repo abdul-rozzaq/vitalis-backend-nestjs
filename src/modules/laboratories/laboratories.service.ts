@@ -1,10 +1,5 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import {
-  CreateLaboratoryDto,
-  CreateLaboratoryServiceDto,
-  UpdateLaboratoryDto,
-  UpdateLaboratoryServiceDto,
-} from "./laboratories.dto";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { CreateLaboratoryDto, CreateLaboratoryServiceDto, UpdateLaboratoryDto, UpdateLaboratoryServiceDto } from "./laboratories.dto";
 import { LaboratoriesRepository } from "./laboratories.repository";
 
 @Injectable()
@@ -32,6 +27,10 @@ export class LaboratoriesService {
 
   async delete(id: string) {
     await this.findById(id);
+    const labOrdersCount = await this.repo.countLabOrders(id);
+    if (labOrdersCount > 0) {
+      throw new BadRequestException(`Laboratoriyani o'chirib bo'lmaydi: ${labOrdersCount} ta tahlil natijasi mavjud`);
+    }
     return this.repo.delete(id);
   }
 

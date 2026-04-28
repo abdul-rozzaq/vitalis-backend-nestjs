@@ -15,11 +15,11 @@ export class CasesService {
   ) {}
 
   findByPatientId(patientId: string, user: JwtPayload) {
-    return this.repo.findByPatientId(patientId, user.userId, user.roleName === RoleName.DOCTOR);
+    return this.repo.findByPatientId(patientId, user.userId, user.role === RoleName.DOCTOR);
   }
 
   async findById(id: string, user: JwtPayload) {
-    const c = await this.repo.findById(id, user.userId, user.roleName === RoleName.DOCTOR);
+    const c = await this.repo.findById(id, user.userId, user.role === RoleName.DOCTOR);
     if (!c) throw new NotFoundException("Case not found");
     return c;
   }
@@ -29,7 +29,7 @@ export class CasesService {
   }
 
   async addStep(caseId: string, dto: AddCaseStepDto, user: JwtPayload) {
-    const patientCase = await this.repo.findById(caseId, user.userId, user.roleName === RoleName.DOCTOR);
+    const patientCase = await this.repo.findById(caseId, user.userId, user.role === RoleName.DOCTOR);
     if (!patientCase) throw new NotFoundException("Case not found");
 
     if (dto.type === CaseStepType.CONSULTATION) {
@@ -165,7 +165,7 @@ export class CasesService {
 
   async updateStep(caseId: string, stepId: string, dto: UpdateCaseStepDto, user: JwtPayload) {
     // Verify case is accessible
-    const patientCase = await this.repo.findById(caseId, user.userId, user.roleName === RoleName.DOCTOR);
+    const patientCase = await this.repo.findById(caseId, user.userId, user.role === RoleName.DOCTOR);
     if (!patientCase) throw new NotFoundException("Case not found");
 
     const step = await this.repo.findStep(stepId);
@@ -181,7 +181,7 @@ export class CasesService {
   }
 
   async closeCase(caseId: string, status: "COMPLETED" | "CANCELLED", user: JwtPayload) {
-    const patientCase = await this.repo.findById(caseId, user.userId, user.roleName === RoleName.DOCTOR);
+    const patientCase = await this.repo.findById(caseId, user.userId, user.role === RoleName.DOCTOR);
     if (!patientCase) throw new NotFoundException("Case not found");
     return this.repo.closeCase(caseId, status);
   }

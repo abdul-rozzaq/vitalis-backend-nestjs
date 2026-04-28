@@ -27,6 +27,7 @@ export const STEP_INCLUDE = {
         include: {
           service: { select: { id: true, name: true, price: true } },
           payment: { select: { id: true, amount: true, status: true, method: true } },
+          files: { orderBy: { createdAt: "desc" } },
         },
         orderBy: { createdAt: "asc" as const },
       },

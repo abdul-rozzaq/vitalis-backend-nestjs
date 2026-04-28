@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { LabItemStatus } from "../../generated/prisma/client";
-import { JwtPayload } from "../../common/types/jwt-payload.type";
 import { RoleName } from "../../common/enums/role-name.enum";
+import { JwtPayload } from "../../common/types/jwt-payload.type";
+import { LabItemStatus } from "../../generated/prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AddLabOrderItemFileDto, UpdateLabOrderItemDto } from "./lab-orders.dto";
 import { LabOrdersRepository } from "./lab-orders.repository";
@@ -14,7 +14,7 @@ export class LabOrdersService {
   ) {}
 
   async findMyOrders(user: JwtPayload) {
-    if (user.isSuperUser || user.roleName === RoleName.ADMIN) {
+    if (user.role === RoleName.ADMIN) {
       return this.repo.findAll();
     }
     const labAssignments = await this.prisma.laboratoryAssignment.findMany({
@@ -54,19 +54,16 @@ export class LabOrdersService {
   async addFile(orderId: string, itemId: string, dto: AddLabOrderItemFileDto) {
     const order = await this.repo.findById(orderId);
     if (!order) throw new NotFoundException("Lab order not found");
-    if (!order.items.find((i) => i.id === itemId))
-      throw new NotFoundException("Lab order item not found");
+    if (!order.items.find((i) => i.id === itemId)) throw new NotFoundException("Lab order item not found");
     return this.repo.addFile(itemId, dto.url, dto.name);
   }
 
   async removeFile(orderId: string, itemId: string, fileId: string) {
     const order = await this.repo.findById(orderId);
     if (!order) throw new NotFoundException("Lab order not found");
-    if (!order.items.find((i) => i.id === itemId))
-      throw new NotFoundException("Lab order item not found");
+    if (!order.items.find((i) => i.id === itemId)) throw new NotFoundException("Lab order item not found");
     const file = await this.repo.findFile(fileId);
-    if (!file || file.labOrderItemId !== itemId)
-      throw new NotFoundException("File not found");
+    if (!file || file.labOrderItemId !== itemId) throw new NotFoundException("File not found");
     return this.repo.removeFile(fileId);
   }
 }

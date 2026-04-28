@@ -1,6 +1,6 @@
+import { RoleName } from "../enums/role-name.enum";
+
 export interface JwtPayload {
   userId: string;
-  roleId: string;
-  roleName: string;
-  isSuperUser: boolean;
+  role: RoleName;
 }

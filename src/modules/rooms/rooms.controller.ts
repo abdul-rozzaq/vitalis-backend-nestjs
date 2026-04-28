@@ -1,7 +1,10 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body } from "@nestjs/common";
-import { RoomsService } from "./rooms.service";
+import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { RoleName } from "../../common/enums/role-name.enum";
 import { CreateRoomDto, UpdateRoomDto } from "./rooms.dto";
+import { RoomsService } from "./rooms.service";
 
+@Roles(RoleName.ADMIN)
 @Controller("rooms")
 export class RoomsController {
   constructor(private readonly roomsService: RoomsService) {}

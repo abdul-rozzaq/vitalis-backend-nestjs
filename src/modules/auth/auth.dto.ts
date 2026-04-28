@@ -1,4 +1,5 @@
-import { IsString, IsUUID, MinLength, MaxLength, Matches } from "class-validator";
+import { IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator";
+import { RoleName } from "../../common/enums/role-name.enum";
 
 export class RegisterDto {
   @IsString()
@@ -21,8 +22,9 @@ export class RegisterDto {
   @MaxLength(100, { message: "Password must be at most 100 characters" })
   password: string;
 
-  @IsUUID()
-  roleId: string;
+  @IsOptional()
+  @IsEnum(RoleName)
+  role?: RoleName;
 }
 
 export class LoginDto {

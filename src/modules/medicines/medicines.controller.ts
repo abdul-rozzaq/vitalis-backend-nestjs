@@ -1,5 +1,7 @@
-import { Controller, Get, Post, Body, Query } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query } from "@nestjs/common";
 import { IsString, MinLength } from "class-validator";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { RoleName } from "../../common/enums/role-name.enum";
 import { MedicinesService } from "./medicines.service";
 
 class UpsertMedicineDto {
@@ -8,6 +10,7 @@ class UpsertMedicineDto {
   name: string;
 }
 
+@Roles(RoleName.ADMIN, RoleName.DOCTOR, RoleName.HAMSHIRA)
 @Controller("medicines")
 export class MedicinesController {
   constructor(private readonly medicinesService: MedicinesService) {}

@@ -1,10 +1,9 @@
-import { Controller, Post, Get, Patch, Body } from "@nestjs/common";
-import { AuthService } from "./auth.service";
-import { Public } from "../../common/decorators/public.decorator";
+import { Body, Controller, Get, Patch, Post } from "@nestjs/common";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
-import { RegisterDto, LoginDto, ChangePasswordDto } from "./auth.dto";
+import { Public } from "../../common/decorators/public.decorator";
 import { type JwtPayload } from "../../common/types/jwt-payload.type";
-import { SkipPermissionCheck } from "../../common/decorators/skip-permission-check.decorator";
+import { ChangePasswordDto, LoginDto, RegisterDto } from "./auth.dto";
+import { AuthService } from "./auth.service";
 
 @Controller("auth")
 export class AuthController {
@@ -23,7 +22,6 @@ export class AuthController {
   }
 
   @Get("me")
-  @SkipPermissionCheck()
   getMe(@CurrentUser() user: JwtPayload) {
     return this.authService.getMe(user.userId);
   }

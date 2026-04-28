@@ -1,12 +1,10 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
-import {
-  CreateLaboratoryDto,
-  CreateLaboratoryServiceDto,
-  UpdateLaboratoryDto,
-  UpdateLaboratoryServiceDto,
-} from "./laboratories.dto";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { RoleName } from "../../common/enums/role-name.enum";
+import { CreateLaboratoryDto, CreateLaboratoryServiceDto, UpdateLaboratoryDto, UpdateLaboratoryServiceDto } from "./laboratories.dto";
 import { LaboratoriesService } from "./laboratories.service";
 
+@Roles(RoleName.ADMIN, RoleName.LABARANT, RoleName.DIREKTOR)
 @Controller("laboratories")
 export class LaboratoriesController {
   constructor(private readonly service: LaboratoriesService) {}

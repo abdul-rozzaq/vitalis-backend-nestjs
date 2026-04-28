@@ -30,6 +30,10 @@ export class LaboratoriesRepository {
     return this.prisma.laboratory.delete({ where: { id } });
   }
 
+  countLabOrders(laboratoryId: string) {
+    return this.prisma.labOrder.count({ where: { laboratoryId } });
+  }
+
   createService(laboratoryId: string, data: { name: string; price?: number | null }) {
     return this.prisma.laboratoryService.create({ data: { ...data, laboratoryId } });
   }

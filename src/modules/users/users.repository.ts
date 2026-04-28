@@ -1,39 +1,34 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma, User } from "../../generated/prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
-import { Prisma } from "../../generated/prisma/client";
-
-export type UserWithRole = Prisma.UserGetPayload<{
-  include: { role: true };
-}>;
 
 @Injectable()
 export class UsersRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findById(id: string): Promise<UserWithRole | null> {
-    return this.prisma.user.findUnique({ where: { id }, include: { role: true } });
+  async findById(id: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { id } });
   }
 
-  async findByPhone(phone: string): Promise<UserWithRole | null> {
-    return this.prisma.user.findUnique({ where: { phone }, include: { role: true } });
+  async findByPhone(phone: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { phone } });
   }
 
-  async create(data: Prisma.UserUncheckedCreateInput): Promise<UserWithRole> {
-    return this.prisma.user.create({ data, include: { role: true } });
+  async create(data: Prisma.UserUncheckedCreateInput): Promise<User> {
+    return this.prisma.user.create({ data });
   }
 
-  async update(id: string, data: Prisma.UserUncheckedUpdateInput): Promise<UserWithRole> {
-    return this.prisma.user.update({ where: { id }, data, include: { role: true } });
+  async update(id: string, data: Prisma.UserUncheckedUpdateInput): Promise<User> {
+    return this.prisma.user.update({ where: { id }, data });
   }
 
-  async delete(id: string): Promise<UserWithRole> {
-    return this.prisma.user.delete({ where: { id }, include: { role: true } });
+  async delete(id: string): Promise<User> {
+    return this.prisma.user.delete({ where: { id } });
   }
 
-  async findAll(roleId?: string): Promise<UserWithRole[]> {
+  async findAll(role?: string): Promise<User[]> {
     return this.prisma.user.findMany({
-      where: roleId ? { roleId } : undefined,
-      include: { role: true },
+      where: role ? { role: role as any } : undefined,
     });
   }
 }

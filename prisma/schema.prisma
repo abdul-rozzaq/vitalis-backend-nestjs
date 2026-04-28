@@ -13,6 +13,19 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  ADMIN
+  KASSIR
+  DOCTOR
+  HAMSHIRA
+  LABARANT
+  TEXNIK_HODIM
+  DIREKTOR
+  HISOBCHI
+
+  @@map("user_roles")
+}
+
 model User {
   id         String    @id @default(uuid())
   first_name String    @db.VarChar(64)
@@ -24,26 +37,11 @@ model User {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  role        Role         @relation(fields: [roleId], references: [id])
-  roleId      String
-  isSuperUser     Boolean               @default(false) @map("is_super_user")
-  assignments     Assignment[]
-  labAssignments  LaboratoryAssignment[]
+  role           UserRole              @default(TEXNIK_HODIM)
+  assignments    Assignment[]
+  labAssignments LaboratoryAssignment[]
 
   @@map("users")
-}
-
-model Role {
-  id          String   @id @default(uuid())
-  name        String   @unique @db.VarChar(64)
-  description String?
-  createdAt   DateTime @default(now())
-  isSystem    Boolean  @default(false) @map("is_system")
-
-  users       User[]
-  permissions Permission[]
-
-  @@map("roles")
 }
 
 model Region {
@@ -229,21 +227,7 @@ model Assignment {
   @@map("assignments")
 }
 
-/// Rol uchun ruxsat: qaysi HTTP method + path ga kirish joiz
-model Permission {
-  id     String @id @default(uuid())
-  roleId String
-  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
-  /// HTTP method: GET, POST, PATCH, DELETE
-  method String @db.VarChar(10)
-
-  /// Normalized path: /api/users, /api/users/:id
-  path String @db.VarChar(200)
-
-  @@unique([roleId, method, path])
-  @@map("permissions")
-}
 
 model Payment {
   id     String         @id @default(uuid())
@@ -566,7 +550,7 @@ model LaboratoryAssignment {
   id           String     @id @default(uuid())
   user         User       @relation(fields: [userId], references: [id])
   userId       String
-  laboratory   Laboratory @relation(fields: [laboratoryId], references: [id])
+  laboratory   Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
   laboratoryId String
   isActive     Boolean    @default(true)
 

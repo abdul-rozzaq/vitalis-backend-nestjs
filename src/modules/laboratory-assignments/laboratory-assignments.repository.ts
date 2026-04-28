@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const INCLUDE = {
-  user: { select: { id: true, first_name: true, last_name: true, role: { select: { name: true } } } },
+  user: { select: { id: true, first_name: true, last_name: true, role: true } },
   laboratory: { select: { id: true, name: true } },
 } as const;
 

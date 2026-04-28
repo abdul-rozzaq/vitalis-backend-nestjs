@@ -1,17 +1,16 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { RoleName } from "../../common/enums/role-name.enum";
 import { CreateLaboratoryAssignmentDto, UpdateLaboratoryAssignmentDto } from "./laboratory-assignments.dto";
 import { LaboratoryAssignmentsService } from "./laboratory-assignments.service";
 
+@Roles(RoleName.ADMIN)
 @Controller("laboratory-assignments")
 export class LaboratoryAssignmentsController {
   constructor(private readonly service: LaboratoryAssignmentsService) {}
 
   @Get()
-  findAll(
-    @Query("laboratoryId") laboratoryId?: string,
-    @Query("userId") userId?: string,
-    @Query("isActive") isActive?: string,
-  ) {
+  findAll(@Query("laboratoryId") laboratoryId?: string, @Query("userId") userId?: string, @Query("isActive") isActive?: string) {
     return this.service.findAll({
       laboratoryId,
       userId,

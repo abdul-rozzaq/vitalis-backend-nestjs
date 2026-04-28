@@ -1,5 +1,6 @@
-import { IsString, IsUUID, MinLength, MaxLength, IsBoolean, IsOptional, IsDate, Matches } from "class-validator";
 import { Type } from "class-transformer";
+import { IsDate, IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator";
+import { RoleName } from "../../common/enums/role-name.enum";
 
 export class CreateUserDto {
   @IsString()
@@ -22,12 +23,9 @@ export class CreateUserDto {
   @MaxLength(100, { message: "Password must be at most 100 characters" })
   password: string;
 
-  @IsUUID()
-  roleId: string;
-
   @IsOptional()
-  @IsBoolean()
-  isSuperUser?: boolean;
+  @IsEnum(RoleName)
+  role?: RoleName;
 
   @IsOptional()
   @Type(() => Date)
@@ -60,12 +58,8 @@ export class UpdateUserDto {
   phone?: string;
 
   @IsOptional()
-  @IsUUID()
-  roleId?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  isSuperUser?: boolean;
+  @IsEnum(RoleName)
+  role?: RoleName;
 
   @IsOptional()
   @Type(() => Date)

@@ -1,9 +1,10 @@
 import { Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
+import { RoleName } from "../../common/enums/role-name.enum";
 import { AppException } from "../../common/exceptions/app.exception";
 import { UsersRepository } from "../users/users.repository";
-import { RegisterDto, ChangePasswordDto } from "./auth.dto";
+import { ChangePasswordDto, RegisterDto } from "./auth.dto";
 
 @Injectable()
 export class AuthService {
@@ -12,7 +13,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async register(data: RegisterDto & { roleId?: string }) {
+  async register(data: RegisterDto) {
     const existingUser = await this.usersRepository.findByPhone(data.phone);
 
     if (existingUser) {
@@ -21,17 +22,12 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
-    let roleId = data.roleId;
-    if (!roleId) {
-      throw new AppException("roleId is required", 400);
-    }
-
     const user = await this.usersRepository.create({
       first_name: data.first_name,
       last_name: data.last_name,
       phone: data.phone,
       password: hashedPassword,
-      roleId,
+      role: (data.role ?? RoleName.TEXNIK_HODIM) as any,
     });
 
     return this.generateAuthResponse(user);
@@ -85,9 +81,7 @@ export class AuthService {
   private generateAuthResponse(user: any) {
     const access_token = this.jwtService.sign({
       userId: user.id,
-      roleId: user.roleId,
-      roleName: user.role.name,
-      isSuperUser: user.isSuperUser,
+      role: user.role,
     });
 
     const { password, ...userWithoutPassword } = user;
