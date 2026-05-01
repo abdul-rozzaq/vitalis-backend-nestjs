@@ -1,14 +1,20 @@
 import { Injectable } from "@nestjs/common";
-import { RoomsRepository } from "./rooms.repository";
 import { AppException } from "../../common/exceptions/app.exception";
 import { Prisma } from "../../generated/prisma/client";
+import { RoomsRepository } from "./rooms.repository";
 
 @Injectable()
 export class RoomsService {
   constructor(private readonly repo: RoomsRepository) {}
 
+  // Barcha xonalar (occupancy bilan)
   async list() {
     return this.repo.list();
+  }
+
+  // Faqat WARD tipli xonalar — check-in modal uchun
+  async listWards() {
+    return this.repo.listWards();
   }
 
   async retrieve(id: string) {

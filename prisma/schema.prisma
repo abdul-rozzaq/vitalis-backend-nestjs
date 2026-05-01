@@ -105,6 +105,7 @@ model Patient {
   medicalCards    MedicalCard003[]
   cases           PatientCase[]
   labOrders       LabOrder[]
+  wards           Wards[]
 
   createdAt       DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -176,6 +177,7 @@ model Room {
   roomType    RoomType @map("room_type")
 
   assignments Assignment[]
+  wards       Wards[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -558,4 +560,38 @@ model LaboratoryAssignment {
 
   @@unique([userId, laboratoryId])
   @@map("laboratory_assignments")
+}
+
+
+enum WardStatus {
+  OCCUPIED  // Bemor yotibdi
+  VACATED   // Bemor chiqib ketgan
+
+  @@map("ward_statuses")
+}
+
+model Wards {
+  id           String     @id @default(uuid())
+
+  patientId    String
+  patient      Patient    @relation(fields: [patientId], references: [id])
+
+  roomId       String
+  room         Room       @relation(fields: [roomId], references: [id])
+
+  wardNumber   String?    @db.VarChar(20)   // Palata raqami (masalan: "12-A")
+
+  checkIn      DateTime   @default(now())   // Yotgan vaqti
+  expectedOut  DateTime?                    // Taxminiy chiqish sanasi
+  actualOut    DateTime?                    // Haqiqiy chiqish sanasi
+  daysStayed   Int?       @default(0)       // Necha kun yotgani
+
+  note         String?    @db.Text          // Qo'shimcha izoh
+
+  status       WardStatus @default(OCCUPIED)
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@map("wards")
 }
