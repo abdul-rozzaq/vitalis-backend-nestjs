@@ -1,13 +1,5 @@
 import { Type } from "class-transformer";
-import {
-  IsDateString,
-  IsInt,
-  IsOptional,
-  IsString,
-  IsUUID,
-  MaxLength,
-  Min,
-} from "class-validator";
+import { IsDateString, IsInt, IsOptional, IsString, IsUUID, Min } from "class-validator";
 
 // Bemorni palataga yotqizish
 export class CreateWardDto {
@@ -16,11 +8,6 @@ export class CreateWardDto {
 
   @IsUUID()
   roomId: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  wardNumber?: string;
 
   @IsOptional()
   @IsDateString()
@@ -44,11 +31,6 @@ export class CheckOutDto {
 
 // Yozuvni yangilash (tahrirlash)
 export class UpdateWardDto {
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  wardNumber?: string;
-
   @IsOptional()
   @IsDateString()
   expectedOut?: string;

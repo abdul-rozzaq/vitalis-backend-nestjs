@@ -43,7 +43,6 @@ export class WardsRepository {
       data: {
         patientId: data.patientId,
         roomId: data.roomId,
-        wardNumber: data.wardNumber,
         expectedOut: data.expectedOut ? new Date(data.expectedOut) : undefined,
         note: data.note,
         status: WardStatus.OCCUPIED,
@@ -151,7 +150,6 @@ export class WardsRepository {
     return this.prisma.wards.update({
       where: { id },
       data: {
-        ...(data.wardNumber !== undefined ? { wardNumber: data.wardNumber } : {}),
         ...(data.note !== undefined ? { note: data.note } : {}),
         ...(data.expectedOut !== undefined ? { expectedOut: data.expectedOut ? new Date(data.expectedOut) : null } : {}),
       },

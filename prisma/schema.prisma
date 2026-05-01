@@ -579,8 +579,6 @@ model Wards {
   roomId       String
   room         Room       @relation(fields: [roomId], references: [id])
 
-  wardNumber   String?    @db.VarChar(20)   // Palata raqami (masalan: "12-A")
-
   checkIn      DateTime   @default(now())   // Yotgan vaqti
   expectedOut  DateTime?                    // Taxminiy chiqish sanasi
   actualOut    DateTime?                    // Haqiqiy chiqish sanasi
