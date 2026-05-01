@@ -1,5 +1,17 @@
 import { Type } from "class-transformer";
+<<<<<<< muslimbek
 import { IsDateString, IsInt, IsOptional, IsString, IsUUID, Min } from "class-validator";
+=======
+import {
+  IsDateString,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  Min,
+} from "class-validator";
+>>>>>>> main
 
 // Bemorni palataga yotqizish
 export class CreateWardDto {
@@ -10,6 +22,14 @@ export class CreateWardDto {
   roomId: string;
 
   @IsOptional()
+<<<<<<< muslimbek
+=======
+  @IsString()
+  @MaxLength(20)
+  wardNumber?: string;
+
+  @IsOptional()
+>>>>>>> main
   @IsDateString()
   expectedOut?: string;
 
@@ -32,6 +52,14 @@ export class CheckOutDto {
 // Yozuvni yangilash (tahrirlash)
 export class UpdateWardDto {
   @IsOptional()
+<<<<<<< muslimbek
+=======
+  @IsString()
+  @MaxLength(20)
+  wardNumber?: string;
+
+  @IsOptional()
+>>>>>>> main
   @IsDateString()
   expectedOut?: string;
 
@@ -75,4 +103,8 @@ export class WardQueryDto {
   @IsInt()
   @Min(1)
   limit?: number = 20;
+<<<<<<< muslimbek
 }
+=======
+}
+>>>>>>> main
