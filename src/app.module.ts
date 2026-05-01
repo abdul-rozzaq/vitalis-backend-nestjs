@@ -32,6 +32,7 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { RequestLoggerMiddleware } from "./common/middleware/request-logger.middleware";
+import { WardsModule } from './modules/wards/wards.module';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { RequestLoggerMiddleware } from "./common/middleware/request-logger.midd
     LabOrdersModule,
     LaboratoriesModule,
     LaboratoryAssignmentsModule,
+    WardsModule,
   ],
   controllers: [AppController],
   providers: [

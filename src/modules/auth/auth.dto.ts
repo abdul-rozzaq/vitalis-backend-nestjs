@@ -17,6 +17,7 @@ export class RegisterDto {
   @Matches(/^\+998[0-9]{9}$/, { message: "Phone must be a valid Uzbek number (+998XXXXXXXXX)" })
   phone: string;
 
+  
   @IsString()
   @MinLength(6, { message: "Password must be at least 6 characters" })
   @MaxLength(100, { message: "Password must be at most 100 characters" })
