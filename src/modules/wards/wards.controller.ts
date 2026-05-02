@@ -1,3 +1,4 @@
+import { Public } from "@/common/decorators/public.decorator";
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RoleName } from "../../common/enums/role-name.enum";
@@ -5,7 +6,7 @@ import { CheckOutDto, CreateWardDto, UpdateWardDto, WardQueryDto } from "./wards
 import { WardsService } from "./wards.service";
 
 @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.DOCTOR, RoleName.HAMSHIRA, RoleName.DIREKTOR)
-@Controller("wards")
+@Controller("/wards")
 export class WardsController {
   constructor(private readonly service: WardsService) {}
 
@@ -13,7 +14,7 @@ export class WardsController {
    * GET /api/wards
    * Filter: patientId, roomId, status, dateFrom, dateTo, page, limit
    */
-  @Get()
+  @Get("/")
   getAll(@Query() query: WardQueryDto) {
     return this.service.getAll(query);
   }
@@ -22,9 +23,20 @@ export class WardsController {
    * GET /api/wards/occupied
    * Hozir yotayotgan barcha bemorlar
    */
-  @Get("occupied")
+  @Public()
+  @Get("/occupied")
   getOccupied() {
     return this.service.getAllOccupied();
+  }
+
+  /**
+   * GET /api/wards/board
+   * TV ekran uchun public endpoint: xona nomi + bemor ismi (PII yo'q)
+   */
+  @Public()
+  @Get("/board")
+  getBoard() {
+    return this.service.getBoard();
   }
 
   /**
@@ -32,7 +44,7 @@ export class WardsController {
    * Umumiy statistika: band/bo'sh, o'rtacha kunlar
    */
   @Roles(RoleName.ADMIN, RoleName.DIREKTOR, RoleName.HISOBCHI)
-  @Get("stats")
+  @Get("/stats")
   getStats() {
     return this.service.getStats();
   }
@@ -41,7 +53,7 @@ export class WardsController {
    * GET /api/wards/room/:roomId
    * Xonadagi hozirgi bemorlar
    */
-  @Get("room/:roomId")
+  @Get("/room/:roomId")
   getByRoom(@Param("roomId") roomId: string) {
     return this.service.getByRoom(roomId);
   }
@@ -50,7 +62,7 @@ export class WardsController {
    * GET /api/wards/room/:roomId/occupancy
    * Xona sig'imi: band/bo'sh o'rinlar
    */
-  @Get("room/:roomId/occupancy")
+  @Get("/room/:roomId/occupancy")
   roomOccupancy(@Param("roomId") roomId: string) {
     return this.service.roomOccupancy(roomId);
   }
@@ -59,7 +71,7 @@ export class WardsController {
    * GET /api/wards/:id
    * Bitta yozuv (real-time kunlar bilan)
    */
-  @Get(":id")
+  @Get("/:id")
   getOne(@Param("id") id: string) {
     return this.service.getById(id);
   }
@@ -69,7 +81,7 @@ export class WardsController {
    * Bemorni palataga yotqizish
    */
   @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HAMSHIRA)
-  @Post("check-in")
+  @Post("/check-in")
   checkIn(@Body() dto: CreateWardDto) {
     return this.service.checkIn(dto);
   }
@@ -79,7 +91,7 @@ export class WardsController {
    * Yozuvni tahrirlash (wardNumber, expectedOut, note)
    */
   @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HAMSHIRA, RoleName.DOCTOR)
-  @Patch(":id")
+  @Patch("/:id")
   update(@Param("id") id: string, @Body() dto: UpdateWardDto) {
     return this.service.update(id, dto);
   }
@@ -89,7 +101,7 @@ export class WardsController {
    * Bemorni chiqarish
    */
   @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HAMSHIRA, RoleName.DOCTOR)
-  @Patch(":id/check-out")
+  @Patch("/:id/check-out")
   checkOut(@Param("id") id: string, @Body() dto: CheckOutDto) {
     return this.service.checkOut(id, dto);
   }
@@ -99,7 +111,7 @@ export class WardsController {
    * O'chirish (faqat ADMIN)
    */
   @Roles(RoleName.ADMIN)
-  @Delete(":id")
+  @Delete("/:id")
   delete(@Param("id") id: string) {
     return this.service.delete(id);
   }

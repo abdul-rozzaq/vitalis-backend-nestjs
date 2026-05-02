@@ -162,6 +162,24 @@ export class WardsRepository {
     return this.prisma.wards.delete({ where: { id } });
   }
 
+  // TV ekran uchun: faqat xona nomi + bemor ismi (hech qanday PII yo'q)
+  async findBoard() {
+    const records = await this.prisma.wards.findMany({
+      where: { status: WardStatus.OCCUPIED },
+      select: {
+        patient: { select: { first_name: true, last_name: true } },
+        room: { select: { name: true, capacity: true } },
+      },
+      orderBy: { room: { name: "asc" } },
+    });
+    return records.map((r) => ({
+      roomName: r.room.name,
+      capacity: r.room.capacity,
+      firstName: r.patient.first_name,
+      lastName: r.patient.last_name,
+    }));
+  }
+
   // Statistika: xona sig'imi vs band o'rinlar
   async roomOccupancy(roomId: string) {
     const [room, occupied] = await Promise.all([this.prisma.room.findUnique({ where: { id: roomId } }), this.prisma.wards.count({ where: { roomId, status: WardStatus.OCCUPIED } })]);

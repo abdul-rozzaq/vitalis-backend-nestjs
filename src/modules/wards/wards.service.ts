@@ -32,6 +32,11 @@ export class WardsService {
     return this.repository.findAllOccupied();
   }
 
+  // TV board: minimal public ma'lumot (xona nomi + bemor ismi, PII yo'q)
+  async getBoard() {
+    return this.repository.findBoard();
+  }
+
   // Barcha yozuvlar — filter + pagination
   async getAll(query: WardQueryDto) {
     return this.repository.findAll({
