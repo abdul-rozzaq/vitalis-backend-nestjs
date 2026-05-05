@@ -167,6 +167,7 @@ export class WardsRepository {
     const records = await this.prisma.wards.findMany({
       where: { status: WardStatus.OCCUPIED },
       select: {
+        checkIn: true, // ← shu qatorni qo'shing
         patient: { select: { first_name: true, last_name: true } },
         room: { select: { name: true, capacity: true } },
       },
@@ -177,6 +178,7 @@ export class WardsRepository {
       capacity: r.room.capacity,
       firstName: r.patient.first_name,
       lastName: r.patient.last_name,
+      admittedAt: r.checkIn, // ← shu qatorni qo'shing
     }));
   }
 
