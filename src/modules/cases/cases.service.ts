@@ -30,6 +30,9 @@ export class CasesService {
 
   async addStep(caseId: string, dto: AddCaseStepDto, user: JwtPayload) {
     const patientCase = await this.repo.findById(caseId, user.userId, user.role === RoleName.DOCTOR);
+
+    console.log(JSON.stringify({ dto }, null, 2));
+
     if (!patientCase) throw new NotFoundException("Case not found");
 
     if (dto.type === CaseStepType.CONSULTATION) {
@@ -39,6 +42,7 @@ export class CasesService {
         where: { id: dto.assignmentId },
         include: { department: true },
       });
+
       if (!assignment) throw new AppException("Assignment not found", 404);
 
       // Create appointment + payment (reuse existing transaction logic)
@@ -51,9 +55,10 @@ export class CasesService {
             assignment: { connect: { id: dto.assignmentId! } },
           },
         });
+
         await tx.payment.create({
           data: {
-            amount: assignment.department.price ?? 0,
+            amount: dto.amount ?? assignment.department.price ?? 0,
             status: "UNPAID",
             createdAt: appt.dateTime,
             patient: { connect: { id: patientCase.patientId } },
@@ -62,6 +67,7 @@ export class CasesService {
             appointment: { connect: { id: appt.id } },
           },
         });
+
         return appt;
       });
 
@@ -171,7 +177,7 @@ export class CasesService {
     const step = await this.repo.findStep(stepId);
     if (!step || step.caseId !== caseId) throw new NotFoundException("Step not found");
 
-    const completedAt = dto.completedAt ? new Date(dto.completedAt) : (dto.status === CaseStepStatus.DONE ? new Date() : undefined);
+    const completedAt = dto.completedAt ? new Date(dto.completedAt) : dto.status === CaseStepStatus.DONE ? new Date() : undefined;
 
     return this.repo.updateStep(stepId, {
       status: dto.status,
