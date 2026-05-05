@@ -6,8 +6,44 @@ import { Prisma } from "../../generated/prisma/client";
 export class PaymentsService {
   constructor(private readonly repository: PaymentsRepository) {}
 
-  async list(userId: string, isDoctor: boolean) {
-    return this.repository.list(userId, isDoctor);
+  async list(userId: string, isDoctor: boolean, query: any) {
+    const where: Prisma.PaymentWhereInput = {};
+
+    if (isDoctor) {
+      where.assignment = { userId };
+    }
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.minAmount || query.maxAmount) {
+      where.amount = {};
+      if (query.minAmount) {
+        where.amount.gte = parseFloat(query.minAmount);
+      }
+      if (query.maxAmount) {
+        where.amount.lte = parseFloat(query.maxAmount);
+      }
+    }
+
+    if (query.dateFrom || query.dateTo) {
+      where.createdAt = {};
+      if (query.dateFrom) {
+        where.createdAt.gte = new Date(query.dateFrom);
+      }
+      if (query.dateTo) {
+        const toDate = new Date(query.dateTo);
+        toDate.setDate(toDate.getDate() + 1);
+        where.createdAt.lt = toDate;
+      }
+    }
+
+    if (query.departmentId) {
+      where.departmentId = query.departmentId;
+    }
+
+    return this.repository.list(where);
   }
 
   async retrieve(id: string, userId: string, isDoctor: boolean) {
