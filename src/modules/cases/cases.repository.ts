@@ -63,7 +63,7 @@ export class CasesRepository {
     return this.prisma.patientCase.findMany({
       where: {
         patientId,
-        ...(isDoctor ? doctorWhere(userId) : {}),
+        // ...(isDoctor ? doctorWhere(userId) : {}),
       },
       include: CASE_INCLUDE,
       orderBy: { openedAt: "desc" },
