@@ -9,107 +9,56 @@ import { WardsService } from "./wards.service";
 @Controller("/wards")
 export class WardsController {
   constructor(private readonly service: WardsService) {}
-
-  /**
-   * GET /api/wards
-   * Filter: patientId, roomId, status, dateFrom, dateTo, page, limit
-   */
   @Get("/")
   getAll(@Query() query: WardQueryDto) {
     return this.service.getAll(query);
   }
-
-  /**
-   * GET /api/wards/occupied
-   * Hozir yotayotgan barcha bemorlar
-   */
   @Public()
   @Get("/occupied")
   getOccupied() {
     return this.service.getAllOccupied();
   }
-
-  /**
-   * GET /api/wards/board
-   * TV ekran uchun public endpoint: xona nomi + bemor ismi (PII yo'q)
-   */
   @Public()
   @Get("/board")
   getBoard() {
     return this.service.getBoard();
   }
 
-  /**
-   * GET /api/wards/stats
-   * Umumiy statistika: band/bo'sh, o'rtacha kunlar
-   */
   @Roles(RoleName.ADMIN, RoleName.DIREKTOR, RoleName.HISOBCHI)
   @Get("/stats")
   getStats() {
     return this.service.getStats();
   }
 
-  /**
-   * GET /api/wards/room/:roomId
-   * Xonadagi hozirgi bemorlar
-   */
   @Get("/room/:roomId")
   getByRoom(@Param("roomId") roomId: string) {
     return this.service.getByRoom(roomId);
   }
-
-  /**
-   * GET /api/wards/room/:roomId/occupancy
-   * Xona sig'imi: band/bo'sh o'rinlar
-   */
   @Get("/room/:roomId/occupancy")
   roomOccupancy(@Param("roomId") roomId: string) {
     return this.service.roomOccupancy(roomId);
   }
-
-  /**
-   * GET /api/wards/:id
-   * Bitta yozuv (real-time kunlar bilan)
-   */
   @Get("/:id")
   getOne(@Param("id") id: string) {
     return this.service.getById(id);
   }
 
-  /**
-   * POST /api/wards/check-in
-   * Bemorni palataga yotqizish
-   */
   @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HAMSHIRA)
   @Post("/check-in")
   checkIn(@Body() dto: CreateWardDto) {
     return this.service.checkIn(dto);
   }
 
-  /**
-   * PATCH /api/wards/:id
-   * Yozuvni tahrirlash (wardNumber, expectedOut, note)
-   */
   @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HAMSHIRA, RoleName.DOCTOR)
   @Patch("/:id")
   update(@Param("id") id: string, @Body() dto: UpdateWardDto) {
     return this.service.update(id, dto);
   }
-
-  /**
-   * PATCH /api/wards/:id/check-out
-   * Bemorni chiqarish
-   */
   @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HAMSHIRA, RoleName.DOCTOR)
   @Patch("/:id/check-out")
   checkOut(@Param("id") id: string, @Body() dto: CheckOutDto) {
     return this.service.checkOut(id, dto);
   }
-
-  /**
-   * DELETE /api/wards/:id
-   * O'chirish (faqat ADMIN)
-   */
   @Roles(RoleName.ADMIN)
   @Delete("/:id")
   delete(@Param("id") id: string) {

@@ -2,12 +2,17 @@ import { Type } from "class-transformer";
 import { IsDateString, IsInt, IsOptional, IsString, IsUUID, Min } from "class-validator";
 
 // Bemorni palataga yotqizish
+// Bemorni palataga yotqizish
 export class CreateWardDto {
   @IsUUID()
   patientId: string;
 
   @IsUUID()
   roomId: string;
+
+  @IsOptional()
+  @IsDateString()
+  checkIn?: string; // ← QO'SHILDI: agar berilmasa new Date() ishlatiladi
 
   @IsOptional()
   @IsDateString()
@@ -18,6 +23,28 @@ export class CreateWardDto {
   note?: string;
 }
 
+// Yozuvni yangilash — HAMMA maydon optional
+export class UpdateWardDto {
+  @IsOptional()
+  @IsUUID()
+  patientId?: string; // ← QO'SHILDI
+
+  @IsOptional()
+  @IsUUID()
+  roomId?: string; // ← QO'SHILDI
+
+  @IsOptional()
+  @IsDateString()
+  checkIn?: string; // ← QO'SHILDI: qachon yotgan sanasini o'zgartirish
+
+  @IsOptional()
+  @IsDateString()
+  expectedOut?: string;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
 // Bemorni palatadan chiqarish
 export class CheckOutDto {
   @IsOptional()
@@ -29,16 +56,6 @@ export class CheckOutDto {
   note?: string;
 }
 
-// Yozuvni yangilash (tahrirlash)
-export class UpdateWardDto {
-  @IsOptional()
-  @IsDateString()
-  expectedOut?: string;
-
-  @IsOptional()
-  @IsString()
-  note?: string;
-}
 
 // Ro'yxat filtrlari
 export class WardQueryDto {

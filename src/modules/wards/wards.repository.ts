@@ -38,19 +38,19 @@ export class WardsRepository {
   }
 
   // Yangi yotqizish yaratish
-  async create(data: CreateWardDto) {
-    return this.prisma.wards.create({
-      data: {
-        patientId: data.patientId,
-        roomId: data.roomId,
-        expectedOut: data.expectedOut ? new Date(data.expectedOut) : undefined,
-        note: data.note,
-        status: WardStatus.OCCUPIED,
-      },
-      include: WARD_INCLUDE,
-    });
-  }
-
+async create(data: CreateWardDto) {
+  return this.prisma.wards.create({
+    data: {
+      patientId: data.patientId,
+      roomId: data.roomId,
+      checkIn: data.checkIn ? new Date(data.checkIn) : new Date(), // ← O'ZGARTIRILDI
+      expectedOut: data.expectedOut ? new Date(data.expectedOut) : undefined,
+      note: data.note,
+      status: WardStatus.OCCUPIED,
+    },
+    include: WARD_INCLUDE,
+  });
+}
   // Faqat hozir yotayotganlar (OCCUPIED)
   async findAllOccupied() {
     return this.prisma.wards.findMany({
@@ -144,18 +144,21 @@ export class WardsRepository {
       include: WARD_INCLUDE,
     });
   }
-
-  // Yozuvni tahrirlash
-  async update(id: string, data: UpdateWardDto) {
-    return this.prisma.wards.update({
-      where: { id },
-      data: {
-        ...(data.note !== undefined ? { note: data.note } : {}),
-        ...(data.expectedOut !== undefined ? { expectedOut: data.expectedOut ? new Date(data.expectedOut) : null } : {}),
-      },
-      include: WARD_INCLUDE,
-    });
-  }
+async update(id: string, data: UpdateWardDto) {
+  return this.prisma.wards.update({
+    where: { id },
+    data: {
+      ...(data.patientId !== undefined ? { patientId: data.patientId } : {}),   // ← QO'SHILDI
+      ...(data.roomId !== undefined ? { roomId: data.roomId } : {}),             // ← QO'SHILDI
+      ...(data.checkIn !== undefined ? { checkIn: new Date(data.checkIn) } : {}), // ← QO'SHILDI
+      ...(data.note !== undefined ? { note: data.note } : {}),
+      ...(data.expectedOut !== undefined
+        ? { expectedOut: data.expectedOut ? new Date(data.expectedOut) : null }
+        : {}),
+    },
+    include: WARD_INCLUDE,
+  });
+}
 
   // O'chirish
   async delete(id: string) {

@@ -94,9 +94,29 @@ export class WardsService {
   async update(id: string, dto: UpdateWardDto) {
     const ward = await this.repository.findById(id);
     if (!ward) throw new NotFoundException("Palata yozuvi topilmadi");
+
+    // Agar roomId o'zgartirilsa — yangi xona sig'imini tekshir
+    if (dto.roomId && dto.roomId !== ward.room.id) {
+      // ← QO'SHILDI
+      const occupancy = await this.repository.roomOccupancy(dto.roomId);
+      if (!occupancy.room) throw new NotFoundException("Yangi xona topilmadi");
+      if (occupancy.free <= 0) {
+        throw new BadRequestException(`"${occupancy.room.name}" xonasi to'lgan (${occupancy.capacity}/${occupancy.capacity} o'rin band)`);
+      }
+    }
+
+    // Agar patientId o'zgartirilsa — yangi bemor allaqachon yotayotganmi?
+    if (dto.patientId && dto.patientId !== ward.patient.id) {
+      // ← QO'SHILDI
+      const existing = await this.repository.findActiveByPatient(dto.patientId);
+      if (existing) {
+        throw new BadRequestException(`Bu bemor allaqachon "${existing.room.name}" xonasida yotibdi.`);
+      }
+    }
+
     return this.repository.update(id, dto);
   }
-
+  
   // O'chirish (faqat ADMIN)
   async delete(id: string) {
     const ward = await this.repository.findById(id);
