@@ -6,9 +6,9 @@ import { Prisma } from "../../generated/prisma/client";
 export class PaymentsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(userId: string, isDoctor: boolean) {
+  async list(where?: Prisma.PaymentWhereInput) {
     return this.prisma.payment.findMany({
-      where: isDoctor ? { assignment: { userId } } : undefined,
+      where,
       include: {
         patient: true,
         department: true,

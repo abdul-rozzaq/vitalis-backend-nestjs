@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RoleName } from "../../common/enums/role-name.enum";
@@ -12,8 +12,8 @@ export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Get()
-  findAll(@CurrentUser() user: JwtPayload) {
-    return this.paymentsService.list(user.userId, user.role === RoleName.DOCTOR);
+  findAll(@CurrentUser() user: JwtPayload, @Query() query: any) {
+    return this.paymentsService.list(user.userId, user.role === RoleName.DOCTOR, query);
   }
 
   @Get(":id")
