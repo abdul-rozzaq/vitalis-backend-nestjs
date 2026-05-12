@@ -35,7 +35,6 @@ export class StatsService {
         select: {
           id: true,
           dateTime: true,
-          status: true,
           patient: { select: { id: true, first_name: true, last_name: true } },
           assignment: {
             select: {

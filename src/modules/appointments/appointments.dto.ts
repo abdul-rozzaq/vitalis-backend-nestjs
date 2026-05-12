@@ -1,18 +1,8 @@
-import { IsDateString, IsEnum, IsOptional, IsString, IsUUID, MinLength } from "class-validator";
-
-export enum AppointmentStatus {
-  PENDING = "PENDING",
-  CONFIRMED = "CONFIRMED",
-  CANCELLED = "CANCELLED",
-}
+import { IsDateString, IsOptional, IsString, IsUUID, MinLength } from "class-validator";
 
 export class CreateAppointmentDto {
   @IsDateString()
   dateTime: string;
-
-  @IsOptional()
-  @IsEnum(AppointmentStatus)
-  status?: AppointmentStatus;
 
   @IsUUID()
   patientId: string;
@@ -27,8 +17,8 @@ export class UpdateAppointmentDto {
   dateTime?: string;
 
   @IsOptional()
-  @IsEnum(AppointmentStatus)
-  status?: AppointmentStatus;
+  @IsString()
+  conclusion?: string;
 
   @IsOptional()
   @IsUUID()

@@ -50,7 +50,6 @@ export class CasesService {
         const appt = await tx.appointment.create({
           data: {
             dateTime: dto.dateTime ? new Date(dto.dateTime) : new Date(),
-            status: "PENDING",
             patient: { connect: { id: patientCase.patientId } },
             assignment: { connect: { id: dto.assignmentId! } },
           },

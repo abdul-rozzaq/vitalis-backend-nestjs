@@ -2,18 +2,16 @@ import { Injectable } from "@nestjs/common";
 import { AppointmentsRepository } from "./appointments.repository";
 import { AppException } from "../../common/exceptions/app.exception";
 import { PrismaService } from "../../prisma/prisma.service";
-import { AppointmentStatus } from "../../generated/prisma/client";
 
 interface CreateAppointmentDto {
   dateTime: string;
-  status?: AppointmentStatus;
   patientId: string;
   assignmentId: string;
 }
 
 interface UpdateAppointmentDto {
   dateTime?: string;
-  status?: AppointmentStatus;
+  conclusion?: string;
   patientId?: string;
   assignmentId?: string;
 }
@@ -54,7 +52,6 @@ export class AppointmentsService {
       const created = await tx.appointment.create({
         data: {
           dateTime: appointmentDate,
-          status: (data.status || AppointmentStatus.PENDING) as AppointmentStatus,
           patient: { connect: { id: data.patientId } },
           assignment: { connect: { id: data.assignmentId } },
         },
@@ -85,7 +82,7 @@ export class AppointmentsService {
   async update(id: string, data: UpdateAppointmentDto) {
     const updateData: any = {
       ...(data.dateTime && { dateTime: new Date(data.dateTime) }),
-      ...(data.status && { status: data.status }),
+      ...(data.conclusion !== undefined && { conclusion: data.conclusion }),
       ...(data.patientId && { patient: { connect: { id: data.patientId } } }),
       ...(data.assignmentId && {
         assignment: { connect: { id: data.assignmentId } },
