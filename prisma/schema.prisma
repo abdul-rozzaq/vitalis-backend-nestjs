@@ -155,6 +155,7 @@ model Department {
 
   payments      Payment[]
   assignments   Assignment[]
+  rooms         Room[]
 
   @@map("departments")
 }
@@ -175,6 +176,9 @@ model Room {
   capacity    Int      @default(1)
   description String?
   roomType    RoomType @map("room_type")
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
   assignments Assignment[]
   wards       Wards[]

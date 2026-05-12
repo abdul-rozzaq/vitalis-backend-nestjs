@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { AppException } from "../../common/exceptions/app.exception";
-import { Prisma } from "../../generated/prisma/client";
 import { RoomsRepository } from "./rooms.repository";
+import { CreateRoomDto, UpdateRoomDto } from "./rooms.dto";
 
 @Injectable()
 export class RoomsService {
@@ -23,13 +23,25 @@ export class RoomsService {
     return room;
   }
 
-  async create(data: Prisma.RoomCreateInput) {
-    return this.repo.create(data);
+  async create(dto: CreateRoomDto) {
+    const { departmentId, ...rest } = dto;
+    return this.repo.create({
+      ...rest,
+      ...(departmentId ? { department: { connect: { id: departmentId } } } : {}),
+    } as any);
   }
 
-  async update(id: string, data: Prisma.RoomUpdateInput) {
+  async update(id: string, dto: UpdateRoomDto) {
     await this.retrieve(id);
-    return this.repo.update(id, data);
+    const { departmentId, ...rest } = dto;
+    return this.repo.update(id, {
+      ...rest,
+      ...(departmentId === null
+        ? { department: { disconnect: true } }
+        : departmentId
+          ? { department: { connect: { id: departmentId } } }
+          : {}),
+    } as any);
   }
 
   async delete(id: string) {

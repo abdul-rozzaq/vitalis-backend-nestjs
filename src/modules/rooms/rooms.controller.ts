@@ -43,7 +43,7 @@ export class RoomsController {
   @Roles(RoleName.ADMIN)
   @Post()
   create(@Body() dto: CreateRoomDto) {
-    return this.roomsService.create(dto as any);
+    return this.roomsService.create(dto);
   }
 
   /**
@@ -52,7 +52,7 @@ export class RoomsController {
   @Roles(RoleName.ADMIN)
   @Patch(":id")
   update(@Param("id") id: string, @Body() dto: UpdateRoomDto) {
-    return this.roomsService.update(id, dto as any);
+    return this.roomsService.update(id, dto);
   }
 
   /**

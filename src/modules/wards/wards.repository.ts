@@ -21,6 +21,7 @@ const WARD_INCLUDE = {
       roomType: true,
       capacity: true,
       description: true,
+      department: { select: { id: true, name: true } },
     },
   },
 } as const;

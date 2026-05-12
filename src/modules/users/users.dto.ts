@@ -58,6 +58,12 @@ export class UpdateUserDto {
   phone?: string;
 
   @IsOptional()
+  @IsString()
+  @MinLength(6, { message: "Password must be at least 6 characters" })
+  @MaxLength(100, { message: "Password must be at most 100 characters" })
+  password?: string;
+
+  @IsOptional()
   @IsEnum(RoleName)
   role?: RoleName;
 

@@ -1,4 +1,4 @@
-import { IsString, IsInt, IsPositive, IsOptional, IsEnum, MinLength, MaxLength } from "class-validator";
+import { IsString, IsInt, IsPositive, IsOptional, IsEnum, IsUUID, MinLength, MaxLength } from "class-validator";
 
 export enum RoomType {
   WARD = "WARD",
@@ -22,6 +22,10 @@ export class CreateRoomDto {
 
   @IsEnum(RoomType)
   roomType: RoomType;
+
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string | null;
 }
 
 export class UpdateRoomDto {
@@ -43,4 +47,8 @@ export class UpdateRoomDto {
   @IsOptional()
   @IsEnum(RoomType)
   roomType?: RoomType;
+
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string | null;
 }
