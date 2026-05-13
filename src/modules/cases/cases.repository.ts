@@ -74,7 +74,7 @@ export class CasesRepository {
     return this.prisma.patientCase.findFirst({
       where: {
         id,
-        ...(isDoctor ? doctorWhere(userId) : {}),
+        // ...(isDoctor ? doctorWhere(userId) : {}),
       },
       include: CASE_INCLUDE,
     });

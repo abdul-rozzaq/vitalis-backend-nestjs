@@ -43,7 +43,7 @@ export class WardsController {
     return this.service.getById(id);
   }
 
-  @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HAMSHIRA)
+  @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HAMSHIRA, RoleName.DOCTOR)
   @Post("/check-in")
   checkIn(@Body() dto: CreateWardDto) {
     return this.service.checkIn(dto);
