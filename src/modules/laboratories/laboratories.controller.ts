@@ -4,7 +4,7 @@ import { RoleName } from "../../common/enums/role-name.enum";
 import { CreateLaboratoryDto, CreateLaboratoryServiceDto, UpdateLaboratoryDto, UpdateLaboratoryServiceDto } from "./laboratories.dto";
 import { LaboratoriesService } from "./laboratories.service";
 
-@Roles(RoleName.ADMIN, RoleName.LABARANT, RoleName.DIREKTOR)
+@Roles(RoleName.ADMIN, RoleName.LABARANT, RoleName.DIREKTOR, RoleName.DOCTOR)
 @Controller("laboratories")
 export class LaboratoriesController {
   constructor(private readonly service: LaboratoriesService) {}
