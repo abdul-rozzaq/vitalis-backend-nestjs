@@ -3,15 +3,23 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { Prisma } from "../../generated/prisma/client";
 
 const appointmentInclude = {
-  patient: true,
+  patient: {
+    include: {
+      cases: {
+        orderBy: { createdAt: "desc" as const },
+        take: 1,
+        select: { id: true, status: true },
+      },
+    },
+  },
   assignment: { include: { department: true, user: true, room: true } },
   payments: { include: { department: true } },
-  files: { orderBy: { createdAt: "desc" } },
+  files: { orderBy: { createdAt: "desc" as const } },
   prescription: {
     include: {
       items: {
         include: { medicine: true },
-        orderBy: { medicine: { name: "asc" } },
+        orderBy: { medicine: { name: "asc" as const } },
       },
     },
   },
