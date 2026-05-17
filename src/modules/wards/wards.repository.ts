@@ -39,19 +39,20 @@ export class WardsRepository {
   }
 
   // Yangi yotqizish yaratish
-async create(data: CreateWardDto) {
-  return this.prisma.wards.create({
-    data: {
-      patientId: data.patientId,
-      roomId: data.roomId,
-      checkIn: data.checkIn ? new Date(data.checkIn) : new Date(), // ← O'ZGARTIRILDI
-      expectedOut: data.expectedOut ? new Date(data.expectedOut) : undefined,
-      note: data.note,
-      status: WardStatus.OCCUPIED,
-    },
-    include: WARD_INCLUDE,
-  });
-}
+  async create(data: CreateWardDto) {
+    return this.prisma.wards.create({
+      data: {
+        patientId: data.patientId,
+        roomId: data.roomId,
+        checkIn: data.checkIn ? new Date(data.checkIn) : new Date(),
+        expectedOut: data.expectedOut ? new Date(data.expectedOut) : undefined,
+        note: data.note,
+        companionsCount: data.companionsCount ?? 0,
+        status: WardStatus.OCCUPIED,
+      },
+      include: WARD_INCLUDE,
+    });
+  }
   // Faqat hozir yotayotganlar (OCCUPIED)
   async findAllOccupied() {
     return this.prisma.wards.findMany({
@@ -145,21 +146,20 @@ async create(data: CreateWardDto) {
       include: WARD_INCLUDE,
     });
   }
-async update(id: string, data: UpdateWardDto) {
-  return this.prisma.wards.update({
-    where: { id },
-    data: {
-      ...(data.patientId !== undefined ? { patientId: data.patientId } : {}),   // ← QO'SHILDI
-      ...(data.roomId !== undefined ? { roomId: data.roomId } : {}),             // ← QO'SHILDI
-      ...(data.checkIn !== undefined ? { checkIn: new Date(data.checkIn) } : {}), // ← QO'SHILDI
-      ...(data.note !== undefined ? { note: data.note } : {}),
-      ...(data.expectedOut !== undefined
-        ? { expectedOut: data.expectedOut ? new Date(data.expectedOut) : null }
-        : {}),
-    },
-    include: WARD_INCLUDE,
-  });
-}
+  async update(id: string, data: UpdateWardDto) {
+    return this.prisma.wards.update({
+      where: { id },
+      data: {
+        ...(data.patientId !== undefined ? { patientId: data.patientId } : {}),
+        ...(data.roomId !== undefined ? { roomId: data.roomId } : {}),
+        ...(data.checkIn !== undefined ? { checkIn: new Date(data.checkIn) } : {}),
+        ...(data.note !== undefined ? { note: data.note } : {}),
+        ...(data.companionsCount !== undefined ? { companionsCount: data.companionsCount } : {}),
+        ...(data.expectedOut !== undefined ? { expectedOut: data.expectedOut ? new Date(data.expectedOut) : null } : {}),
+      },
+      include: WARD_INCLUDE,
+    });
+  }
 
   // O'chirish
   async delete(id: string) {
@@ -187,15 +187,37 @@ async update(id: string, data: UpdateWardDto) {
   }
 
   // Statistika: xona sig'imi vs band o'rinlar
-  async roomOccupancy(roomId: string) {
-    const [room, occupied] = await Promise.all([this.prisma.room.findUnique({ where: { id: roomId } }), this.prisma.wards.count({ where: { roomId, status: WardStatus.OCCUPIED } })]);
-    return {
-      room,
-      occupied,
-      free: (room?.capacity ?? 0) - occupied,
-      capacity: room?.capacity ?? 0,
-    };
-  }
+async roomOccupancy(roomId: string) {
+  const [room, occupiedWards] = await Promise.all([
+    this.prisma.room.findUnique({ where: { id: roomId } }),
+    this.prisma.wards.findMany({
+      where: { roomId, status: WardStatus.OCCUPIED },
+      select: {
+        companionsCount: true,
+        patient: {
+          select: { id: true, first_name: true, last_name: true, gender: true },
+        },
+      },
+    }),
+  ]);
+
+  const totalPeople = occupiedWards.reduce(
+    (sum, w) => sum + 1 + w.companionsCount,
+    0
+  );
+
+  return {
+    room,
+    occupied: occupiedWards.length,           
+    totalPeople,                             
+    free: (room?.capacity ?? 0) - totalPeople, 
+    capacity: room?.capacity ?? 0,
+    currentPatients: occupiedWards.map((w) => ({
+      ...w.patient,
+      companionsCount: w.companionsCount,
+    })),
+  };
+}
 
   // Umumiy statistika (dashboard uchun)
   async getStats() {

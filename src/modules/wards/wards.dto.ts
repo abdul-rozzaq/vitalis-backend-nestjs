@@ -21,6 +21,12 @@ export class CreateWardDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  companionsCount?: number = 0;
 }
 
 // Yozuvni yangilash — HAMMA maydon optional
@@ -44,6 +50,12 @@ export class UpdateWardDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  companionsCount?: number;
 }
 // Bemorni palatadan chiqarish
 export class CheckOutDto {
@@ -55,7 +67,6 @@ export class CheckOutDto {
   @IsString()
   note?: string;
 }
-
 
 // Ro'yxat filtrlari
 export class WardQueryDto {

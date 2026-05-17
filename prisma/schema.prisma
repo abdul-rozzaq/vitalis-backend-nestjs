@@ -572,12 +572,13 @@ model Wards {
   roomId String
   room   Room   @relation(fields: [roomId], references: [id])
 
-  checkIn     DateTime  @default(now()) // Yotgan vaqti
-  expectedOut DateTime? // Taxminiy chiqish sanasi
-  actualOut   DateTime? // Haqiqiy chiqish sanasi
-  daysStayed  Int?      @default(0) // Necha kun yotgani
+  checkIn          DateTime  @default(now())
+  expectedOut      DateTime?
+  actualOut        DateTime?
+  daysStayed       Int?      @default(0)
+  companionsCount  Int       @default(0)  
 
-  note String? @db.Text // Qo'shimcha izoh
+  note String? @db.Text
 
   status WardStatus @default(OCCUPIED)
 

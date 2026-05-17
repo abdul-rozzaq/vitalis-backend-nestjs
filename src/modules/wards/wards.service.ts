@@ -9,19 +9,15 @@ export class WardsService {
 
   // Bemorni palataga yotqizish
   async checkIn(dto: CreateWardDto) {
-    // Bemor allaqachon yotayotganmi?
     const existing = await this.repository.findActiveByPatient(dto.patientId);
     if (existing) {
-      throw new BadRequestException(`Bu bemor allaqachon "${existing.room.name}" xonasida yotibdi. Avval check-out qiling.`);
+      throw new BadRequestException(`Bu bemor allaqachon "${existing.room.name}" xonasida yotibdi.`);
     }
-
-    // Xona sig'imi tekshirish
     const occupancy = await this.repository.roomOccupancy(dto.roomId);
-    if (!occupancy.room) {
-      throw new NotFoundException("Xona topilmadi");
-    }
-    if (occupancy.free <= 0) {
-      throw new BadRequestException(`"${occupancy.room.name}" xonasi to'lgan (${occupancy.capacity}/${occupancy.capacity} o'rin band)`);
+    if (!occupancy.room) throw new NotFoundException("Xona topilmadi");
+    const newPeopleCount = 1 + (dto.companionsCount ?? 0);
+    if (occupancy.free < newPeopleCount) {
+      throw new BadRequestException(`"${occupancy.room.name}" xonasida ${occupancy.free} ta bo'sh o'rin bor, siz ${newPeopleCount} ta so'rayapsiz`);
     }
 
     return this.repository.create(dto);
@@ -116,7 +112,7 @@ export class WardsService {
 
     return this.repository.update(id, dto);
   }
-  
+
   // O'chirish (faqat ADMIN)
   async delete(id: string) {
     const ward = await this.repository.findById(id);
