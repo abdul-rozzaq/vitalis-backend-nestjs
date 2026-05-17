@@ -257,6 +257,8 @@ model Payment {
   laboratoryService   LaboratoryService? @relation(fields: [laboratoryServiceId], references: [id])
   laboratoryServiceId String?
 
+  note String @default("")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

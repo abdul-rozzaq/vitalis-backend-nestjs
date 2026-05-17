@@ -31,8 +31,6 @@ export class CasesService {
   async addStep(caseId: string, dto: AddCaseStepDto, user: JwtPayload) {
     const patientCase = await this.repo.findById(caseId, user.userId, user.role === RoleName.DOCTOR);
 
-    console.log(JSON.stringify({ dto }, null, 2));
-
     if (!patientCase) throw new NotFoundException("Case not found");
 
     if (dto.type === CaseStepType.CONSULTATION) {
@@ -86,6 +84,7 @@ export class CasesService {
       const services = await this.prisma.laboratoryService.findMany({
         where: { id: { in: dto.serviceIds }, laboratoryId: dto.laboratoryId },
       });
+      
       if (services.length !== dto.serviceIds.length) {
         throw new AppException("One or more services not found or not belonging to this laboratory", 404);
       }
@@ -115,6 +114,7 @@ export class CasesService {
               service: { connect: { id: svc.id } },
             },
           });
+          
           await tx.payment.create({
             data: {
               amount: svc.price ?? 0,
@@ -131,27 +131,35 @@ export class CasesService {
     }
 
     if (dto.type === CaseStepType.PROCEDURE) {
-      if (dto.assignmentId && dto.departmentId) {
-        await this.prisma.payment.create({
+      if (dto.appointmentId) {
+        const appointment = await this.prisma.appointment.findUnique({
+          where: { id: dto.appointmentId },
+          include: { assignment: { include: { department: true } } },
+        });
+
+        const payment = await this.prisma.payment.create({
           data: {
             amount: dto.amount ?? 0,
             status: "UNPAID",
+            note: dto.note,
             patient: { connect: { id: patientCase.patientId } },
-            department: { connect: { id: dto.departmentId } },
-            assignment: { connect: { id: dto.assignmentId } },
+            appointment: { connect: { id: dto.appointmentId } },
+            department: { connect: { id: appointment.assignment.departmentId } },
+            assignment: { connect: { id: appointment.assignmentId } },
           },
         });
+        return this.repo.createStep(caseId, {
+          type: CaseStepType.PROCEDURE,
+          status: CaseStepStatus.PENDING,
+          assignmentId: dto.assignmentId,
+          note: dto.note,
+        });
       }
-      return this.repo.createStep(caseId, {
-        type: CaseStepType.PROCEDURE,
-        status: CaseStepStatus.PENDING,
-        assignmentId: dto.assignmentId,
-        note: dto.note,
-      });
     }
 
     if (dto.type === CaseStepType.DISCHARGE) {
       await this.repo.closeCase(caseId, "COMPLETED");
+
       return this.repo.createStep(caseId, {
         type: CaseStepType.DISCHARGE,
         status: CaseStepStatus.DONE,
