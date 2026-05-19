@@ -1,4 +1,4 @@
-import { IsNumber, IsPositive, IsEnum, IsOptional, IsUUID } from "class-validator";
+import { IsNumber, IsPositive, IsEnum, IsOptional, IsUUID, IsString } from "class-validator";
 
 export enum PaymentMethod {
   CASH = "CASH",
@@ -39,6 +39,10 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsUUID()
   appointmentId?: string;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
 }
 
 export class UpdatePaymentDto {
@@ -70,4 +74,8 @@ export class UpdatePaymentDto {
   @IsOptional()
   @IsUUID()
   appointmentId?: string;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
 }

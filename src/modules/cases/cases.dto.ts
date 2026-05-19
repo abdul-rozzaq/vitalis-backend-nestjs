@@ -43,6 +43,10 @@ export class AddCaseStepDto {
   @IsArray()
   @IsUUID("4", { each: true })
   serviceIds?: string[];
+
+  @IsOptional()
+  @IsUUID()
+  appointmentId: string;
 }
 
 export class UpdateCaseStepDto {
