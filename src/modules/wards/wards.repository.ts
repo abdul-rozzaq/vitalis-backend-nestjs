@@ -187,37 +187,40 @@ export class WardsRepository {
   }
 
   // Statistika: xona sig'imi vs band o'rinlar
-async roomOccupancy(roomId: string) {
-  const [room, occupiedWards] = await Promise.all([
-    this.prisma.room.findUnique({ where: { id: roomId } }),
-    this.prisma.wards.findMany({
-      where: { roomId, status: WardStatus.OCCUPIED },
-      select: {
-        companionsCount: true,
-        patient: {
-          select: { id: true, first_name: true, last_name: true, gender: true },
+  // wards.repository.ts ichidagi roomOccupancy metodini
+  // quyidagi to'g'rilangan versiyaga almashtiring:
+
+  async roomOccupancy(roomId: string) {
+    const [room, occupiedWards] = await Promise.all([
+      this.prisma.room.findUnique({ where: { id: roomId } }),
+      this.prisma.wards.findMany({
+        where: { roomId, status: WardStatus.OCCUPIED },
+        select: {
+          companionsCount: true,
+          patient: {
+            select: { id: true, first_name: true, last_name: true, gender: true },
+          },
         },
-      },
-    }),
-  ]);
+      }),
+    ]);
 
-  const totalPeople = occupiedWards.reduce(
-    (sum, w) => sum + 1 + w.companionsCount,
-    0
-  );
+    // Haqiqiy band o'rinlar: har bir bemor (1) + uning qarovchilari
+    const totalOccupied = occupiedWards.reduce((sum, w) => sum + 1 + w.companionsCount, 0);
+    const capacity = room?.capacity ?? 0;
+    const free = Math.max(0, capacity - totalOccupied);
 
-  return {
-    room,
-    occupied: occupiedWards.length,           
-    totalPeople,                             
-    free: (room?.capacity ?? 0) - totalPeople, 
-    capacity: room?.capacity ?? 0,
-    currentPatients: occupiedWards.map((w) => ({
-      ...w.patient,
-      companionsCount: w.companionsCount,
-    })),
-  };
-}
+    return {
+      room,
+      occupied: occupiedWards.length, // faqat bemorlar soni
+      totalOccupied, // bemorlar + qarovchilar (o'rinlar)
+      free, // bo'sh o'rinlar
+      capacity,
+      currentPatients: occupiedWards.map((w) => ({
+        ...w.patient,
+        companionsCount: w.companionsCount,
+      })),
+    };
+  }
 
   // Umumiy statistika (dashboard uchun)
   async getStats() {
