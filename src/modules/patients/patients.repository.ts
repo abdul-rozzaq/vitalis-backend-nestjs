@@ -29,6 +29,7 @@ export class PatientsRepository {
   async list(userId: string, isDoctor: boolean, search?: string) {
     return this.prisma.patient.findMany({
       where: {
+        deletedAt: null,
         ...(search
           ? {
               OR: [
@@ -49,9 +50,11 @@ export class PatientsRepository {
       where: {
         id,
         ...(isDoctor ? { appointments: { some: { assignment: { userId } } } } : {}),
+        deletedAt: null,
       },
       include: { district: { include: { region: true } } },
     });
+    
     if (!patient) throw new NotFoundException("Patient not found");
     return patient;
   }
@@ -65,6 +68,7 @@ export class PatientsRepository {
   }
 
   async delete(id: string) {
-    return this.prisma.patient.delete({ where: { id } });
+    // return this.prisma.patient.delete({ where: { id } });
+    return this.prisma.patient.update({ where: { id }, data: { deletedAt: new Date() } });
   }
 }
