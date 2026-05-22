@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { CaseStepStatus, CaseStepType } from "../../generated/prisma/client";
+import { RoleName } from "../../common/enums/role-name.enum";
 import { AppException } from "../../common/exceptions/app.exception";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
-import { RoleName } from "../../common/enums/role-name.enum";
+import { CaseStepStatus, CaseStepType } from "../../generated/prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AddCaseStepDto, CreateCaseDto, UpdateCaseStepDto } from "./cases.dto";
 import { CasesRepository, STEP_INCLUDE } from "./cases.repository";
@@ -43,7 +43,6 @@ export class CasesService {
 
       if (!assignment) throw new AppException("Assignment not found", 404);
 
-      // Create appointment + payment (reuse existing transaction logic)
       const appointment = await this.prisma.$transaction(async (tx) => {
         const appt = await tx.appointment.create({
           data: {
@@ -84,7 +83,6 @@ export class CasesService {
       const services = await this.prisma.laboratoryService.findMany({
         where: { id: { in: dto.serviceIds }, laboratoryId: dto.laboratoryId },
       });
-      
       if (services.length !== dto.serviceIds.length) {
         throw new AppException("One or more services not found or not belonging to this laboratory", 404);
       }
@@ -114,7 +112,6 @@ export class CasesService {
               service: { connect: { id: svc.id } },
             },
           });
-          
           await tx.payment.create({
             data: {
               amount: svc.price ?? 0,
@@ -131,35 +128,27 @@ export class CasesService {
     }
 
     if (dto.type === CaseStepType.PROCEDURE) {
-      if (dto.appointmentId) {
-        const appointment = await this.prisma.appointment.findUnique({
-          where: { id: dto.appointmentId },
-          include: { assignment: { include: { department: true } } },
-        });
-
-        const payment = await this.prisma.payment.create({
+      if (dto.assignmentId && dto.departmentId) {
+        await this.prisma.payment.create({
           data: {
             amount: dto.amount ?? 0,
             status: "UNPAID",
-            note: dto.note,
             patient: { connect: { id: patientCase.patientId } },
-            appointment: { connect: { id: dto.appointmentId } },
-            department: { connect: { id: appointment.assignment.departmentId } },
-            assignment: { connect: { id: appointment.assignmentId } },
+            department: { connect: { id: dto.departmentId } },
+            assignment: { connect: { id: dto.assignmentId } },
           },
         });
-        return this.repo.createStep(caseId, {
-          type: CaseStepType.PROCEDURE,
-          status: CaseStepStatus.PENDING,
-          assignmentId: dto.assignmentId,
-          note: dto.note,
-        });
       }
+      return this.repo.createStep(caseId, {
+        type: CaseStepType.PROCEDURE,
+        status: CaseStepStatus.PENDING,
+        assignmentId: dto.assignmentId,
+        note: dto.note,
+      });
     }
 
     if (dto.type === CaseStepType.DISCHARGE) {
       await this.repo.closeCase(caseId, "COMPLETED");
-
       return this.repo.createStep(caseId, {
         type: CaseStepType.DISCHARGE,
         status: CaseStepStatus.DONE,
@@ -168,7 +157,6 @@ export class CasesService {
       });
     }
 
-    // REFERRAL, CHECKIN, or any other type — create step as-is
     return this.repo.createStep(caseId, {
       type: dto.type,
       assignmentId: dto.assignmentId,
@@ -177,7 +165,6 @@ export class CasesService {
   }
 
   async updateStep(caseId: string, stepId: string, dto: UpdateCaseStepDto, user: JwtPayload) {
-    // Verify case is accessible
     const patientCase = await this.repo.findById(caseId, user.userId, user.role === RoleName.DOCTOR);
     if (!patientCase) throw new NotFoundException("Case not found");
 
@@ -197,5 +184,25 @@ export class CasesService {
     const patientCase = await this.repo.findById(caseId, user.userId, user.role === RoleName.DOCTOR);
     if (!patientCase) throw new NotFoundException("Case not found");
     return this.repo.closeCase(caseId, status);
+  }
+
+  async deleteStep(caseId: string, stepId: string, user: JwtPayload) {
+    const patientCase = await this.repo.findById(caseId, user.userId, user.role === RoleName.DOCTOR);
+    if (!patientCase) throw new NotFoundException("Case not found");
+
+    const step = await this.repo.findStep(stepId);
+    if (!step || step.caseId !== caseId) throw new NotFoundException("Step not found");
+
+    if (step.type === "CHECKIN" || step.type === "DISCHARGE") {
+      throw new AppException("Bu qadam o'chirib bo'lmaydi", 400);
+    }
+
+    return this.repo.deleteStep(stepId);
+  }
+
+  async deleteCase(caseId: string, user: JwtPayload) {
+    const patientCase = await this.repo.findById(caseId, user.userId, user.role === RoleName.DOCTOR);
+    if (!patientCase) throw new NotFoundException("Case not found");
+    return this.repo.deleteCase(caseId);
   }
 }
