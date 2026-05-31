@@ -44,13 +44,19 @@ export class LabOrdersRepository {
     });
   }
 
-  updateItem(
-    itemId: string,
-    data: { status?: LabItemStatus; note?: string; completedAt?: Date },
-  ) {
+  updateItem(itemId: string, data: { status?: LabItemStatus; note?: string }) {
+    const now = new Date();
+
+    const timeData = {
+      ...(data.status === LabItemStatus.IN_PROGRESS && { startedAt: now }),
+      ...(data.status === LabItemStatus.READY && { readyAt: now, completedAt: now }),
+      ...(data.status === LabItemStatus.DELIVERED && { deliveredAt: now }),
+      ...(data.status === LabItemStatus.CANCELLED && { cancelledAt: now }),
+    };
+
     return this.prisma.labOrderItem.update({
       where: { id: itemId },
-      data,
+      data: { ...data, ...timeData },
       include: {
         service: { select: { id: true, name: true, price: true } },
         payment: { select: { id: true, amount: true, status: true, method: true } },
@@ -84,9 +90,11 @@ export class LabOrdersRepository {
     const statuses = order.items.map((i) => i.status);
     let newStatus: LabOrderStatus = LabOrderStatus.PENDING;
 
-    if (statuses.length > 0 && statuses.every((s) => s === LabItemStatus.DONE || s === LabItemStatus.CANCELLED)) {
+    if (statuses.every((s) => s === LabItemStatus.DELIVERED || s === LabItemStatus.CANCELLED)) {
       newStatus = LabOrderStatus.COMPLETED;
-    } else if (statuses.some((s) => s === LabItemStatus.IN_PROGRESS || s === LabItemStatus.DONE)) {
+    } else if (statuses.some((s) => s === LabItemStatus.READY || s === LabItemStatus.DELIVERED)) {
+      newStatus = LabOrderStatus.IN_PROGRESS;
+    } else if (statuses.some((s) => s === LabItemStatus.IN_PROGRESS)) {
       newStatus = LabOrderStatus.IN_PROGRESS;
     }
 

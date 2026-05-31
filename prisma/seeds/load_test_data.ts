@@ -418,7 +418,6 @@ async function main() {
     const appt = await prisma.appointment.create({
       data: {
         dateTime: apptDate,
-        status: pi < 5 ? "PENDING" : pi < 10 ? "CONFIRMED" : "CONFIRMED",
         patientId: patient.id,
         assignmentId: asgn.id,
       },
@@ -491,11 +490,9 @@ async function main() {
   console.log("🧬 Lab buyurtmalari...");
   let labOrdersCreated = 0;
 
-  // Pick first 6 patients for lab orders
   for (let pi = 0; pi < Math.min(6, createdPatients.length); pi++) {
     const patient = createdPatients[pi];
 
-    // Get the patient's existing case
     const patCase = await prisma.patientCase.findFirst({
       where: { patientId: patient.id },
     });
@@ -505,19 +502,21 @@ async function main() {
     const labServices = allServices.filter((s: any) => s.laboratoryId === lab.id).slice(0, 2);
     if (!labServices.length) continue;
 
-    // LAB step
     const labStep = await prisma.caseStep.create({
       data: {
         caseId: patCase.id,
         type: "LAB",
-        status: pi < 3 ? "IN_PROGRESS" : "DONE",
-        completedAt: pi >= 3 ? daysAgo(1) : null,
+        status: pi < 2 ? "IN_PROGRESS" : "DONE",
+        completedAt: pi >= 2 ? daysAgo(1) : null,
       },
     });
 
+    // pi 0 → PENDING, pi 1 → IN_PROGRESS, pi 2-3 → READY, pi 4-5 → DELIVERED
+    const orderStatus = pi === 0 ? "PENDING" : pi === 1 ? "IN_PROGRESS" : pi < 5 ? "IN_PROGRESS" : "COMPLETED";
+
     const labOrder = await prisma.labOrder.create({
       data: {
-        status: pi < 3 ? "IN_PROGRESS" : "COMPLETED",
+        status: orderStatus as any,
         caseStepId: labStep.id,
         patientId: patient.id,
         laboratoryId: lab.id,
@@ -525,13 +524,20 @@ async function main() {
     });
 
     for (const svc of labServices) {
+      const itemStatus = pi === 0 ? "PENDING" : pi === 1 ? "IN_PROGRESS" : pi === 2 ? "READY" : pi === 3 ? "READY" : pi === 4 ? "DELIVERED" : "DELIVERED";
+
+      const now = new Date();
+
       const item = await prisma.labOrderItem.create({
         data: {
           labOrderId: labOrder.id,
           serviceId: svc.id,
-          status: pi < 3 ? "IN_PROGRESS" : "DONE",
-          note: pi >= 3 ? "Natija normal chegarada" : null,
-          completedAt: pi >= 3 ? daysAgo(1) : null,
+          status: itemStatus as any,
+          note: pi >= 2 ? "Natija normal chegarada" : null,
+          completedAt: pi >= 2 ? daysAgo(1) : null,
+          startedAt: pi >= 1 ? daysAgo(2) : null,
+          readyAt: pi >= 2 ? daysAgo(1) : null,
+          deliveredAt: pi >= 4 ? daysAgo(0) : null,
         },
       });
 
@@ -614,7 +620,6 @@ async function main() {
     const appt = await prisma.appointment.create({
       data: {
         dateTime: hoursFromNow(i * 2 + 1),
-        status: "PENDING",
         patientId: patient.id,
         assignmentId: asgn.id,
       },
