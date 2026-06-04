@@ -10,8 +10,13 @@ export class PatientsService {
     return this.repository.getTimeline(id, userId, isDoctor);
   }
 
-  async list(userId: string, isDoctor: boolean, search?: string) {
-    return this.repository.list(userId, isDoctor, search);
+  async list(
+    userId: string,
+    isDoctor: boolean,
+    search?: string,
+    excludeOccupied?: boolean
+  ) {
+    return this.repository.list(userId, isDoctor, search, excludeOccupied);
   }
 
   async retrieve(id: string, userId: string, isDoctor: boolean) {

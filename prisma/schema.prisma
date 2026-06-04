@@ -454,7 +454,8 @@ enum LabOrderStatus {
 enum LabItemStatus {
   PENDING
   IN_PROGRESS
-  DONE
+  READY
+  DELIVERED
   CANCELLED
 
   @@map("lab_item_statuses")
@@ -480,7 +481,6 @@ model LabOrder {
 
   @@map("lab_orders")
 }
-
 model LabOrderItem {
   id     String        @id @default(uuid())
   status LabItemStatus @default(PENDING)
@@ -495,6 +495,11 @@ model LabOrderItem {
   fileName    String?
   note        String?   @db.Text
   completedAt DateTime?
+
+  startedAt   DateTime?
+  readyAt     DateTime?
+  deliveredAt DateTime?
+  cancelledAt DateTime?
 
   payment Payment?
   files   LabOrderItemFile[]
@@ -577,12 +582,13 @@ model Wards {
   roomId String
   room   Room   @relation(fields: [roomId], references: [id])
 
-  checkIn     DateTime  @default(now()) // Yotgan vaqti
-  expectedOut DateTime? // Taxminiy chiqish sanasi
-  actualOut   DateTime? // Haqiqiy chiqish sanasi
-  daysStayed  Int?      @default(0) // Necha kun yotgani
+  checkIn          DateTime  @default(now())
+  expectedOut      DateTime?
+  actualOut        DateTime?
+  daysStayed       Int?      @default(0)
+  companionsCount  Int       @default(0)  
 
-  note String? @db.Text // Qo'shimcha izoh
+  note String? @db.Text
 
   status WardStatus @default(OCCUPIED)
 

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RoleName } from "../../common/enums/role-name.enum";
@@ -31,6 +31,18 @@ export class CasesController {
   @Patch(":id/steps/:stepId")
   updateStep(@Param("id") id: string, @Param("stepId") stepId: string, @Body() dto: UpdateCaseStepDto, @CurrentUser() user: JwtPayload) {
     return this.service.updateStep(id, stepId, dto, user);
+  }
+
+  @Roles(RoleName.ADMIN, RoleName.DOCTOR)
+  @Delete(":id/steps/:stepId")
+  deleteStep(@Param("id") id: string, @Param("stepId") stepId: string, @CurrentUser() user: JwtPayload) {
+    return this.service.deleteStep(id, stepId, user);
+  }
+
+  @Roles(RoleName.ADMIN)
+  @Delete(":id")
+  deleteCase(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    return this.service.deleteCase(id, user);
   }
 
   @Roles(RoleName.ADMIN, RoleName.DOCTOR)

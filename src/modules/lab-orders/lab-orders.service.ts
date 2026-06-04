@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
-import { LabItemStatus } from "../../generated/prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AddLabOrderItemFileDto, UpdateLabOrderItemDto } from "./lab-orders.dto";
 import { LabOrdersRepository } from "./lab-orders.repository";
@@ -39,12 +38,9 @@ export class LabOrdersService {
     const item = order.items.find((i) => i.id === itemId);
     if (!item) throw new NotFoundException("Lab order item not found");
 
-    const completedAt = dto.status === LabItemStatus.DONE ? new Date() : undefined;
-
     const updated = await this.repo.updateItem(itemId, {
       status: dto.status,
       note: dto.note,
-      completedAt,
     });
 
     await this.repo.recalcOrderStatus(orderId);

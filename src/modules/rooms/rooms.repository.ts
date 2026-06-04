@@ -6,26 +6,47 @@ import { PrismaService } from "../../prisma/prisma.service";
 export class RoomsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Xonadagi haqiqiy band o'rinlar soni:
+  // har bir bemor = 1 o'rin + uning companionsCount o'rinlari
+  private async calcOccupied(roomId: string): Promise<number> {
+    const wards = await this.prisma.wards.findMany({
+      where: { roomId, status: "OCCUPIED" },
+      select: { companionsCount: true },
+    });
+    // 1 bemor + N qarovchi = 1 + companionsCount o'rin
+    return wards.reduce((sum, w) => sum + 1 + w.companionsCount, 0);
+  }
+
   // Barcha xonalar — har birida band o'rinlar soni
   async list() {
     const rooms = await this.prisma.room.findMany({
       orderBy: { name: "asc" },
       include: {
         department: { select: { id: true, name: true } },
-        _count: {
-          select: {
-            wards: { where: { status: "OCCUPIED" } },
-          },
+        wards: {
+          where: { status: "OCCUPIED" },
+          select: { companionsCount: true },
         },
       },
     });
 
-    return rooms.map((r) => ({
-      ...r,
-      occupiedCount: r._count.wards,
-      freeCount: (r.capacity ?? 0) - r._count.wards,
-      isFull: r._count.wards >= (r.capacity ?? 0),
-    }));
+    return rooms.map((r) => {
+      // Haqiqiy band o'rinlar = bemorlar + ularning qarovchilari
+      const totalOccupied = r.wards.reduce(
+        (sum, w) => sum + 1 + w.companionsCount,
+        0
+      );
+      const capacity = r.capacity ?? 0;
+      const freeSlots = Math.max(0, capacity - totalOccupied);
+      return {
+        ...r,
+        wards: undefined, // frontga yubormaymiz
+        occupiedCount: totalOccupied,
+        freeSlots,
+        freeCount: freeSlots,
+        isFull: freeSlots <= 0,
+      };
+    });
   }
 
   // Faqat WARD tipli xonalar (palatalar)
@@ -35,20 +56,29 @@ export class RoomsRepository {
       orderBy: { name: "asc" },
       include: {
         department: { select: { id: true, name: true } },
-        _count: {
-          select: {
-            wards: { where: { status: "OCCUPIED" } },
-          },
+        wards: {
+          where: { status: "OCCUPIED" },
+          select: { companionsCount: true },
         },
       },
     });
 
-    return rooms.map((r) => ({
-      ...r,
-      occupiedCount: r._count.wards,
-      freeCount: (r.capacity ?? 0) - r._count.wards,
-      isFull: r._count.wards >= (r.capacity ?? 0),
-    }));
+    return rooms.map((r) => {
+      const totalOccupied = r.wards.reduce(
+        (sum, w) => sum + 1 + w.companionsCount,
+        0
+      );
+      const capacity = r.capacity ?? 0;
+      const freeSlots = Math.max(0, capacity - totalOccupied);
+      return {
+        ...r,
+        wards: undefined,
+        occupiedCount: totalOccupied,
+        freeSlots,
+        freeCount: freeSlots,
+        isFull: freeSlots <= 0,
+      };
+    });
   }
 
   async retrieve(id: string) {
@@ -56,19 +86,27 @@ export class RoomsRepository {
       where: { id },
       include: {
         department: { select: { id: true, name: true } },
-        _count: {
-          select: {
-            wards: { where: { status: "OCCUPIED" } },
-          },
+        wards: {
+          where: { status: "OCCUPIED" },
+          select: { companionsCount: true },
         },
       },
     });
     if (!room) return null;
+
+    const totalOccupied = room.wards.reduce(
+      (sum, w) => sum + 1 + w.companionsCount,
+      0
+    );
+    const capacity = room.capacity ?? 0;
+    const freeSlots = Math.max(0, capacity - totalOccupied);
     return {
       ...room,
-      occupiedCount: room._count.wards,
-      freeCount: (room.capacity ?? 0) - room._count.wards,
-      isFull: room._count.wards >= (room.capacity ?? 0),
+      wards: undefined,
+      occupiedCount: totalOccupied,
+      freeSlots,
+      freeCount: freeSlots,
+      isFull: freeSlots <= 0,
     };
   }
 

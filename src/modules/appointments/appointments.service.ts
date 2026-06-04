@@ -48,18 +48,24 @@ export class AppointmentsService {
       throw new AppException("Assignment not found", 404);
     }
 
-    const [appointment] = await this.prisma.$transaction(async (tx) => {
+    // Bemorning mavjud ACTIVE case'ini topish
+    let patientCase = await this.prisma.patientCase.findFirst({
+      where: { patientId: data.patientId, status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+    });
+
+    let appointmentId: string;
+
+    await this.prisma.$transaction(async (tx) => {
       const created = await tx.appointment.create({
         data: {
           dateTime: appointmentDate,
           patient: { connect: { id: data.patientId } },
           assignment: { connect: { id: data.assignmentId } },
         },
-        include: {
-          patient: true,
-          assignment: { include: { department: true, user: true } },
-        },
       });
+
+      appointmentId = created.id;
 
       await tx.payment.create({
         data: {
@@ -73,10 +79,29 @@ export class AppointmentsService {
         },
       });
 
-      return [created];
+      // Mavjud ACTIVE case yo'q bo'lsa yangi ochish
+      if (!patientCase) {
+        patientCase = await tx.patientCase.create({
+          data: {
+            patient: { connect: { id: data.patientId } },
+            status: "ACTIVE",
+          },
+        });
+      }
+
+      await tx.caseStep.create({
+        data: {
+          type: "CONSULTATION",
+          status: "PENDING",
+          case: { connect: { id: patientCase!.id } },
+          assignment: { connect: { id: data.assignmentId } },
+          appointment: { connect: { id: created.id } },
+        },
+      });
     });
 
-    return appointment;
+    // To'liq ma'lumot bilan qaytarish
+    return this.repository.retrieve(appointmentId!, data.patientId, false);
   }
 
   async update(id: string, data: UpdateAppointmentDto) {
@@ -84,11 +109,32 @@ export class AppointmentsService {
       ...(data.dateTime && { dateTime: new Date(data.dateTime) }),
       ...(data.conclusion !== undefined && { conclusion: data.conclusion }),
       ...(data.patientId && { patient: { connect: { id: data.patientId } } }),
-      ...(data.assignmentId && {
-        assignment: { connect: { id: data.assignmentId } },
-      }),
+      ...(data.assignmentId && { assignment: { connect: { id: data.assignmentId } } }),
     };
-    return this.repository.update(id, updateData);
+
+    const updated = await this.repository.update(id, updateData);
+
+    // Xulosa yozilsa — CaseStep va Case ni DONE/COMPLETED ga o'tkazish
+    if (data.conclusion && updated.caseStep) {
+      await this.prisma.caseStep.update({
+        where: { id: updated.caseStep.id },
+        data: {
+          status: "DONE",
+          completedAt: new Date(),
+          case: {
+            update: {
+              status: "COMPLETED",
+              closedAt: new Date(),
+            },
+          },
+        },
+      });
+
+      // Yangilangan holda qaytarish
+      return this.repository.retrieve(id, "", false);
+    }
+
+    return updated;
   }
 
   async addFile(id: string, dto: CreateAppointmentFileDto, userId: string, isDoctor: boolean) {

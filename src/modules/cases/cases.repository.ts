@@ -150,4 +150,67 @@ export class CasesRepository {
       include: STEP_INCLUDE,
     });
   }
+
+
+  async deleteStep(stepId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const step = await tx.caseStep.findUnique({
+        where: { id: stepId },
+        include: {
+          appointment: { include: { payments: true } },
+          labOrder: { include: { items: { include: { payment: true } } } },
+          prescription: true,
+        },
+      });
+      if (!step) return null;
+      if (step.labOrder) {
+        for (const item of step.labOrder.items) {
+          if (item.payment) await tx.payment.delete({ where: { id: item.payment.id } });
+        }
+        await tx.labOrder.delete({ where: { id: step.labOrder.id } });
+      }
+      if (step.appointment) {
+        for (const payment of step.appointment.payments) {
+          await tx.payment.delete({ where: { id: payment.id } });
+        }
+        await tx.appointment.delete({ where: { id: step.appointment.id } });
+      }
+      if (step.prescription) {
+        await tx.prescription.delete({ where: { id: step.prescription.id } });
+      }
+      return tx.caseStep.delete({ where: { id: stepId } });
+    });
+  }
+
+  async deleteCase(caseId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const steps = await tx.caseStep.findMany({
+        where: { caseId },
+        include: {
+          appointment: { include: { payments: true } },
+          labOrder: { include: { items: { include: { payment: true } } } },
+          prescription: true,
+        },
+      });
+      for (const step of steps) {
+        if (step.labOrder) {
+          for (const item of step.labOrder.items) {
+            if (item.payment) await tx.payment.delete({ where: { id: item.payment.id } });
+          }
+          await tx.labOrder.delete({ where: { id: step.labOrder.id } });
+        }
+        if (step.appointment) {
+          for (const payment of step.appointment.payments) {
+            await tx.payment.delete({ where: { id: payment.id } });
+          }
+          await tx.appointment.delete({ where: { id: step.appointment.id } });
+        }
+        if (step.prescription) {
+          await tx.prescription.delete({ where: { id: step.prescription.id } });
+        }
+      }
+      await tx.caseStep.deleteMany({ where: { caseId } });
+      return tx.patientCase.delete({ where: { id: caseId } });
+    });
+  }
 }

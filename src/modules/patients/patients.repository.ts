@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma, WardStatus } from "../../generated/prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
-import { Prisma } from "../../generated/prisma/client";
 
 @Injectable()
 export class PatientsRepository {
@@ -26,20 +26,24 @@ export class PatientsRepository {
     });
   }
 
-  async list(userId: string, isDoctor: boolean, search?: string) {
+  async list(userId: string, isDoctor: boolean, search?: string, excludeOccupied?: boolean) {
+    console.log(">>> excludeOccupied:", excludeOccupied);
     return this.prisma.patient.findMany({
       where: {
         deletedAt: null,
         ...(search
           ? {
-              OR: [
-                { id: { contains: search, mode: "insensitive" } },
-                { first_name: { contains: search, mode: "insensitive" } },
-                { last_name: { contains: search, mode: "insensitive" } },
-              ],
+              OR: [{ id: { contains: search, mode: "insensitive" } }, { first_name: { contains: search, mode: "insensitive" } }, { last_name: { contains: search, mode: "insensitive" } }],
             }
           : {}),
         ...(isDoctor ? { appointments: { some: { assignment: { userId } } } } : {}),
+        ...(excludeOccupied
+          ? {
+              wards: {
+                none: { status: WardStatus.OCCUPIED },
+              },
+            }
+          : {}),
       },
       include: { district: { include: { region: true } } },
     });

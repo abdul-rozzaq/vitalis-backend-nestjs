@@ -39,19 +39,20 @@ export class WardsRepository {
   }
 
   // Yangi yotqizish yaratish
-async create(data: CreateWardDto) {
-  return this.prisma.wards.create({
-    data: {
-      patientId: data.patientId,
-      roomId: data.roomId,
-      checkIn: data.checkIn ? new Date(data.checkIn) : new Date(), // ← O'ZGARTIRILDI
-      expectedOut: data.expectedOut ? new Date(data.expectedOut) : undefined,
-      note: data.note,
-      status: WardStatus.OCCUPIED,
-    },
-    include: WARD_INCLUDE,
-  });
-}
+  async create(data: CreateWardDto) {
+    return this.prisma.wards.create({
+      data: {
+        patientId: data.patientId,
+        roomId: data.roomId,
+        checkIn: data.checkIn ? new Date(data.checkIn) : new Date(),
+        expectedOut: data.expectedOut ? new Date(data.expectedOut) : undefined,
+        note: data.note,
+        companionsCount: data.companionsCount ?? 0,
+        status: WardStatus.OCCUPIED,
+      },
+      include: WARD_INCLUDE,
+    });
+  }
   // Faqat hozir yotayotganlar (OCCUPIED)
   async findAllOccupied() {
     return this.prisma.wards.findMany({
@@ -145,21 +146,20 @@ async create(data: CreateWardDto) {
       include: WARD_INCLUDE,
     });
   }
-async update(id: string, data: UpdateWardDto) {
-  return this.prisma.wards.update({
-    where: { id },
-    data: {
-      ...(data.patientId !== undefined ? { patientId: data.patientId } : {}),   // ← QO'SHILDI
-      ...(data.roomId !== undefined ? { roomId: data.roomId } : {}),             // ← QO'SHILDI
-      ...(data.checkIn !== undefined ? { checkIn: new Date(data.checkIn) } : {}), // ← QO'SHILDI
-      ...(data.note !== undefined ? { note: data.note } : {}),
-      ...(data.expectedOut !== undefined
-        ? { expectedOut: data.expectedOut ? new Date(data.expectedOut) : null }
-        : {}),
-    },
-    include: WARD_INCLUDE,
-  });
-}
+  async update(id: string, data: UpdateWardDto) {
+    return this.prisma.wards.update({
+      where: { id },
+      data: {
+        ...(data.patientId !== undefined ? { patientId: data.patientId } : {}),
+        ...(data.roomId !== undefined ? { roomId: data.roomId } : {}),
+        ...(data.checkIn !== undefined ? { checkIn: new Date(data.checkIn) } : {}),
+        ...(data.note !== undefined ? { note: data.note } : {}),
+        ...(data.companionsCount !== undefined ? { companionsCount: data.companionsCount } : {}),
+        ...(data.expectedOut !== undefined ? { expectedOut: data.expectedOut ? new Date(data.expectedOut) : null } : {}),
+      },
+      include: WARD_INCLUDE,
+    });
+  }
 
   // O'chirish
   async delete(id: string) {
@@ -187,13 +187,38 @@ async update(id: string, data: UpdateWardDto) {
   }
 
   // Statistika: xona sig'imi vs band o'rinlar
+  // wards.repository.ts ichidagi roomOccupancy metodini
+  // quyidagi to'g'rilangan versiyaga almashtiring:
+
   async roomOccupancy(roomId: string) {
-    const [room, occupied] = await Promise.all([this.prisma.room.findUnique({ where: { id: roomId } }), this.prisma.wards.count({ where: { roomId, status: WardStatus.OCCUPIED } })]);
+    const [room, occupiedWards] = await Promise.all([
+      this.prisma.room.findUnique({ where: { id: roomId } }),
+      this.prisma.wards.findMany({
+        where: { roomId, status: WardStatus.OCCUPIED },
+        select: {
+          companionsCount: true,
+          patient: {
+            select: { id: true, first_name: true, last_name: true, gender: true },
+          },
+        },
+      }),
+    ]);
+
+    // Haqiqiy band o'rinlar: har bir bemor (1) + uning qarovchilari
+    const totalOccupied = occupiedWards.reduce((sum, w) => sum + 1 + w.companionsCount, 0);
+    const capacity = room?.capacity ?? 0;
+    const free = Math.max(0, capacity - totalOccupied);
+
     return {
       room,
-      occupied,
-      free: (room?.capacity ?? 0) - occupied,
-      capacity: room?.capacity ?? 0,
+      occupied: occupiedWards.length, // faqat bemorlar soni
+      totalOccupied, // bemorlar + qarovchilar (o'rinlar)
+      free, // bo'sh o'rinlar
+      capacity,
+      currentPatients: occupiedWards.map((w) => ({
+        ...w.patient,
+        companionsCount: w.companionsCount,
+      })),
     };
   }
 

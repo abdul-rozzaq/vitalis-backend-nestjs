@@ -12,8 +12,8 @@ export class PatientsController {
   constructor(private readonly patientsService: PatientsService) {}
 
   @Get()
-  findAll(@Query("search") search: string, @CurrentUser() user: JwtPayload) {
-    return this.patientsService.list(user.userId, user.role === RoleName.DOCTOR, search);
+  findAll(@Query("search") search: string, @Query("excludeOccupied") excludeOccupied: string, @CurrentUser() user: JwtPayload) {
+    return this.patientsService.list(user.userId, user.role === RoleName.DOCTOR, search, excludeOccupied === "true");
   }
 
   @Get(":id/timeline")
