@@ -3,6 +3,8 @@ import { RoleName } from "../../common/enums/role-name.enum";
 import { AppException } from "../../common/exceptions/app.exception";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
 import { CaseStepStatus, CaseStepType } from "../../generated/prisma/client";
+import { InvoiceItemSourceType, InvoiceSourceType, InvoiceStatus } from "../../generated/prisma/enums";
+import { Prisma } from "../../generated/prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AddCaseStepDto, CreateCaseDto, UpdateCaseStepDto } from "./cases.dto";
 import { CasesRepository, STEP_INCLUDE } from "./cases.repository";
@@ -43,28 +45,34 @@ export class CasesService {
 
       if (!assignment) throw new AppException("Assignment not found", 404);
 
-      const appointment = await this.prisma.$transaction(async (tx) => {
-        const appt = await tx.appointment.create({
-          data: {
-            dateTime: dto.dateTime ? new Date(dto.dateTime) : new Date(),
-            patient: { connect: { id: patientCase.patientId } },
-            assignment: { connect: { id: dto.assignmentId! } },
-          },
-        });
+      const appointment = await this.prisma.appointment.create({
+        data: {
+          dateTime: dto.dateTime ? new Date(dto.dateTime) : new Date(),
+          patient: { connect: { id: patientCase.patientId } },
+          assignment: { connect: { id: dto.assignmentId! } },
+        },
+      });
 
-        await tx.payment.create({
-          data: {
-            amount: dto.amount ?? assignment.department.price ?? 0,
-            status: "UNPAID",
-            createdAt: appt.dateTime,
-            patient: { connect: { id: patientCase.patientId } },
-            department: { connect: { id: assignment.departmentId } },
-            assignment: { connect: { id: assignment.id } },
-            appointment: { connect: { id: appt.id } },
+      const price = new Prisma.Decimal(assignment.department.price ?? 0);
+      await this.prisma.invoice.create({
+        data: {
+          patientId: patientCase.patientId,
+          sourceType: InvoiceSourceType.APPOINTMENT,
+          sourceId: appointment.id,
+          totalAmount: price,
+          status: InvoiceStatus.ISSUED,
+          createdById: user.userId,
+          items: {
+            create: [{
+              description: `${assignment.department.name} konsultatsiya`,
+              quantity: 1,
+              unitPrice: price,
+              totalPrice: price,
+              sourceType: InvoiceItemSourceType.APPOINTMENT,
+              sourceId: appointment.id,
+            }],
           },
-        });
-
-        return appt;
+        },
       });
 
       return this.repo.createStep(caseId, {
@@ -106,45 +114,89 @@ export class CasesService {
         });
 
         for (const svc of services) {
-          const item = await tx.labOrderItem.create({
+          await tx.labOrderItem.create({
             data: {
               labOrder: { connect: { id: labOrder.id } },
               service: { connect: { id: svc.id } },
             },
           });
-          await tx.payment.create({
-            data: {
-              amount: svc.price ?? 0,
-              status: "UNPAID",
-              patient: { connect: { id: patientCase.patientId } },
-              laboratoryService: { connect: { id: svc.id } },
-              labOrderItem: { connect: { id: item.id } },
-            },
-          });
         }
+
+        const invoiceItems = services.map((svc) => {
+          const unitPrice = new Prisma.Decimal(svc.price ?? 0);
+          return {
+            description: svc.name,
+            quantity: 1,
+            unitPrice,
+            totalPrice: unitPrice,
+            sourceType: InvoiceItemSourceType.LAB_SERVICE,
+            sourceId: svc.id,
+          };
+        });
+        const totalAmount = invoiceItems.reduce(
+          (sum, item) => sum.add(item.unitPrice),
+          new Prisma.Decimal(0),
+        );
+
+        await tx.invoice.create({
+          data: {
+            patientId: patientCase.patientId,
+            sourceType: InvoiceSourceType.LAB_ORDER,
+            sourceId: labOrder.id,
+            totalAmount,
+            status: InvoiceStatus.ISSUED,
+            createdById: user.userId,
+            items: { create: invoiceItems },
+          },
+        });
 
         return tx.caseStep.findUnique({ where: { id: step.id }, include: STEP_INCLUDE });
       });
     }
 
     if (dto.type === CaseStepType.PROCEDURE) {
-      if (dto.assignmentId && dto.departmentId) {
-        await this.prisma.payment.create({
-          data: {
-            amount: dto.amount ?? 0,
-            status: "UNPAID",
-            patient: { connect: { id: patientCase.patientId } },
-            department: { connect: { id: dto.departmentId } },
-            assignment: { connect: { id: dto.assignmentId } },
-          },
-        });
-      }
-      return this.repo.createStep(caseId, {
+      const step = await this.repo.createStep(caseId, {
         type: CaseStepType.PROCEDURE,
         status: CaseStepStatus.PENDING,
         assignmentId: dto.assignmentId,
         note: dto.note,
       });
+
+      let price = new Prisma.Decimal(0);
+      let description = "Protsedura";
+      if (dto.assignmentId) {
+        const assignment = await this.prisma.assignment.findUnique({
+          where: { id: dto.assignmentId },
+          include: { department: true },
+        });
+        if (assignment) {
+          price = new Prisma.Decimal(assignment.department.price ?? 0);
+          description = `${assignment.department.name} protsedura`;
+        }
+      }
+
+      await this.prisma.invoice.create({
+        data: {
+          patientId: patientCase.patientId,
+          sourceType: InvoiceSourceType.MANUAL,
+          sourceId: step.id,
+          totalAmount: price,
+          status: InvoiceStatus.ISSUED,
+          createdById: user.userId,
+          items: {
+            create: [{
+              description,
+              quantity: 1,
+              unitPrice: price,
+              totalPrice: price,
+              sourceType: InvoiceItemSourceType.MANUAL,
+              sourceId: step.id,
+            }],
+          },
+        },
+      });
+
+      return step;
     }
 
     if (dto.type === CaseStepType.DISCHARGE) {

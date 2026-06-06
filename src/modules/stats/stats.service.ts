@@ -11,13 +11,13 @@ export class StatsService {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    const [patientsTotal, appointmentsToday, employeesTotal, paymentsUnpaid, recentPatients, recentAppointments] = await Promise.all([
+    const [patientsTotal, appointmentsToday, employeesTotal, invoicesUnpaid, recentPatients, recentAppointments] = await Promise.all([
       this.prisma.patient.count(),
       this.prisma.appointment.count({
         where: { dateTime: { gte: todayStart, lte: todayEnd } },
       }),
       this.prisma.user.count(),
-      this.prisma.payment.count({ where: { status: "UNPAID" } }),
+      this.prisma.invoice.count({ where: { status: "ISSUED" } }),
       this.prisma.patient.findMany({
         orderBy: { createdAt: "desc" },
         take: 5,
@@ -50,7 +50,7 @@ export class StatsService {
       patientsTotal,
       appointmentsToday,
       employeesTotal,
-      paymentsUnpaid,
+      invoicesUnpaid,
       recentPatients,
       recentAppointments,
     };

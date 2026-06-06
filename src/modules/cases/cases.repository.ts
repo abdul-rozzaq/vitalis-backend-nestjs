@@ -6,7 +6,6 @@ export const STEP_INCLUDE = {
   assignment: { include: { department: true, user: true, room: true } },
   appointment: {
     include: {
-      payments: { include: { department: true } },
       files: { orderBy: { createdAt: "desc" } },
       prescription: {
         include: {
@@ -26,7 +25,6 @@ export const STEP_INCLUDE = {
       items: {
         include: {
           service: { select: { id: true, name: true, price: true } },
-          payment: { select: { id: true, amount: true, status: true, method: true } },
           files: { orderBy: { createdAt: "desc" } },
         },
         orderBy: { createdAt: "asc" as const },
@@ -157,22 +155,16 @@ export class CasesRepository {
       const step = await tx.caseStep.findUnique({
         where: { id: stepId },
         include: {
-          appointment: { include: { payments: true } },
-          labOrder: { include: { items: { include: { payment: true } } } },
-          prescription: true,
+          appointment: { select: { id: true } },
+          labOrder: { select: { id: true } },
+          prescription: { select: { id: true } },
         },
       });
       if (!step) return null;
       if (step.labOrder) {
-        for (const item of step.labOrder.items) {
-          if (item.payment) await tx.payment.delete({ where: { id: item.payment.id } });
-        }
         await tx.labOrder.delete({ where: { id: step.labOrder.id } });
       }
       if (step.appointment) {
-        for (const payment of step.appointment.payments) {
-          await tx.payment.delete({ where: { id: payment.id } });
-        }
         await tx.appointment.delete({ where: { id: step.appointment.id } });
       }
       if (step.prescription) {
@@ -187,22 +179,16 @@ export class CasesRepository {
       const steps = await tx.caseStep.findMany({
         where: { caseId },
         include: {
-          appointment: { include: { payments: true } },
-          labOrder: { include: { items: { include: { payment: true } } } },
-          prescription: true,
+          appointment: { select: { id: true } },
+          labOrder: { select: { id: true } },
+          prescription: { select: { id: true } },
         },
       });
       for (const step of steps) {
         if (step.labOrder) {
-          for (const item of step.labOrder.items) {
-            if (item.payment) await tx.payment.delete({ where: { id: item.payment.id } });
-          }
           await tx.labOrder.delete({ where: { id: step.labOrder.id } });
         }
         if (step.appointment) {
-          for (const payment of step.appointment.payments) {
-            await tx.payment.delete({ where: { id: payment.id } });
-          }
           await tx.appointment.delete({ where: { id: step.appointment.id } });
         }
         if (step.prescription) {

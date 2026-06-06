@@ -19,7 +19,6 @@ export class PatientsRepository {
             user: true,
           },
         },
-        payments: { include: { department: true } },
         files: { orderBy: { createdAt: "desc" } },
       },
       orderBy: { dateTime: "desc" },

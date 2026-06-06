@@ -19,7 +19,6 @@ import { LaboratoryAssignmentsModule } from "./modules/laboratory-assignments/la
 import { MedicalCardsModule } from "./modules/medical-cards/medical-cards.module";
 import { MedicinesModule } from "./modules/medicines/medicines.module";
 import { PatientsModule } from "./modules/patients/patients.module";
-import { PaymentsModule } from "./modules/payments/payments.module";
 import { PrescriptionsModule } from "./modules/prescriptions/prescriptions.module";
 import { RegionsModule } from "./modules/regions/regions.module";
 import { RoomsModule } from "./modules/rooms/rooms.module";
@@ -33,6 +32,9 @@ import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { RequestLoggerMiddleware } from "./common/middleware/request-logger.middleware";
 import { WardsModule } from './modules/wards/wards.module';
+import { BalanceModule } from './modules/balance/balance.module';
+import { InvoiceModule } from './modules/invoice/invoice.module';
+import { WardBillingModule } from './modules/ward-billing/ward-billing.module';
 
 @Module({
   imports: [
@@ -57,7 +59,6 @@ import { WardsModule } from './modules/wards/wards.module';
     DepartmentsModule,
     RoomsModule,
     AssignmentsModule,
-    PaymentsModule,
     AppointmentsModule,
     UploadsModule,
     RegionsModule,
@@ -71,6 +72,9 @@ import { WardsModule } from './modules/wards/wards.module';
     LaboratoriesModule,
     LaboratoryAssignmentsModule,
     WardsModule,
+    BalanceModule,
+    InvoiceModule,
+    WardBillingModule,
   ],
   controllers: [AppController],
   providers: [

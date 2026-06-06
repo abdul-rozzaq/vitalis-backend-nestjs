@@ -67,17 +67,6 @@ export class AppointmentsService {
 
       appointmentId = created.id;
 
-      await tx.payment.create({
-        data: {
-          amount: assignment.department.price ?? 0,
-          status: "UNPAID",
-          createdAt: appointmentDate,
-          patient: { connect: { id: data.patientId } },
-          department: { connect: { id: assignment.departmentId } },
-          assignment: { connect: { id: assignment.id } },
-          appointment: { connect: { id: created.id } },
-        },
-      });
 
       // Mavjud ACTIVE case yo'q bo'lsa yangi ochish
       if (!patientCase) {

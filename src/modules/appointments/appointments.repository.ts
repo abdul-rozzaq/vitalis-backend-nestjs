@@ -13,7 +13,6 @@ const appointmentInclude = {
     },
   },
   assignment: { include: { department: true, user: true, room: true } },
-  payments: { include: { department: true } },
   files: { orderBy: { createdAt: "desc" as const } },
   prescription: {
     include: {

@@ -11,7 +11,6 @@ const LAB_ORDER_INCLUDE = {
   items: {
     include: {
       service: { select: { id: true, name: true, price: true } },
-      payment: { select: { id: true, amount: true, status: true, method: true } },
       files: { orderBy: { createdAt: "asc" as const } },
     },
     orderBy: { createdAt: "asc" as const },
@@ -59,7 +58,6 @@ export class LabOrdersRepository {
       data: { ...data, ...timeData },
       include: {
         service: { select: { id: true, name: true, price: true } },
-        payment: { select: { id: true, amount: true, status: true, method: true } },
         files: { orderBy: { createdAt: "asc" as const } },
         labOrder: { select: { id: true, status: true } },
       },
