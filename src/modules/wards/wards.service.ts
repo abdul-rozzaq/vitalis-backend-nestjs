@@ -1,14 +1,29 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { WardStatus } from "../../generated/prisma/client";
+import { RoleName } from "../../common/enums/role-name.enum";
+import { ShiftAssignmentsService } from "../shift-assignments/shift-assignments.service";
 import { CheckOutDto, CreateWardDto, UpdateWardDto, WardQueryDto } from "./wards.dto";
 import { WardsRepository } from "./wards.repository";
 
 @Injectable()
 export class WardsService {
-  constructor(private readonly repository: WardsRepository) {}
+  constructor(
+    private readonly repository: WardsRepository,
+    private readonly shiftAssignmentsService: ShiftAssignmentsService,
+  ) {}
+
+  private async assertOnDuty(userId: string, roomId: string, userRole: RoleName) {
+    if (userRole === RoleName.ADMIN || userRole === RoleName.DIREKTOR) return;
+    const active = await this.shiftAssignmentsService.resolveActiveForRoom(roomId);
+    if (!active) throw new ForbiddenException("Hozir bu xonada faol smena yo'q");
+    const isDoc = active.doctorId === userId;
+    const isNurse = active.nurses.some((n) => n.nurseId === userId);
+    if (!isDoc && !isNurse) throw new ForbiddenException("Siz bu xonada navbatda emassiz");
+  }
 
   // Bemorni palataga yotqizish
-  async checkIn(dto: CreateWardDto) {
+  async checkIn(dto: CreateWardDto, userId: string, userRole: RoleName) {
+    await this.assertOnDuty(userId, dto.roomId, userRole);
     const existing = await this.repository.findActiveByPatient(dto.patientId);
     if (existing) {
       throw new BadRequestException(`Bu bemor allaqachon "${existing.room.name}" xonasida yotibdi.`);
@@ -69,13 +84,15 @@ export class WardsService {
   }
 
   // Bemorni chiqarish
-  async checkOut(id: string, dto: CheckOutDto) {
+  async checkOut(id: string, dto: CheckOutDto, userId: string, userRole: RoleName) {
     const ward = await this.repository.findById(id);
     if (!ward) throw new NotFoundException("Palata yozuvi topilmadi");
 
     if (ward.status === WardStatus.VACATED) {
       throw new BadRequestException("Bu bemor allaqachon chiqib ketgan");
     }
+
+    await this.assertOnDuty(userId, ward.room.id, userRole);
 
     const outDate = dto.actualOut ? new Date(dto.actualOut) : new Date();
     const inDate = new Date(ward.checkIn);

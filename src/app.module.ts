@@ -35,6 +35,9 @@ import { WardsModule } from './modules/wards/wards.module';
 import { BalanceModule } from './modules/balance/balance.module';
 import { InvoiceModule } from './modules/invoice/invoice.module';
 import { WardBillingModule } from './modules/ward-billing/ward-billing.module';
+import { RoomShiftsModule } from './modules/room-shifts/room-shifts.module';
+import { ShiftAssignmentsModule } from './modules/shift-assignments/shift-assignments.module';
+import { WardRoundsModule } from './modules/ward-rounds/ward-rounds.module';
 
 @Module({
   imports: [
@@ -75,6 +78,9 @@ import { WardBillingModule } from './modules/ward-billing/ward-billing.module';
     BalanceModule,
     InvoiceModule,
     WardBillingModule,
+    RoomShiftsModule,
+    ShiftAssignmentsModule,
+    WardRoundsModule,
   ],
   controllers: [AppController],
   providers: [

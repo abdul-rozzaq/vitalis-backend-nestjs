@@ -47,6 +47,11 @@ model User {
   invoicesCreated     Invoice[]            @relation("InvoiceCreatedBy")
   invoicePayments     InvoicePayment[]     @relation("InvoicePaymentCreatedBy")
 
+  doctorShiftAssignments ShiftAssignment[]    @relation("DoctorShiftAssignments")
+  nurseShiftAssignments  ShiftNurse[]         @relation("NurseShiftAssignments")
+  doctorShifts           RoomShift[]          @relation("RoomShiftDoctor")
+  defaultNurseShifts     ShiftDefaultNurse[]  @relation("ShiftDefaultNurse")
+
   @@map("users")
 }
 
@@ -98,6 +103,7 @@ model Patient {
   phone_number    String           @db.VarChar(15)
   gender          String           @db.VarChar(10)
   birth_date      DateTime         @db.Date
+
   address         String?          @db.VarChar(255)
   blood_type      BloodType?       @default(O_POSITIVE)
   document_type   DocumentType?
@@ -119,6 +125,7 @@ model Patient {
   balance      PatientBalance?
   bonusBalance PatientBonusBalance?
   invoices     Invoice[]
+  wardRoundNotes WardRoundPatient[]
 
   @@index([deletedAt])
   @@map("patients")
@@ -190,8 +197,10 @@ model Room {
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
-  assignments Assignment[]
-  wards       Wards[]
+  assignments      Assignment[]
+  wards            Wards[]
+  shiftRooms       ShiftRoom[]
+  shiftAssignments ShiftAssignment[] @relation("RoomShiftAssignments")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -763,4 +772,126 @@ model InvoicePayment {
   createdBy User    @relation("InvoicePaymentCreatedBy", fields: [createdById], references: [id])
 
   @@map("invoice_payments")
+}
+
+// ─── Dejurniy (Navbat) Tizimi ────────────────────────────────────────────────
+
+enum PatientCondition {
+  STABLE
+  IMPROVING
+  WORSENING
+  CRITICAL
+
+  @@map("patient_conditions")
+}
+
+/// Smena shabloni — bir nechta xonaga biriktirilishi mumkin
+model RoomShift {
+  id        String    @id @default(uuid())
+  name      String    @db.VarChar(64)
+  startHour Int
+  endHour   Int
+  startDate DateTime? @db.Date
+  endDate   DateTime? @db.Date
+  color     String?   @db.VarChar(7)
+  roundHour Int?
+
+  doctorId String?
+  doctor   User?   @relation("RoomShiftDoctor", fields: [doctorId], references: [id])
+
+  rooms         ShiftRoom[]
+  defaultNurses ShiftDefaultNurse[]
+  assignments   ShiftAssignment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("room_shifts")
+}
+
+/// Smena ↔ Xona ko'p-ko'p bog'lanish
+model ShiftRoom {
+  id          String    @id @default(uuid())
+  roomShiftId String
+  roomShift   RoomShift @relation(fields: [roomShiftId], references: [id], onDelete: Cascade)
+  roomId      String
+  room        Room      @relation(fields: [roomId], references: [id])
+
+  @@unique([roomShiftId, roomId])
+  @@map("shift_rooms")
+}
+
+/// Smena uchun standart hamshiralar
+model ShiftDefaultNurse {
+  id          String    @id @default(uuid())
+  roomShiftId String
+  roomShift   RoomShift @relation(fields: [roomShiftId], references: [id], onDelete: Cascade)
+  nurseId     String
+  nurse       User      @relation("ShiftDefaultNurse", fields: [nurseId], references: [id])
+
+  @@unique([roomShiftId, nurseId])
+  @@map("shift_default_nurses")
+}
+
+/// Konkret kunlik tayinlov — smena + xona + kun uchun
+model ShiftAssignment {
+  id          String    @id @default(uuid())
+  roomShiftId String
+  roomShift   RoomShift @relation(fields: [roomShiftId], references: [id])
+  roomId      String
+  room        Room      @relation("RoomShiftAssignments", fields: [roomId], references: [id])
+  date        DateTime  @db.Date
+  doctorId    String
+  doctor      User      @relation("DoctorShiftAssignments", fields: [doctorId], references: [id])
+  isOverride  Boolean   @default(false)
+
+  nurses ShiftNurse[]
+  rounds WardRound[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roomShiftId, roomId, date])
+  @@map("shift_assignments")
+}
+
+model ShiftNurse {
+  id                String          @id @default(uuid())
+  shiftAssignmentId String
+  shiftAssignment   ShiftAssignment @relation(fields: [shiftAssignmentId], references: [id], onDelete: Cascade)
+  nurseId           String
+  nurse             User            @relation("NurseShiftAssignments", fields: [nurseId], references: [id])
+
+  @@unique([shiftAssignmentId, nurseId])
+  @@map("shift_nurses")
+}
+
+/// Apoxot — smena davomida o'tkaziladigan viziyt
+model WardRound {
+  id                String          @id @default(uuid())
+  shiftAssignmentId String
+  shiftAssignment   ShiftAssignment @relation(fields: [shiftAssignmentId], references: [id])
+  scheduledAt       DateTime
+  completedAt       DateTime?
+  notes             String?         @db.Text
+  patientNotes      WardRoundPatient[]
+
+  createdAt DateTime @default(now())
+
+  @@map("ward_rounds")
+}
+
+/// Apoxotda har bir bemor uchun holat yozuvi
+model WardRoundPatient {
+  id        String           @id @default(uuid())
+  roundId   String
+  round     WardRound        @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  patientId String
+  patient   Patient          @relation(fields: [patientId], references: [id])
+  condition PatientCondition
+  notes     String?          @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@map("ward_round_patients")
 }

@@ -1,7 +1,9 @@
 import { Public } from "@/common/decorators/public.decorator";
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RoleName } from "../../common/enums/role-name.enum";
+import { JwtPayload } from "../../common/types/jwt-payload.type";
 import { CheckOutDto, CreateWardDto, UpdateWardDto, WardQueryDto } from "./wards.dto";
 import { WardsService } from "./wards.service";
 
@@ -45,8 +47,8 @@ export class WardsController {
 
   @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HAMSHIRA, RoleName.DOCTOR)
   @Post("/check-in")
-  checkIn(@Body() dto: CreateWardDto) {
-    return this.service.checkIn(dto);
+  checkIn(@Body() dto: CreateWardDto, @CurrentUser() user: JwtPayload) {
+    return this.service.checkIn(dto, user.userId, user.role as RoleName);
   }
 
   @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HAMSHIRA, RoleName.DOCTOR)
@@ -56,8 +58,8 @@ export class WardsController {
   }
   @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HAMSHIRA, RoleName.DOCTOR)
   @Patch("/:id/check-out")
-  checkOut(@Param("id") id: string, @Body() dto: CheckOutDto) {
-    return this.service.checkOut(id, dto);
+  checkOut(@Param("id") id: string, @Body() dto: CheckOutDto, @CurrentUser() user: JwtPayload) {
+    return this.service.checkOut(id, dto, user.userId, user.role as RoleName);
   }
   @Roles(RoleName.ADMIN)
   @Delete("/:id")
