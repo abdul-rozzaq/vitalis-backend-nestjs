@@ -52,6 +52,7 @@ model User {
   doctorShifts           RoomShift[]          @relation("RoomShiftDoctor")
   defaultNurseShifts     ShiftDefaultNurse[]  @relation("ShiftDefaultNurse")
 
+  operationSurgeons OperationSurgeon[] @relation("OperationSurgeons")
   @@map("users")
 }
 
@@ -126,6 +127,7 @@ model Patient {
   bonusBalance PatientBonusBalance?
   invoices     Invoice[]
   wardRoundNotes WardRoundPatient[]
+  operations Operation[]
 
   @@index([deletedAt])
   @@map("patients")
@@ -182,6 +184,7 @@ model Department {
 enum RoomType {
   WARD // Yotoqxona
   EXAMINATION // Ko'rik xonasi
+  OPERATION    
 
   @@map("room_types")
 }
@@ -204,6 +207,7 @@ model Room {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  operations Operation[]
 
   @@map("rooms")
 }
@@ -358,6 +362,7 @@ enum CaseStepType {
   PROCEDURE
   REFERRAL
   DISCHARGE
+   OPERATION 
 
   @@map("case_step_types")
 }
@@ -403,6 +408,7 @@ model CaseStep {
   labOrder      LabOrder?
 
   createdAt DateTime @default(now())
+operation Operation?
 
   @@map("case_steps")
 }
@@ -590,6 +596,7 @@ enum InvoiceSourceType {
   APPOINTMENT
   LAB_ORDER
   MANUAL
+  OPERATION  
 
   @@map("invoice_source_types")
 }
@@ -599,9 +606,12 @@ enum InvoiceItemSourceType {
   LAB_SERVICE
   WARD_DAILY
   MANUAL
+  OPERATION
 
   @@map("invoice_item_source_types")
 }
+
+
 
 model Wards {
   id String @id @default(uuid())
@@ -894,4 +904,121 @@ model WardRoundPatient {
   createdAt DateTime @default(now())
 
   @@map("ward_round_patients")
+}
+
+
+enum OperationStatus {
+  SCHEDULED      // Rejalashtirilgan
+  IN_PROGRESS    // Jarayonda
+  COMPLETED      // Tugallangan
+  CANCELLED      // Bekor qilingan
+
+  @@map("operation_statuses")
+}
+
+enum SurgeonRole {
+  LEAD            // Bosh jarroh
+  ASSISTANT       // Yordamchi jarroh
+
+  @@map("surgeon_roles")
+}
+
+model OperationType {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(128)
+  description String?  @db.Text
+  basePrice   Decimal  @default(0) @db.Decimal(15, 2)
+  isActive    Boolean  @default(true)
+ 
+  items       OperationTypeItem[]
+  operations  Operation[]
+ 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+ 
+  @@map("operation_types")
+}
+
+model OperationTypeItem {
+  id              String        @id @default(uuid())
+  operationTypeId String
+  operationType   OperationType @relation(fields: [operationTypeId], references: [id], onDelete: Cascade)
+
+  name      String  @db.VarChar(128)
+  price     Decimal @db.Decimal(15, 2)
+  isActive  Boolean @default(true)
+
+  operationItems OperationItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("operation_type_items")
+}
+
+/// Konkret operatsiya
+model Operation {
+  id              String          @id @default(uuid())
+  status          OperationStatus @default(SCHEDULED)
+
+  patient         Patient         @relation(fields: [patientId], references: [id])
+  patientId       String
+
+  operationType   OperationType   @relation(fields: [operationTypeId], references: [id])
+  operationTypeId String
+
+  room            Room?           @relation(fields: [roomId], references: [id])
+  roomId          String?
+
+  caseStep        CaseStep?       @relation(fields: [caseStepId], references: [id])
+  caseStepId      String?         @unique
+
+  scheduledAt     DateTime
+  startedAt       DateTime?
+  completedAt     DateTime?
+
+  note            String?         @db.Text
+  totalPrice      Decimal         @default(0) @db.Decimal(15, 2)
+
+  surgeons        OperationSurgeon[]
+  items           OperationItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("operations")
+}
+
+
+/// Operatsiyaga biriktirilgan jarrohlar
+model OperationSurgeon {
+  id          String      @id @default(uuid())
+  operationId String
+  operation   Operation   @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  surgeonId   String
+  surgeon     User        @relation("OperationSurgeons", fields: [surgeonId], references: [id])
+  role        SurgeonRole @default(ASSISTANT)
+
+  @@unique([operationId, surgeonId])
+  @@map("operation_surgeons")
+}
+
+/// Operatsiyaga kirgan xizmatlar (katalogdan nusxa + override narx)
+model OperationItem {
+  id                  String            @id @default(uuid())
+  operationId         String
+  operation           Operation         @relation(fields: [operationId], references: [id], onDelete: Cascade)
+
+  operationTypeItemId String
+  operationTypeItem   OperationTypeItem @relation(fields: [operationTypeItemId], references: [id])
+
+  name      String  @db.VarChar(128)  // katalogdan nusxa (o'zgarishi mumkin)
+  unitPrice Decimal @db.Decimal(15, 2) // override narx
+  quantity  Int     @default(1)
+  totalPrice Decimal @db.Decimal(15, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("operation_items")
 }

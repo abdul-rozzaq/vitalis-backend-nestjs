@@ -1,0 +1,212 @@
+import {
+  CaseStepStatus,
+  CaseStepType,
+  OperationStatus,
+} from '@/generated/prisma/enums';
+import { PrismaService } from '@/prisma/prisma.service';
+import { Injectable } from '@nestjs/common';
+import { CreateOperationDto, UpdateOperationDto } from './operation.dto';
+
+@Injectable()
+export class OperationsRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  private includeAll = {
+    patient: { select: { id: true, first_name: true, last_name: true } },
+    operationType: { select: { id: true, name: true, basePrice: true } },
+    room: { select: { id: true, name: true } },
+    caseStep: { select: { id: true, caseId: true, status: true } },
+    surgeons: {
+      include: {
+        surgeon: {
+          select: { id: true, first_name: true, last_name: true, role: true },
+        },
+      },
+    },
+    items: {
+      include: {
+        operationTypeItem: { select: { id: true, name: true } },
+      },
+    },
+  };
+
+  findAll(patientId?: string) {
+    return this.prisma.operation.findMany({
+      where: patientId ? { patientId } : undefined,
+      include: this.includeAll,
+      orderBy: { scheduledAt: 'desc' },
+    });
+  }
+
+  findOne(id: string) {
+    return this.prisma.operation.findUnique({
+      where: { id },
+      include: this.includeAll,
+    });
+  }
+
+  async create(dto: CreateOperationDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const operationType = await tx.operationType.findUniqueOrThrow({
+        where: { id: dto.operationTypeId },
+        select: { basePrice: true },
+      });
+
+      const itemsTotal = (dto.items ?? []).reduce(
+        (sum, i) => sum + i.unitPrice * i.quantity,
+        0,
+      );
+      const totalPrice = Number(operationType.basePrice) + itemsTotal;
+
+      const caseStep = await tx.caseStep.create({
+        data: {
+          caseId: dto.caseId,
+          type: CaseStepType.OPERATION,
+          status: CaseStepStatus.PENDING,
+          note: dto.note,
+        },
+      });
+
+      const operation = await tx.operation.create({
+        data: {
+          patientId: dto.patientId,
+          operationTypeId: dto.operationTypeId,
+          roomId: dto.roomId,
+          caseStepId: caseStep.id,
+          scheduledAt: new Date(dto.scheduledAt),
+          note: dto.note,
+          totalPrice,
+          surgeons: {
+            create: dto.surgeons.map((s) => ({
+              surgeonId: s.surgeonId,
+              role: s.role,
+            })),
+          },
+          items: dto.items?.length
+            ? {
+                create: dto.items.map((item) => ({
+                  operationTypeItemId: item.operationTypeItemId,
+                  name: item.name,
+                  unitPrice: item.unitPrice,
+                  quantity: item.quantity,
+                  totalPrice: item.unitPrice * item.quantity,
+                })),
+              }
+            : undefined,
+        },
+        include: this.includeAll,
+      });
+
+      return operation;
+    });
+  }
+
+  async update(id: string, dto: UpdateOperationDto) {
+    const { surgeons, items, ...rest } = dto;
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.operation.update({
+        where: { id },
+        data: {
+          ...rest,
+          scheduledAt: rest.scheduledAt
+            ? new Date(rest.scheduledAt)
+            : undefined,
+        },
+      });
+
+      if (surgeons !== undefined) {
+        await tx.operationSurgeon.deleteMany({ where: { operationId: id } });
+        await tx.operationSurgeon.createMany({
+          data: surgeons.map((s) => ({
+            operationId: id,
+            surgeonId: s.surgeonId,
+            role: s.role,
+          })),
+        });
+      }
+
+      if (items !== undefined) {
+        const incomingIds = items.filter((i) => i.id).map((i) => i.id!);
+
+        await tx.operationItem.deleteMany({
+          where: { operationId: id, id: { notIn: incomingIds } },
+        });
+
+        for (const item of items) {
+          if (item.id) {
+            await tx.operationItem.update({
+              where: { id: item.id },
+              data: {
+                name: item.name,
+                unitPrice: item.unitPrice,
+                quantity: item.quantity,
+                totalPrice: item.unitPrice * item.quantity,
+              },
+            });
+          } else {
+            await tx.operationItem.create({
+              data: {
+                operationId: id,
+                operationTypeItemId: item.operationTypeItemId,
+                name: item.name,
+                unitPrice: item.unitPrice,
+                quantity: item.quantity,
+                totalPrice: item.unitPrice * item.quantity,
+              },
+            });
+          }
+        }
+
+        const [allItems, operation] = await Promise.all([
+          tx.operationItem.findMany({ where: { operationId: id } }),
+          tx.operation.findUniqueOrThrow({
+            where: { id },
+            select: { operationType: { select: { basePrice: true } } },
+          }),
+        ]);
+
+        const itemsTotal = allItems.reduce(
+          (sum, i) => sum + Number(i.totalPrice),
+          0,
+        );
+        const newTotal = Number(operation.operationType.basePrice) + itemsTotal;
+
+        await tx.operation.update({
+          where: { id },
+          data: { totalPrice: newTotal },
+        });
+      }
+
+      return tx.operation.findUnique({
+        where: { id },
+        include: this.includeAll,
+      });
+    });
+  }
+
+  updateStatus(
+    id: string,
+    status: OperationStatus,
+    extra?: { startedAt?: Date; completedAt?: Date },
+  ) {
+    return this.prisma.operation.update({
+      where: { id },
+      data: { status, ...extra },
+    });
+  }
+
+  updateCaseStep(
+    caseStepId: string,
+    data: { status: CaseStepStatus; completedAt?: Date },
+  ) {
+    return this.prisma.caseStep.update({
+      where: { id: caseStepId },
+      data,
+    });
+  }
+
+  delete(id: string) {
+    return this.prisma.operation.delete({ where: { id } });
+  }
+}

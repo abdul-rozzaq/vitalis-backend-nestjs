@@ -38,6 +38,8 @@ import { WardBillingModule } from './modules/ward-billing/ward-billing.module';
 import { RoomShiftsModule } from './modules/room-shifts/room-shifts.module';
 import { ShiftAssignmentsModule } from './modules/shift-assignments/shift-assignments.module';
 import { WardRoundsModule } from './modules/ward-rounds/ward-rounds.module';
+import { OperationsModule } from "./modules/operations/operations.module";
+import { OperationTypesModule } from "./modules/operation-types/operation-types.module";
 
 @Module({
   imports: [
@@ -54,7 +56,7 @@ import { WardRoundsModule } from './modules/ward-rounds/ward-rounds.module';
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), "uploads"),
       serveRoot: "/uploads",
-      serveStaticOptions: { index: false },
+      serveStaticOptions: { index: false }
     }),
     AuthModule,
     UsersModule,
@@ -81,6 +83,8 @@ import { WardRoundsModule } from './modules/ward-rounds/ward-rounds.module';
     RoomShiftsModule,
     ShiftAssignmentsModule,
     WardRoundsModule,
+    OperationTypesModule,
+    OperationsModule,
   ],
   controllers: [AppController],
   providers: [
