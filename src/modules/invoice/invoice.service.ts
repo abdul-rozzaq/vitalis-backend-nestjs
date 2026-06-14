@@ -103,7 +103,10 @@ export class InvoiceService {
       if (!invoice) {
         throw new BadRequestException('Invoice not found');
       }
-      if (invoice.status === InvoiceStatus.PAID || invoice.status === InvoiceStatus.CANCELLED) {
+      if (
+        invoice.status === InvoiceStatus.PAID ||
+        invoice.status === InvoiceStatus.CANCELLED
+      ) {
         throw new BadRequestException(`Invoice is already ${invoice.status}`);
       }
 
@@ -133,7 +136,9 @@ export class InvoiceService {
 
       const newPaidCash = invoice.paidCash.add(params.cashAmount);
       const newPaidBonus = invoice.paidBonus.add(params.bonusAmount);
-      const newStatus = newPaidCash.add(newPaidBonus).greaterThanOrEqualTo(invoice.totalAmount)
+      const newStatus = newPaidCash
+        .add(newPaidBonus)
+        .greaterThanOrEqualTo(invoice.totalAmount)
         ? InvoiceStatus.PAID
         : InvoiceStatus.PARTIALLY_PAID;
 
@@ -169,7 +174,10 @@ export class InvoiceService {
     });
   }
 
-  async getPatientInvoices(patientId: string, params: { page: number; limit: number }) {
+  async getPatientInvoices(
+    patientId: string,
+    params: { page: number; limit: number },
+  ) {
     const { page, limit } = params;
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
