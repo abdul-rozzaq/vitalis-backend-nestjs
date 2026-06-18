@@ -50,8 +50,16 @@ export class LabOrdersService {
   async addFile(orderId: string, itemId: string, dto: AddLabOrderItemFileDto) {
     const order = await this.repo.findById(orderId);
     if (!order) throw new NotFoundException("Lab order not found");
-    if (!order.items.find((i) => i.id === itemId)) throw new NotFoundException("Lab order item not found");
-    return this.repo.addFile(itemId, dto.url, dto.name);
+    const item = order.items.find((i) => i.id === itemId);
+    if (!item) throw new NotFoundException("Lab order item not found");
+
+    const file = await this.repo.addFile(itemId, dto.url, dto.name);
+    if (item.status === "PENDING" || item.status === "IN_PROGRESS") {
+      await this.repo.updateItem(itemId, { status: "READY" });
+      await this.repo.recalcOrderStatus(orderId);
+    }
+
+    return file;
   }
 
   async removeFile(orderId: string, itemId: string, fileId: string) {
