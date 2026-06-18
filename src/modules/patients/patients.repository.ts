@@ -26,7 +26,6 @@ export class PatientsRepository {
   }
 
   async list(userId: string, isDoctor: boolean, search?: string, excludeOccupied?: boolean) {
-    console.log(">>> excludeOccupied:", excludeOccupied);
     return this.prisma.patient.findMany({
       where: {
         deletedAt: null,
