@@ -41,3 +41,35 @@ export function clinicHour(now: Date = new Date()): number {
   const h = Number(parts.find((p) => p.type === "hour")!.value);
   return h === 24 ? 0 : h;
 }
+
+/**
+ * Berilgan (yoki hozirgi) momentning klinika mintaqasidagi daqiqasini (0–59) qaytaradi.
+ */
+export function clinicMinute(now: Date = new Date()): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: CLINIC_TZ,
+    minute: "2-digit",
+  }).formatToParts(now);
+  return Number(parts.find((p) => p.type === "minute")!.value);
+}
+
+/**
+ * Minut darajasida aktiv smena tekshiruvi.
+ * Yarim tuni kesuvchi smenalarni ham to'g'ri hisobga oladi (masalan 22:30–06:00).
+ * startMinute/endMinute = 0 bo'lsa isActiveShift() bilan teng natija beradi.
+ */
+export function isActiveShiftMinute(
+  startHour: number,
+  startMinute: number,
+  endHour: number,
+  endMinute: number,
+  now: Date = new Date(),
+): boolean {
+  const h = clinicHour(now);
+  const m = clinicMinute(now);
+  const current = h * 60 + m;
+  const start = startHour * 60 + startMinute;
+  const end = endHour * 60 + endMinute;
+  if (start < end) return current >= start && current < end;
+  return current >= start || current < end;
+}

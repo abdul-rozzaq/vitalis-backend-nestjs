@@ -1,0 +1,65 @@
+enum CaseStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+
+  @@map("case_statuses")
+}
+
+enum CaseStepType {
+  CHECKIN
+  CONSULTATION
+  LAB
+  PROCEDURE
+  REFERRAL
+  DISCHARGE
+  OPERATION
+
+  @@map("case_step_types")
+}
+
+enum CaseStepStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  CANCELLED
+
+  @@map("case_step_statuses")
+}
+
+model PatientCase {
+  id             String     @id @default(uuid())
+  patient        Patient    @relation(fields: [patientId], references: [id])
+  patientId      String
+  status         CaseStatus @default(ACTIVE)
+  chiefComplaint String?    @db.Text
+  openedAt       DateTime   @default(now())
+  closedAt       DateTime?
+  steps          CaseStep[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("patient_cases")
+}
+
+model CaseStep {
+  id            String         @id @default(uuid())
+  case          PatientCase    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  caseId        String
+  type          CaseStepType
+  status        CaseStepStatus @default(PENDING)
+  assignment    Assignment?    @relation(fields: [assignmentId], references: [id])
+  assignmentId  String?
+  appointment   Appointment?   @relation(fields: [appointmentId], references: [id])
+  appointmentId String?        @unique
+  note          String?        @db.Text
+  completedAt   DateTime?
+  prescription  Prescription?
+  labOrder      LabOrder?
+
+  createdAt DateTime   @default(now())
+  operation Operation?
+
+  @@map("case_steps")
+}

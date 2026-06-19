@@ -40,10 +40,15 @@ import { ShiftAssignmentsModule } from './modules/shift-assignments/shift-assign
 import { WardRoundsModule } from './modules/ward-rounds/ward-rounds.module';
 import { OperationsModule } from "./modules/operations/operations.module";
 import { OperationTypesModule } from "./modules/operation-types/operation-types.module";
+import { ShiftEventsModule } from "./modules/shift-events/shift-events.module";
+import { ShiftNotificationsModule } from "./modules/shift-notifications/shift-notifications.module";
+import { WorkingHoursModule } from "./modules/working-hours/working-hours.module";
+import { ScheduleModule } from "@nestjs/schedule";
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     JwtModule.registerAsync({
       useFactory: () => ({
         secret: process.env.JWT_SECRET || "fallback_secret",
@@ -85,6 +90,9 @@ import { OperationTypesModule } from "./modules/operation-types/operation-types.
     WardRoundsModule,
     OperationTypesModule,
     OperationsModule,
+    ShiftEventsModule,
+    ShiftNotificationsModule,
+    WorkingHoursModule,
   ],
   controllers: [AppController],
   providers: [

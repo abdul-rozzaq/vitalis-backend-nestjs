@@ -32,6 +32,8 @@ jobs:
         with:
           context: .
           push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ${{ vars.DOCKER_REGISTRY_NAME }}/${{ vars.DOCKER_REGISTRY_USERNAME }}/${{ github.event.repository.name }}:latest
             ${{ vars.DOCKER_REGISTRY_NAME }}/${{ vars.DOCKER_REGISTRY_USERNAME }}/${{ github.event.repository.name }}:${{ github.sha }}

@@ -1,0 +1,22 @@
+enum ShiftNotifType {
+  SWAP_REQUESTED
+  SWAP_APPROVED
+  SWAP_REJECTED
+  SHIFT_CHANGED
+  SHIFT_REMINDER
+
+  @@map("shift_notif_types")
+}
+
+model ShiftNotification {
+  id        String         @id @default(uuid())
+  userId    String
+  user      User           @relation("ShiftNotificationUser", fields: [userId], references: [id])
+  type      ShiftNotifType
+  payload   Json
+  readAt    DateTime?
+  createdAt DateTime       @default(now())
+
+  @@index([userId, readAt])
+  @@map("shift_notifications")
+}

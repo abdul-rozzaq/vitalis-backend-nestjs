@@ -1,7 +1,14 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
-import { clinicDayUTC, clinicHour } from "../../common/clinic-time";
-import { CreateShiftOverrideDto, ShiftAssignmentsQueryDto } from "./shift-assignments.dto";
+import { clinicDayUTC, clinicHour, isActiveShiftMinute } from "../../common/clinic-time";
+import { ShiftOverrideType } from "../../generated/prisma/enums";
+import {
+  CreateShiftOverrideDto,
+  CreateSwapDto,
+  OvertimeDto,
+  PartialTransferDto,
+  ShiftAssignmentsQueryDto,
+} from "./shift-assignments.dto";
 
 export interface ResolvedAssignment {
   roomShiftId: string;
@@ -16,10 +23,13 @@ export interface ResolvedAssignment {
   assignmentId: string | null;
 }
 
-function isActiveShift(startHour: number, endHour: number, now: Date): boolean {
-  const h = clinicHour(now);
-  if (startHour < endHour) return h >= startHour && h < endHour;
-  return h >= startHour || h < endHour;
+function isActiveShift(startHour: number, endHour: number, now: Date, startMinute = 0, endMinute = 0): boolean {
+  if (startMinute === 0 && endMinute === 0) {
+    const h = clinicHour(now);
+    if (startHour < endHour) return h >= startHour && h < endHour;
+    return h >= startHour || h < endHour;
+  }
+  return isActiveShiftMinute(startHour, startMinute, endHour, endMinute, now);
 }
 
 const STAFF_SELECT = { id: true, first_name: true, last_name: true };
@@ -118,6 +128,13 @@ export class ShiftAssignmentsService {
         if (shift.startDate && day < shift.startDate) continue;
         if (shift.endDate && day > shift.endDate) continue;
 
+        // Haftalik recurrence: weekdayMask null = har kuni
+        // getUTCDay(): 0=Yak,1=Du,...,6=Sh → bitlar: 0=Du,...,6=Ya
+        if (shift.weekdayMask !== null && shift.weekdayMask !== undefined) {
+          const dayBit = 1 << ((day.getUTCDay() + 6) % 7);
+          if (!(shift.weekdayMask & dayBit)) continue;
+        }
+
         for (const sr of shift.rooms) {
           if (query.roomId && sr.roomId !== query.roomId) continue;
           const override = shift.assignments.find(
@@ -163,7 +180,7 @@ export class ShiftAssignmentsService {
 
     for (const sr of shiftRooms) {
       const shift = sr.roomShift;
-      if (!isActiveShift(shift.startHour, shift.endHour, now)) continue;
+      if (!isActiveShift(shift.startHour, shift.endHour, now, shift.startMinute, shift.endMinute)) continue;
 
       const override = shift.assignments[0];
       if (override) {
@@ -222,7 +239,7 @@ export class ShiftAssignmentsService {
     const active: ResolvedAssignment[] = [];
 
     for (const shift of shifts) {
-      if (!isActiveShift(shift.startHour, shift.endHour, now)) continue;
+      if (!isActiveShift(shift.startHour, shift.endHour, now, shift.startMinute, shift.endMinute)) continue;
 
       for (const sr of shift.rooms) {
         const override = shift.assignments.find((a) => a.roomId === sr.roomId);
@@ -333,5 +350,243 @@ export class ShiftAssignmentsService {
       select: { id: true },
     });
     return { id: assignment.id };
+  }
+
+  // ── Swap: ikki shifokor smenalarini almashtirish ───────────────────────────
+
+  async createSwap(dto: CreateSwapDto, requestedById: string) {
+    const [a, b] = await Promise.all([
+      this.prisma.shiftAssignment.findUnique({
+        where: { id: dto.fromAssignmentId },
+        include: { roomShift: true, doctor: { select: STAFF_SELECT } },
+      }),
+      this.prisma.shiftAssignment.findUnique({
+        where: { id: dto.toAssignmentId },
+        include: { roomShift: true, doctor: { select: STAFF_SELECT } },
+      }),
+    ]);
+
+    if (!a) throw new NotFoundException(`Assignment topilmadi: ${dto.fromAssignmentId}`);
+    if (!b) throw new NotFoundException(`Assignment topilmadi: ${dto.toAssignmentId}`);
+
+    return this.prisma.$transaction(async (tx) => {
+      // Doktorlarni almashtiramiz
+      await tx.shiftAssignment.update({
+        where: { id: a.id },
+        data: {
+          doctorId: b.doctorId,
+          overrideType: ShiftOverrideType.SWAP,
+          swappedWithId: b.id,
+          isOverride: true,
+          requestedById,
+          reason: dto.reason,
+        },
+      });
+      await tx.shiftAssignment.update({
+        where: { id: b.id },
+        data: {
+          doctorId: a.doctorId,
+          overrideType: ShiftOverrideType.SWAP,
+          swappedWithId: a.id,
+          isOverride: true,
+          requestedById,
+          reason: dto.reason,
+        },
+      });
+
+      // Audit log
+      await tx.shiftChangeEvent.createMany({
+        data: [
+          {
+            eventType: "FULL_TRANSFER",
+            shiftAssignmentId: a.id,
+            roomShiftId: a.roomShiftId,
+            fromDoctorId: a.doctorId,
+            toDoctorId: b.doctorId,
+            requestedById,
+            date: a.date,
+            reason: dto.reason,
+          },
+          {
+            eventType: "FULL_TRANSFER",
+            shiftAssignmentId: b.id,
+            roomShiftId: b.roomShiftId,
+            fromDoctorId: b.doctorId,
+            toDoctorId: a.doctorId,
+            requestedById,
+            date: b.date,
+            reason: dto.reason,
+          },
+        ],
+      });
+
+      // Bildirishnomalar
+      await tx.shiftNotification.createMany({
+        data: [
+          {
+            userId: b.doctorId,
+            type: "SHIFT_CHANGED",
+            payload: {
+              message: "Sizning smenangiz almashtirildi",
+              shiftName: a.roomShift.name,
+              date: a.date,
+              withDoctorId: a.doctorId,
+            },
+          },
+          {
+            userId: a.doctorId,
+            type: "SHIFT_CHANGED",
+            payload: {
+              message: "Sizning smenangiz almashtirildi",
+              shiftName: b.roomShift.name,
+              date: b.date,
+              withDoctorId: b.doctorId,
+            },
+          },
+        ],
+      });
+
+      return { success: true, swapped: [a.id, b.id] };
+    });
+  }
+
+  // ── Partial transfer: smena vaqtining bir qismini boshqa shifokorga o'tkazish
+
+  async createPartialTransfer(dto: PartialTransferDto, requestedById: string) {
+    if (dto.windowStart >= dto.windowEnd) {
+      throw new BadRequestException("windowStart < windowEnd bo'lishi kerak");
+    }
+
+    const parent = await this.prisma.shiftAssignment.findUnique({
+      where: { id: dto.assignmentId },
+      include: { roomShift: true },
+    });
+    if (!parent) throw new NotFoundException("Assignment topilmadi");
+
+    const toDoctor = await this.prisma.user.findUnique({
+      where: { id: dto.toDoctorId },
+      select: STAFF_SELECT,
+    });
+    if (!toDoctor) throw new NotFoundException("Shifokor topilmadi");
+
+    return this.prisma.$transaction(async (tx) => {
+      const child = await tx.shiftAssignment.create({
+        data: {
+          roomShiftId: parent.roomShiftId,
+          roomId: parent.roomId,
+          date: parent.date,
+          doctorId: dto.toDoctorId,
+          isOverride: true,
+          overrideType: ShiftOverrideType.PARTIAL_TRANSFER,
+          overrideStart: dto.windowStart,
+          overrideEnd: dto.windowEnd,
+          parentAssignmentId: parent.id,
+          requestedById,
+          reason: dto.reason,
+        },
+      });
+
+      await tx.shiftChangeEvent.create({
+        data: {
+          eventType: "PARTIAL_TRANSFER",
+          shiftAssignmentId: parent.id,
+          roomShiftId: parent.roomShiftId,
+          fromDoctorId: parent.doctorId,
+          toDoctorId: dto.toDoctorId,
+          requestedById,
+          date: parent.date,
+          windowStart: dto.windowStart,
+          windowEnd: dto.windowEnd,
+          reason: dto.reason,
+        },
+      });
+
+      await tx.shiftNotification.create({
+        data: {
+          userId: dto.toDoctorId,
+          type: "SHIFT_CHANGED",
+          payload: {
+            message: `Sizga ${dto.windowStart}:00–${dto.windowEnd}:00 smena qismi o'tkazildi`,
+            shiftName: parent.roomShift.name,
+            date: parent.date,
+            windowStart: dto.windowStart,
+            windowEnd: dto.windowEnd,
+          },
+        },
+      });
+
+      return child;
+    });
+  }
+
+  // ── Overtime: smena tugash vaqtini uzaytirish ─────────────────────────────
+
+  async createOvertime(dto: OvertimeDto, requestedById: string) {
+    const assignment = await this.prisma.shiftAssignment.findUnique({
+      where: { id: dto.assignmentId },
+      include: { roomShift: true },
+    });
+    if (!assignment) throw new NotFoundException("Assignment topilmadi");
+
+    if (dto.newEndHour <= assignment.roomShift.endHour) {
+      throw new BadRequestException("Yangi tugash vaqti mavjud vaqtdan kech bo'lishi kerak");
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.shiftAssignment.update({
+        where: { id: dto.assignmentId },
+        data: {
+          overrideType: ShiftOverrideType.OVERTIME,
+          overrideEnd: dto.newEndHour,
+          isOverride: true,
+          requestedById,
+          reason: dto.reason,
+        },
+        include: { roomShift: true, doctor: { select: STAFF_SELECT } },
+      });
+
+      await tx.shiftChangeEvent.create({
+        data: {
+          eventType: "OVERTIME_ADDED",
+          shiftAssignmentId: assignment.id,
+          roomShiftId: assignment.roomShiftId,
+          fromDoctorId: assignment.doctorId,
+          requestedById,
+          date: assignment.date,
+          windowStart: assignment.roomShift.endHour,
+          windowEnd: dto.newEndHour,
+          reason: dto.reason,
+        },
+      });
+
+      await tx.shiftNotification.create({
+        data: {
+          userId: assignment.doctorId,
+          type: "SHIFT_CHANGED",
+          payload: {
+            message: `Sizning smenangiz ${dto.newEndHour}:00 gacha uzaytirildi`,
+            shiftName: assignment.roomShift.name,
+            date: assignment.date,
+            newEndHour: dto.newEndHour,
+          },
+        },
+      });
+
+      return updated;
+    });
+  }
+
+  // ── Assignment history (ShiftChangeEvent log) ─────────────────────────────
+
+  async getAssignmentHistory(assignmentId: string) {
+    return this.prisma.shiftChangeEvent.findMany({
+      where: { shiftAssignmentId: assignmentId },
+      include: {
+        fromDoctor: { select: STAFF_SELECT },
+        toDoctor: { select: STAFF_SELECT },
+        requestedBy: { select: STAFF_SELECT },
+      },
+      orderBy: { createdAt: "desc" },
+    });
   }
 }

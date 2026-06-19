@@ -15,6 +15,25 @@ export class CreateRoomShiftDto {
   endHour: number;
 
   @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(59)
+  startMinute?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(59)
+  endMinute?: number;
+
+  // Haftalik bitmask: NULL = har kuni. bit 0=Du...6=Ya. Misol: 31=Du-Ju
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(127)
+  weekdayMask?: number;
+
+  @IsOptional()
   @IsDateString()
   startDate?: string;
 
@@ -63,6 +82,24 @@ export class UpdateRoomShiftDto {
   @Min(1)
   @Max(24)
   endHour?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(59)
+  startMinute?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(59)
+  endMinute?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(127)
+  weekdayMask?: number;
 
   @IsOptional()
   @IsDateString()
