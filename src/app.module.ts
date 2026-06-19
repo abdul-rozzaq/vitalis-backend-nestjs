@@ -40,6 +40,9 @@ import { ShiftAssignmentsModule } from './modules/shift-assignments/shift-assign
 import { WardRoundsModule } from './modules/ward-rounds/ward-rounds.module';
 import { OperationsModule } from "./modules/operations/operations.module";
 import { OperationTypesModule } from "./modules/operation-types/operation-types.module";
+import { DiagnosticsModule } from "./modules/diagnostics/diagnostics.module";
+import { DiagnosticOrdersModule } from "./modules/diagnostic-orders/diagnostic-orders.module";
+import { DiagnosticAssignmentsModule } from "./modules/diagnostic-assignments/diagnostic-assignments.module";
 
 @Module({
   imports: [
@@ -85,6 +88,9 @@ import { OperationTypesModule } from "./modules/operation-types/operation-types.
     WardRoundsModule,
     OperationTypesModule,
     OperationsModule,
+    DiagnosticsModule,
+    DiagnosticOrdersModule,
+    DiagnosticAssignmentsModule,
   ],
   controllers: [AppController],
   providers: [

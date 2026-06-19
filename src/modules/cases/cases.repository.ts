@@ -31,6 +31,18 @@ export const STEP_INCLUDE = {
       },
     },
   },
+  diagnosticOrder: {
+    include: {
+      diagnostics: true,
+      items: {
+        include: {
+          service: { select: { id: true, name: true, price: true } },
+          files: { orderBy: { createdAt: "desc" } },
+        },
+        orderBy: { createdAt: "asc" as const },
+      },
+    },
+  },
 } as const;
 
 const CASE_INCLUDE = {
@@ -157,12 +169,16 @@ export class CasesRepository {
         include: {
           appointment: { select: { id: true } },
           labOrder: { select: { id: true } },
+          diagnosticOrder: { select: { id: true } },
           prescription: { select: { id: true } },
         },
       });
       if (!step) return null;
       if (step.labOrder) {
         await tx.labOrder.delete({ where: { id: step.labOrder.id } });
+      }
+      if (step.diagnosticOrder) {
+        await tx.diagnosticOrder.delete({ where: { id: step.diagnosticOrder.id } });
       }
       if (step.appointment) {
         await tx.appointment.delete({ where: { id: step.appointment.id } });
@@ -181,12 +197,16 @@ export class CasesRepository {
         include: {
           appointment: { select: { id: true } },
           labOrder: { select: { id: true } },
+          diagnosticOrder: { select: { id: true } },
           prescription: { select: { id: true } },
         },
       });
       for (const step of steps) {
         if (step.labOrder) {
           await tx.labOrder.delete({ where: { id: step.labOrder.id } });
+        }
+        if (step.diagnosticOrder) {
+          await tx.diagnosticOrder.delete({ where: { id: step.diagnosticOrder.id } });
         }
         if (step.appointment) {
           await tx.appointment.delete({ where: { id: step.appointment.id } });

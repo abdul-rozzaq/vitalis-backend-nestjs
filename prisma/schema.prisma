@@ -19,6 +19,7 @@ enum UserRole {
   DOCTOR
   HAMSHIRA
   LABARANT
+  DIAGNOST
   TEXNIK_HODIM
   DIREKTOR
   HISOBCHI
@@ -40,6 +41,7 @@ model User {
   role           UserRole               @default(TEXNIK_HODIM)
   assignments    Assignment[]
   labAssignments LaboratoryAssignment[]
+  diagnosticAssignments DiagnosticAssignment[]
   auditLogs      AuditLog[]
 
   balanceTransactions BalanceTransaction[]
@@ -117,6 +119,7 @@ model Patient {
   medicalCards    MedicalCard003[]
   cases           PatientCase[]
   labOrders       LabOrder[]
+  diagnosticOrders DiagnosticOrder[]
   wards           Wards[]
 
   createdAt DateTime  @default(now())
@@ -359,6 +362,7 @@ enum CaseStepType {
   CHECKIN
   CONSULTATION
   LAB
+  DIAGNOSTIC
   PROCEDURE
   REFERRAL
   DISCHARGE
@@ -406,6 +410,7 @@ model CaseStep {
   completedAt   DateTime?
   prescription  Prescription?
   labOrder      LabOrder?
+  diagnosticOrder DiagnosticOrder?
 
   createdAt DateTime @default(now())
 operation Operation?
@@ -537,6 +542,127 @@ model LaboratoryAssignment {
   @@map("laboratory_assignments")
 }
 
+// ─── Diagnostics ────────────────────────────────────
+
+enum DiagnosticOrderStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+
+  @@map("diagnostic_order_statuses")
+}
+
+enum DiagnosticItemStatus {
+  PENDING
+  IN_PROGRESS
+  READY
+  DELIVERED
+  CANCELLED
+
+  @@map("diagnostic_item_statuses")
+}
+
+model DiagnosticOrder {
+  id     String                @id @default(uuid())
+  status DiagnosticOrderStatus @default(PENDING)
+
+  caseStep   CaseStep @relation(fields: [caseStepId], references: [id], onDelete: Cascade)
+  caseStepId String   @unique
+
+  patient   Patient @relation(fields: [patientId], references: [id])
+  patientId String
+
+  diagnostics   Diagnostics @relation(fields: [diagnosticsId], references: [id], onDelete: Cascade)
+  diagnosticsId String
+
+  items DiagnosticOrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("diagnostic_orders")
+}
+
+model DiagnosticOrderItem {
+  id     String                @id @default(uuid())
+  status DiagnosticItemStatus  @default(PENDING)
+
+  diagnosticOrder   DiagnosticOrder @relation(fields: [diagnosticOrderId], references: [id], onDelete: Cascade)
+  diagnosticOrderId String
+
+  service   DiagnosticService @relation(fields: [serviceId], references: [id])
+  serviceId String
+
+  note        String?   @db.Text
+  completedAt DateTime?
+
+  startedAt   DateTime?
+  readyAt     DateTime?
+  deliveredAt DateTime?
+  cancelledAt DateTime?
+
+  files DiagnosticOrderItemFile[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("diagnostic_order_items")
+}
+
+model DiagnosticOrderItemFile {
+  id                    String              @id @default(uuid())
+  url                   String
+  name                  String
+  diagnosticOrderItem   DiagnosticOrderItem @relation(fields: [diagnosticOrderItemId], references: [id], onDelete: Cascade)
+  diagnosticOrderItemId String
+  createdAt             DateTime            @default(now())
+
+  @@map("diagnostic_order_item_files")
+}
+
+model Diagnostics {
+  id          String                  @id @default(uuid())
+  name        String                  @db.VarChar(64)
+  description String?
+  services    DiagnosticService[]
+  assignments DiagnosticAssignment[]
+  diagnosticOrders DiagnosticOrder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("diagnostics")
+}
+
+model DiagnosticService {
+  id                  String                @id @default(uuid())
+  name                String                @db.VarChar(64)
+  price               Float?
+  diagnostics         Diagnostics           @relation(fields: [diagnosticsId], references: [id], onDelete: Cascade)
+  diagnosticsId       String
+  diagnosticOrderItems DiagnosticOrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("diagnostic_services")
+}
+
+model DiagnosticAssignment {
+  id            String      @id @default(uuid())
+  user          User        @relation(fields: [userId], references: [id])
+  userId        String
+  diagnostics   Diagnostics @relation(fields: [diagnosticsId], references: [id], onDelete: Cascade)
+  diagnosticsId String
+  isActive      Boolean     @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, diagnosticsId])
+  @@map("diagnostic_assignments")
+}
+
 enum WardStatus {
   OCCUPIED // Bemor yotibdi
   VACATED // Bemor chiqib ketgan
@@ -595,6 +721,7 @@ enum InvoiceSourceType {
   WARD
   APPOINTMENT
   LAB_ORDER
+  DIAGNOSTIC_ORDER
   MANUAL
   OPERATION  
 
@@ -604,6 +731,7 @@ enum InvoiceSourceType {
 enum InvoiceItemSourceType {
   APPOINTMENT
   LAB_SERVICE
+  DIAGNOSTIC_SERVICE
   WARD_DAILY
   MANUAL
   OPERATION
