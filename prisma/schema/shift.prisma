@@ -22,22 +22,11 @@ model RoomShift {
   startHour Int
   endHour   Int
 
-  // Minut aniqligi (0 = mavjud integer-only xatti-harakat)
   startMinute Int @default(0)
   endMinute   Int @default(0)
 
-  // Haftalik recurrence bitmask: NULL = har kuni
-  // bit 0=Du, 1=Se, 2=Ch, 3=Pa, 4=Ju, 5=Sh, 6=Ya
-  // Misol: 31 = Du-Ju, 96 = Sh-Ya, 127 = har kuni
-  weekdayMask Int?
-
-  startDate DateTime? @db.Date
-  endDate   DateTime? @db.Date
-  color     String?   @db.VarChar(7)
+  color     String? @db.VarChar(7)
   roundHour Int?
-
-  doctorId String?
-  doctor   User?   @relation("RoomShiftDoctor", fields: [doctorId], references: [id])
 
   rooms         ShiftRoom[]
   defaultNurses ShiftDefaultNurse[]

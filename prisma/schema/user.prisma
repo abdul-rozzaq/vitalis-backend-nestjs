@@ -34,7 +34,6 @@ model User {
 
   doctorShiftAssignments  ShiftAssignment[]   @relation("DoctorShiftAssignments")
   nurseShiftAssignments   ShiftNurse[]        @relation("NurseShiftAssignments")
-  doctorShifts            RoomShift[]         @relation("RoomShiftDoctor")
   defaultNurseShifts      ShiftDefaultNurse[] @relation("ShiftDefaultNurse")
   requestedShiftChanges   ShiftAssignment[]   @relation("ShiftChangeRequester")
 

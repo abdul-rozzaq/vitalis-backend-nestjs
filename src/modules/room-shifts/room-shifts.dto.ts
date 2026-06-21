@@ -1,4 +1,4 @@
-import { IsArray, IsDateString, IsInt, IsOptional, IsString, IsUUID, Max, Min } from "class-validator";
+import { IsArray, IsInt, IsOptional, IsString, IsUUID, Max, Min } from "class-validator";
 
 export class CreateRoomShiftDto {
   @IsString()
@@ -26,21 +26,6 @@ export class CreateRoomShiftDto {
   @Max(59)
   endMinute?: number;
 
-  // Haftalik bitmask: NULL = har kuni. bit 0=Du...6=Ya. Misol: 31=Du-Ju
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(127)
-  weekdayMask?: number;
-
-  @IsOptional()
-  @IsDateString()
-  startDate?: string;
-
-  @IsOptional()
-  @IsDateString()
-  endDate?: string;
-
   @IsOptional()
   @IsString()
   color?: string;
@@ -50,10 +35,6 @@ export class CreateRoomShiftDto {
   @Min(0)
   @Max(23)
   roundHour?: number;
-
-  @IsOptional()
-  @IsUUID()
-  doctorId?: string;
 
   @IsOptional()
   @IsArray()
@@ -96,20 +77,6 @@ export class UpdateRoomShiftDto {
   endMinute?: number;
 
   @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(127)
-  weekdayMask?: number;
-
-  @IsOptional()
-  @IsDateString()
-  startDate?: string;
-
-  @IsOptional()
-  @IsDateString()
-  endDate?: string;
-
-  @IsOptional()
   @IsString()
   color?: string;
 
@@ -118,10 +85,6 @@ export class UpdateRoomShiftDto {
   @Min(0)
   @Max(23)
   roundHour?: number;
-
-  @IsOptional()
-  @IsUUID()
-  doctorId?: string;
 
   @IsOptional()
   @IsArray()

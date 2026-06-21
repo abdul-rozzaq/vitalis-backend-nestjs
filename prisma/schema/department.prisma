@@ -25,7 +25,6 @@ enum RoomType {
 model Room {
   id          String   @id @default(uuid())
   name        String   @db.VarChar(64)
-  roomNumber  String?  @db.VarChar(20)
   floor       Int?
   capacity    Int      @default(1)
   description String?

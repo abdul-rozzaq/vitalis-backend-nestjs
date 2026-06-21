@@ -4,6 +4,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
 import {
+  BulkAssignDto,
   CreateShiftOverrideDto,
   CreateSwapDto,
   MaterializeShiftDto,
@@ -57,6 +58,12 @@ export class ShiftAssignmentsController {
   @Get("/")
   getResolved(@Query() query: ShiftAssignmentsQueryDto) {
     return this.service.getResolvedForRange(query);
+  }
+
+  @Roles(RoleName.ADMIN, RoleName.DIREKTOR)
+  @Post("/bulk")
+  bulkAssign(@Body() dto: BulkAssignDto) {
+    return this.service.bulkAssign(dto);
   }
 
   @Roles(RoleName.ADMIN, RoleName.DIREKTOR)

@@ -12,11 +12,6 @@ export class CreateRoomDto {
   name: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  roomNumber?: string | null;
-
-  @IsOptional()
   @IsInt()
   floor?: number | null;
 
@@ -43,11 +38,6 @@ export class UpdateRoomDto {
   @MinLength(1)
   @MaxLength(64)
   name?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  roomNumber?: string | null;
 
   @IsOptional()
   @IsInt()

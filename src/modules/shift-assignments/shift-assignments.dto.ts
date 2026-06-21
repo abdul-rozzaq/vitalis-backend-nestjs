@@ -1,4 +1,4 @@
-import { IsArray, IsDateString, IsInt, IsOptional, IsString, IsUUID, Max, Min } from "class-validator";
+import { IsArray, IsDateString, IsInt, IsOptional, IsString, IsUUID, Max, Min, ArrayMinSize } from "class-validator";
 
 export class MaterializeShiftDto {
   @IsUUID()
@@ -87,4 +87,20 @@ export class OvertimeDto {
   @IsOptional()
   @IsString()
   reason?: string;
+}
+
+export class BulkAssignDto {
+  @IsUUID()
+  roomShiftId: string;
+
+  @IsUUID()
+  roomId: string;
+
+  @IsUUID()
+  doctorId: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsDateString({}, { each: true })
+  dates: string[];
 }
