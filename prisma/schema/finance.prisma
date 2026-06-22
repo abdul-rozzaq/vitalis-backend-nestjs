@@ -49,6 +49,7 @@ enum InvoiceSourceType {
   WARD
   APPOINTMENT
   LAB_ORDER
+  DIAGNOSTIC_ORDER
   MANUAL
   OPERATION
 
@@ -58,6 +59,7 @@ enum InvoiceSourceType {
 enum InvoiceItemSourceType {
   APPOINTMENT
   LAB_SERVICE
+  DIAGNOSTIC_SERVICE
   WARD_DAILY
   MANUAL
   OPERATION
