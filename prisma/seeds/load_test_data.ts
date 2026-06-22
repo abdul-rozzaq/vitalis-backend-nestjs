@@ -5,34 +5,34 @@
  * Ishlatish:
  *   ts-node -r tsconfig-paths/register prisma/seeds/load_test_data.ts
  */
- 
+
 import { PrismaPg } from "@prisma/adapter-pg";
 import * as bcrypt from "bcryptjs";
 import "dotenv/config";
 import { PrismaClient } from "../../src/generated/prisma/client";
- 
+
 const connectionString = process.env.DATABASE_URL!;
- 
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
- 
+
 function daysAgo(n: number) {
   const d = new Date();
   d.setDate(d.getDate() - n);
   return d;
 }
- 
+
 function hoursFromNow(h: number) {
   const d = new Date();
   d.setHours(d.getHours() + h);
   return d;
 }
- 
+
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
- 
+
 // ─── Static data ──────────────────────────────────────────────────────────────
- 
+
 const DEPARTMENTS = [
   { name: "Kardiologiya", description: "Yurak va qon tomir kasalliklari", price: 80000 },
   { name: "Nevrologiya", description: "Asab tizimi kasalliklari", price: 75000 },
@@ -45,7 +45,7 @@ const DEPARTMENTS = [
   { name: "Urologiya", description: "Peshob yo'llari kasalliklari", price: 75000 },
   { name: "Terapevt", description: "Umumiy ko'rik bo'limi", price: 50000 },
 ];
- 
+
 const ROOMS = [
   { name: "101-xona", roomType: "EXAMINATION", capacity: 1 },
   { name: "102-xona", roomType: "EXAMINATION", capacity: 1 },
@@ -60,7 +60,7 @@ const ROOMS = [
   { name: "Operatsion-1", roomType: "OPERATION", capacity: 1 },
   { name: "Operatsion-2", roomType: "OPERATION", capacity: 1 },
 ];
- 
+
 const USERS = [
   { first_name: "Akbar",   last_name: "Toshmatov",    phone: "+998901110001", role: "DOCTOR",       birthday: "1985-03-12" },
   { first_name: "Zulfiya", last_name: "Rahimova",      phone: "+998901110002", role: "DOCTOR",       birthday: "1990-07-25" },
@@ -72,8 +72,9 @@ const USERS = [
   { first_name: "Bobur",   last_name: "Normatov",      phone: "+998901110008", role: "DIREKTOR",     birthday: "1975-01-22" },
   { first_name: "Umida",   last_name: "Sotvoldiyeva",  phone: "+998901110009", role: "HISOBCHI",     birthday: "1988-08-16" },
   { first_name: "Sherzod", last_name: "Qodirov",       phone: "+998901110010", role: "TEXNIK_HODIM", birthday: "1999-12-03" },
+  { first_name: "Doniyor", last_name: "Xasanov",       phone: "+998901110011", role: "DIAGNOST",     birthday: "1991-05-17" },
 ];
- 
+
 const LABORATORIES = [
   {
     name: "Klinik laboratoriya",
@@ -105,7 +106,40 @@ const LABORATORIES = [
     ],
   },
 ];
- 
+
+const DIAGNOSTICS = [
+  {
+    name: "Ultratovush diagnostikasi (UZI)",
+    description: "Ichki organlarni ultratovush tekshiruvi",
+    services: [
+      { name: "Qorin bo'shlig'i UZI",      price: 60000 },
+      { name: "Buyrak va siydik yo'llari UZI", price: 55000 },
+      { name: "Qalqonsimon bez UZI",        price: 50000 },
+      { name: "Yurak ExoKG",               price: 90000 },
+    ],
+  },
+  {
+    name: "Rentgenologiya markazi",
+    description: "Rentgen va fluorografiya tekshiruvlari",
+    services: [
+      { name: "Ko'krak qafasi rentgeni",   price: 35000 },
+      { name: "Umurtqa pog'onasi rentgeni", price: 45000 },
+      { name: "Qo'l-oyoq suyaklari rentgeni", price: 40000 },
+      { name: "Fluorografiya",             price: 25000 },
+    ],
+  },
+  {
+    name: "MRT va KT markazi",
+    description: "Magnit-rezonans va kompyuter tomografiya",
+    services: [
+      { name: "Bosh miya MRT",             price: 350000 },
+      { name: "Umurtqa pog'onasi MRT",     price: 380000 },
+      { name: "Ko'krak qafasi KT",         price: 280000 },
+      { name: "Qorin bo'shlig'i KT",       price: 300000 },
+    ],
+  },
+];
+
 // Operatsiya turlari
 const OPERATION_TYPES = [
   {
@@ -136,7 +170,7 @@ const OPERATION_TYPES = [
     ],
   },
 ];
- 
+
 const PATIENTS = [
   { first_name: "Alisher",  last_name: "Valiyev",    phone_number: "+998901234561", gender: "MALE",   birth_date: "1990-05-15", blood_type: "A_POSITIVE",  pinfl: "31505900012341" },
   { first_name: "Ozoda",    last_name: "Hasanova",   phone_number: "+998901234562", gender: "FEMALE", birth_date: "1985-08-20", blood_type: "O_POSITIVE",  pinfl: "32008850012342" },
@@ -154,14 +188,14 @@ const PATIENTS = [
   { first_name: "Ravshan",  last_name: "Komilov",    phone_number: "+998901234574", gender: "MALE",   birth_date: "1983-12-20", blood_type: "O_NEGATIVE",  pinfl: "32012830012354" },
   { first_name: "Hulkar",   last_name: "Mirova",     phone_number: "+998901234575", gender: "FEMALE", birth_date: "1999-07-11", blood_type: "AB_POSITIVE", pinfl: "31107990012355" },
 ];
- 
+
 const MEDICINES = [
   "Paracetamol", "Ibuprofen", "Amoxicillin", "Metformin", "Atorvastatin",
   "Omeprazol", "Amlodipine", "Lisinopril", "Ciprofloxacin", "Diclofenac",
   "Pantoprazol", "Losartan", "Aspirin", "Azithromycin", "Dexamethasone",
   "Bisoprolol", "Furosemide", "Clindamycin", "Ceftriaxone", "Warfarin",
 ];
- 
+
 const SCHEDULES_WEEK = [
   { dayOfWeek: 1, startTime: "08:00", endTime: "17:00" },
   { dayOfWeek: 2, startTime: "08:00", endTime: "17:00" },
@@ -169,16 +203,16 @@ const SCHEDULES_WEEK = [
   { dayOfWeek: 4, startTime: "08:00", endTime: "17:00" },
   { dayOfWeek: 5, startTime: "08:00", endTime: "15:00" },
 ];
- 
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
- 
+
 async function main() {
   const adapter = new PrismaPg({ connectionString });
   const prisma = new PrismaClient({ adapter });
   const password = await bcrypt.hash("password123", 10);
- 
+
   console.log("🚀 Test ma'lumotlar yuklanmoqda...\n");
- 
+
   // ── 1. Region / District ───────────────────────────────────────────────────
   console.log("📍 Region va tumanlar...");
   let region = await prisma.region.findFirst({ where: { name: "Toshkent shahri" } });
@@ -192,7 +226,7 @@ async function main() {
     });
   }
   console.log(`   ✓ ${region.name} / ${district.name}`);
- 
+
   // ── 2. Departments ─────────────────────────────────────────────────────────
   console.log("🏥 Departamentlar...");
   const createdDeps: any[] = [];
@@ -202,7 +236,7 @@ async function main() {
     createdDeps.push(await prisma.department.create({ data: dep }));
   }
   console.log(`   ✓ ${createdDeps.length} ta departament`);
- 
+
   // ── 3. Rooms ───────────────────────────────────────────────────────────────
   console.log("🚪 Xonalar...");
   const createdRooms: any[] = [];
@@ -213,7 +247,7 @@ async function main() {
   }
   const operationRooms = createdRooms.filter((r) => r.roomType === "OPERATION");
   console.log(`   ✓ ${createdRooms.length} ta xona (${operationRooms.length} ta operatsion)`);
- 
+
   // ── 4. Users ───────────────────────────────────────────────────────────────
   console.log("👥 Foydalanuvchilar...");
   const createdUsers: any[] = [];
@@ -232,16 +266,17 @@ async function main() {
     }));
   }
   console.log(`   ✓ ${createdUsers.length} ta foydalanuvchi (parol: password123)`);
- 
+
   const doctors   = createdUsers.filter((u) => u.role === "DOCTOR");
   const hamshiras = createdUsers.filter((u) => u.role === "HAMSHIRA");
   const labarant  = createdUsers.find((u) => u.role === "LABARANT")!;
+  const diagnost  = createdUsers.find((u) => u.role === "DIAGNOST")!;
   const kassir    = createdUsers.find((u) => u.role === "KASSIR")!;
- 
+
   // ── 5. Laboratories + Services ─────────────────────────────────────────────
   console.log("🔬 Laboratoriyalar...");
   const createdLabs: any[] = [];
-  const allServices: any[] = [];
+  const allLabServices: any[] = [];
   for (const lab of LABORATORIES) {
     let labRec = await prisma.laboratory.findFirst({ where: { name: lab.name } });
     if (!labRec) {
@@ -259,12 +294,38 @@ async function main() {
           data: { name: svc.name, price: svc.price, laboratoryId: labRec.id },
         });
       }
-      allServices.push(svcRec);
+      allLabServices.push(svcRec);
     }
   }
-  console.log(`   ✓ ${createdLabs.length} ta laboratoriya, ${allServices.length} ta xizmat`);
- 
-  // ── 6. Operation Types ─────────────────────────────────────────────────────
+  console.log(`   ✓ ${createdLabs.length} ta laboratoriya, ${allLabServices.length} ta xizmat`);
+
+  // ── 6. Diagnostics + Services ──────────────────────────────────────────────
+  console.log("🩻 Diagnostika markazlari...");
+  const createdDiagnostics: any[] = [];
+  const allDiagnosticServices: any[] = [];
+  for (const diag of DIAGNOSTICS) {
+    let diagRec = await prisma.diagnostics.findFirst({ where: { name: diag.name } });
+    if (!diagRec) {
+      diagRec = await prisma.diagnostics.create({
+        data: { name: diag.name, description: diag.description },
+      });
+    }
+    createdDiagnostics.push(diagRec);
+    for (const svc of diag.services) {
+      let svcRec = await prisma.diagnosticService.findFirst({
+        where: { name: svc.name, diagnosticsId: diagRec.id },
+      });
+      if (!svcRec) {
+        svcRec = await prisma.diagnosticService.create({
+          data: { name: svc.name, price: svc.price, diagnosticsId: diagRec.id },
+        });
+      }
+      allDiagnosticServices.push(svcRec);
+    }
+  }
+  console.log(`   ✓ ${createdDiagnostics.length} ta diagnostika markazi, ${allDiagnosticServices.length} ta xizmat`);
+
+  // ── 7. Operation Types ─────────────────────────────────────────────────────
   console.log("🔪 Operatsiya turlari...");
   const createdOpTypes: any[] = [];
   for (const opType of OPERATION_TYPES) {
@@ -294,12 +355,12 @@ async function main() {
     createdOpTypes.push(existing);
   }
   console.log(`   ✓ ${createdOpTypes.length} ta operatsiya turi`);
- 
-  // ── 7. Assignments (Doctor + Hamshira) ─────────────────────────────────────
+
+  // ── 8. Assignments (Doctor + Hamshira) ─────────────────────────────────────
   console.log("📋 Tayinlashlar (assignments)...");
   const createdAssignments: any[] = [];
   const examRooms = createdRooms.filter((r) => r.roomType === "EXAMINATION");
- 
+
   for (let i = 0; i < doctors.length; i++) {
     const dep  = createdDeps[i % createdDeps.length];
     const room = examRooms[i % examRooms.length];
@@ -319,7 +380,7 @@ async function main() {
     }
     createdAssignments.push(asgn);
   }
- 
+
   for (let i = 0; i < hamshiras.length; i++) {
     const dep  = createdDeps[i % createdDeps.length];
     const room = examRooms[i % examRooms.length];
@@ -340,8 +401,8 @@ async function main() {
     createdAssignments.push(asgn);
   }
   console.log(`   ✓ ${createdAssignments.length} ta assignment`);
- 
-  // ── 8. LaboratoryAssignments ───────────────────────────────────────────────
+
+  // ── 9. LaboratoryAssignments ───────────────────────────────────────────────
   console.log("🧪 Labarant tayinlashlari...");
   const firstLab = createdLabs[0];
   const existingLabAsgn = await prisma.laboratoryAssignment.findFirst({
@@ -353,8 +414,24 @@ async function main() {
     });
   }
   console.log(`   ✓ Labarant → ${firstLab.name}`);
- 
-  // ── 9. Patients ────────────────────────────────────────────────────────────
+
+  // ── 10. DiagnosticAssignments ──────────────────────────────────────────────
+  console.log("🩻 Diagnost tayinlashlari...");
+  if (diagnost) {
+    for (const diagRec of createdDiagnostics) {
+      const existing = await prisma.diagnosticAssignment.findFirst({
+        where: { userId: diagnost.id, diagnosticsId: diagRec.id },
+      });
+      if (!existing) {
+        await prisma.diagnosticAssignment.create({
+          data: { userId: diagnost.id, diagnosticsId: diagRec.id, isActive: true },
+        });
+      }
+    }
+    console.log(`   ✓ Diagnost → ${createdDiagnostics.length} ta markaz`);
+  }
+
+  // ── 11. Patients ────────────────────────────────────────────────────────────
   console.log("🏥 Bemorlar...");
   const createdPatients: any[] = [];
   for (const pat of PATIENTS) {
@@ -377,8 +454,8 @@ async function main() {
     }));
   }
   console.log(`   ✓ ${createdPatients.length} ta bemor`);
- 
-  // ── 10. Medicines ──────────────────────────────────────────────────────────
+
+  // ── 12. Medicines ──────────────────────────────────────────────────────────
   console.log("💊 Dorilar...");
   const createdMeds: any[] = [];
   for (const name of MEDICINES) {
@@ -387,18 +464,18 @@ async function main() {
     createdMeds.push(m);
   }
   console.log(`   ✓ ${createdMeds.length} ta dori`);
- 
-  // ── 11. PatientCases → Steps → Appointments → Prescriptions ───────────────
+
+  // ── 13. PatientCases → Steps → Appointments → Prescriptions ───────────────
   console.log("📁 Keyslar va uchrashuvlar...");
   let casesCreated = 0;
   let apptsCreated = 0;
   let prescCreated = 0;
- 
+
   for (let pi = 0; pi < createdPatients.length; pi++) {
     const patient  = createdPatients[pi];
     const asgn     = createdAssignments[pi % createdAssignments.length];
     const daysBack = (pi + 1) * 3;
- 
+
     const patCase = await prisma.patientCase.create({
       data: {
         patientId:      patient.id,
@@ -420,7 +497,7 @@ async function main() {
       },
     });
     casesCreated++;
- 
+
     // CHECKIN step
     await prisma.caseStep.create({
       data: {
@@ -430,7 +507,7 @@ async function main() {
         completedAt: daysAgo(daysBack),
       },
     });
- 
+
     // CONSULTATION step + Appointment
     const apptDate = daysAgo(daysBack - 1);
     const appt = await prisma.appointment.create({
@@ -441,7 +518,7 @@ async function main() {
       },
     });
     apptsCreated++;
- 
+
     await prisma.caseStep.create({
       data: {
         caseId:       patCase.id,
@@ -453,7 +530,7 @@ async function main() {
         completedAt:  pi >= 5 ? daysAgo(daysBack - 1) : null,
       },
     });
- 
+
     // Prescription for some patients
     if (pi % 2 === 0) {
       await prisma.prescription.create({
@@ -486,20 +563,20 @@ async function main() {
     }
   }
   console.log(`   ✓ ${casesCreated} ta keys, ${apptsCreated} ta uchrashuv, ${prescCreated} ta retsept`);
- 
-  // ── 12. LabOrders ──────────────────────────────────────────────────────────
+
+  // ── 14. LabOrders ──────────────────────────────────────────────────────────
   console.log("🧬 Lab buyurtmalari...");
   let labOrdersCreated = 0;
- 
+
   for (let pi = 0; pi < Math.min(6, createdPatients.length); pi++) {
     const patient = createdPatients[pi];
     const patCase = await prisma.patientCase.findFirst({ where: { patientId: patient.id } });
     if (!patCase) continue;
- 
+
     const lab         = createdLabs[pi % createdLabs.length];
-    const labServices = allServices.filter((s: any) => s.laboratoryId === lab.id).slice(0, 2);
+    const labServices = allLabServices.filter((s: any) => s.laboratoryId === lab.id).slice(0, 2);
     if (!labServices.length) continue;
- 
+
     const labStep = await prisma.caseStep.create({
       data: {
         caseId:      patCase.id,
@@ -508,9 +585,9 @@ async function main() {
         completedAt: pi >= 2 ? daysAgo(1) : null,
       },
     });
- 
+
     const orderStatus = pi === 0 ? "PENDING" : pi === 1 ? "IN_PROGRESS" : "COMPLETED";
- 
+
     const labOrder = await prisma.labOrder.create({
       data: {
         status:      orderStatus as any,
@@ -519,7 +596,7 @@ async function main() {
         laboratoryId: lab.id,
       },
     });
- 
+
     for (const svc of labServices) {
       const itemStatus = pi === 0 ? "PENDING" : pi === 1 ? "IN_PROGRESS" : pi <= 3 ? "READY" : "DELIVERED";
       await prisma.labOrderItem.create({
@@ -538,14 +615,77 @@ async function main() {
     labOrdersCreated++;
   }
   console.log(`   ✓ ${labOrdersCreated} ta lab buyurtma`);
- 
-  // ── 13. Operations ─────────────────────────────────────────────────────────
+
+  // ── 15. DiagnosticOrders ───────────────────────────────────────────────────
+  console.log("🩻 Diagnostika buyurtmalari...");
+  let diagnosticOrdersCreated = 0;
+
+  // 6 ta bemor uchun turli statusdagi diagnostika buyurtmalari
+  // (lab bilan bir xil bemor ishlatmaslik uchun 6..11 oralig'idan olamiz)
+  for (let pi = 6; pi < Math.min(12, createdPatients.length); pi++) {
+    const localIdx = pi - 6; // 0..5
+    const patient  = createdPatients[pi];
+    const patCase  = await prisma.patientCase.findFirst({ where: { patientId: patient.id } });
+    if (!patCase) continue;
+
+    const diagRec    = createdDiagnostics[localIdx % createdDiagnostics.length];
+    const diagSvcs   = allDiagnosticServices
+      .filter((s: any) => s.diagnosticsId === diagRec.id)
+      .slice(0, 2);
+    if (!diagSvcs.length) continue;
+
+    const diagStep = await prisma.caseStep.create({
+      data: {
+        caseId:      patCase.id,
+        type:        "DIAGNOSTIC",
+        status:      localIdx < 2 ? "IN_PROGRESS" : "DONE",
+        completedAt: localIdx >= 2 ? daysAgo(1) : null,
+      },
+    });
+
+    const orderStatus =
+      localIdx === 0 ? "PENDING" :
+      localIdx === 1 ? "IN_PROGRESS" :
+      "COMPLETED";
+
+    const diagOrder = await prisma.diagnosticOrder.create({
+      data: {
+        status:       orderStatus as any,
+        caseStepId:   diagStep.id,
+        patientId:    patient.id,
+        diagnosticsId: diagRec.id,
+      },
+    });
+
+    for (const svc of diagSvcs) {
+      const itemStatus =
+        localIdx === 0 ? "PENDING" :
+        localIdx === 1 ? "IN_PROGRESS" :
+        localIdx <= 3  ? "READY" :
+        "DELIVERED";
+
+      await prisma.diagnosticOrderItem.create({
+        data: {
+          diagnosticOrderId: diagOrder.id,
+          serviceId:         svc.id,
+          status:            itemStatus as any,
+          note:              localIdx >= 2 ? "Patologiya aniqlanmadi" : null,
+          completedAt:       localIdx >= 2 ? daysAgo(1) : null,
+          startedAt:         localIdx >= 1 ? daysAgo(2) : null,
+          readyAt:           localIdx >= 2 ? daysAgo(1) : null,
+          deliveredAt:       localIdx >= 4 ? daysAgo(0) : null,
+        },
+      });
+    }
+    diagnosticOrdersCreated++;
+  }
+  console.log(`   ✓ ${diagnosticOrdersCreated} ta diagnostika buyurtma`);
+
+  // ── 16. Operations ─────────────────────────────────────────────────────────
   console.log("🔪 Operatsiyalar...");
   let opsCreated = 0;
- 
-  // Har bir operatsiya turi uchun turli statusdagi operatsiyalar
+
   const opScenarios = [
-    // [patientIndex, opTypeIndex, status, daysAgoScheduled]
     { pi: 0,  oti: 0, status: "COMPLETED",   daysBack: 10, startOffset: -9, completeOffset: -8 },
     { pi: 1,  oti: 1, status: "COMPLETED",   daysBack: 7,  startOffset: -6, completeOffset: -5 },
     { pi: 2,  oti: 2, status: "IN_PROGRESS", daysBack: 0,  startOffset: 0,  completeOffset: null },
@@ -553,26 +693,24 @@ async function main() {
     { pi: 4,  oti: 1, status: "SCHEDULED",   daysBack: -2, startOffset: null, completeOffset: null },
     { pi: 5,  oti: 2, status: "CANCELLED",   daysBack: 5,  startOffset: null, completeOffset: null },
   ];
- 
+
   for (const sc of opScenarios) {
     const patient = createdPatients[sc.pi];
     const opType  = createdOpTypes[sc.oti];
     const opRoom  = operationRooms[sc.oti % operationRooms.length];
- 
-    // Bemor uchun case topish yoki yangi ochish
+
     let patCase = await prisma.patientCase.findFirst({ where: { patientId: patient.id } });
     if (!patCase) {
       patCase = await prisma.patientCase.create({
         data: { patientId: patient.id, status: "ACTIVE", openedAt: daysAgo(sc.daysBack + 2) },
       });
     }
- 
-    // CaseStep yaratish
+
     const caseStepStatus =
       sc.status === "COMPLETED" ? "DONE" :
       sc.status === "CANCELLED" ? "CANCELLED" :
       sc.status === "IN_PROGRESS" ? "IN_PROGRESS" : "PENDING";
- 
+
     const caseStep = await prisma.caseStep.create({
       data: {
         caseId:      patCase.id,
@@ -581,7 +719,7 @@ async function main() {
         completedAt: sc.status === "COMPLETED" ? daysAgo(Math.abs(sc.completeOffset!)) : null,
       },
     });
- 
+
     const scheduledAt = sc.daysBack < 0 ? hoursFromNow(Math.abs(sc.daysBack) * 24) : daysAgo(sc.daysBack);
     const startedAt   = sc.startOffset !== null && sc.status !== "SCHEDULED" && sc.status !== "CANCELLED"
       ? daysAgo(Math.abs(sc.startOffset!))
@@ -589,8 +727,7 @@ async function main() {
     const completedAt = sc.completeOffset !== null
       ? daysAgo(Math.abs(sc.completeOffset!))
       : null;
- 
-    // Operatsiya xizmatlari (opType.items dan nusxa)
+
     const opItems = opType.items.map((item: any) => ({
       operationTypeItemId: item.id,
       name:       item.name,
@@ -598,9 +735,9 @@ async function main() {
       quantity:   1,
       totalPrice: item.price,
     }));
- 
+
     const totalPrice = opItems.reduce((sum: number, i: any) => sum + Number(i.unitPrice), 0);
- 
+
     const operation = await prisma.operation.create({
       data: {
         patientId:       patient.id,
@@ -622,8 +759,7 @@ async function main() {
         items: { create: opItems },
       },
     });
- 
-    // COMPLETED operatsiya uchun invoice yaratish
+
     if (sc.status === "COMPLETED") {
       await prisma.invoice.create({
         data: {
@@ -646,21 +782,21 @@ async function main() {
         },
       });
     }
- 
+
     opsCreated++;
   }
   console.log(`   ✓ ${opsCreated} ta operatsiya (2 COMPLETED, 1 IN_PROGRESS, 2 SCHEDULED, 1 CANCELLED)`);
- 
-  // ── 14. MedicalCards ───────────────────────────────────────────────────────
+
+  // ── 17. MedicalCards ───────────────────────────────────────────────────────
   console.log("📄 Tibbiy kartalar (003-shakl)...");
   let cardsCreated = 0;
   const doctorUser = doctors[0];
- 
+
   for (let i = 0; i < Math.min(5, createdPatients.length); i++) {
     const patient  = createdPatients[i];
     const existing = await prisma.medicalCard003.findFirst({ where: { patientId: patient.id } });
     if (existing) continue;
- 
+
     await prisma.medicalCard003.create({
       data: {
         patientId:       patient.id,
@@ -686,8 +822,8 @@ async function main() {
     cardsCreated++;
   }
   console.log(`   ✓ ${cardsCreated} ta tibbiy karta`);
- 
-  // ── 15. Kelgusi uchrashuvlar ───────────────────────────────────────────────
+
+  // ── 18. Kelgusi uchrashuvlar ───────────────────────────────────────────────
   console.log("📅 Kelgusi uchrashuvlar...");
   let futureAppts = 0;
   for (let i = 0; i < Math.min(5, createdPatients.length); i++) {
@@ -703,33 +839,37 @@ async function main() {
     futureAppts++;
   }
   console.log(`   ✓ ${futureAppts} ta kelgusi uchrashuv`);
- 
+
   // ── Summary ────────────────────────────────────────────────────────────────
-  const [totalPatients, totalUsers, totalAppointments, totalLabs, totalCases, totalOps, totalInvoices] =
-    await Promise.all([
-      prisma.patient.count(),
-      prisma.user.count(),
-      prisma.appointment.count(),
-      prisma.labOrder.count(),
-      prisma.patientCase.count(),
-      prisma.operation.count(),
-      prisma.invoice.count(),
-    ]);
- 
+  const [
+    totalPatients, totalUsers, totalAppointments,
+    totalLabs, totalDiagnostics, totalCases, totalOps, totalInvoices,
+  ] = await Promise.all([
+    prisma.patient.count(),
+    prisma.user.count(),
+    prisma.appointment.count(),
+    prisma.labOrder.count(),
+    prisma.diagnosticOrder.count(),
+    prisma.patientCase.count(),
+    prisma.operation.count(),
+    prisma.invoice.count(),
+  ]);
+
   console.log("\n✅ Seed muvaffaqiyatli yakunlandi!\n");
   console.log("📊 Jami ma'lumotlar:");
-  console.log(`   👥 Foydalanuvchilar  : ${totalUsers}`);
-  console.log(`   🏥 Bemorlar          : ${totalPatients}`);
-  console.log(`   📅 Uchrashuvlar      : ${totalAppointments}`);
-  console.log(`   📁 Keyslar           : ${totalCases}`);
-  console.log(`   🧬 Lab buyurtmalar   : ${totalLabs}`);
-  console.log(`   🔪 Operatsiyalar     : ${totalOps}`);
-  console.log(`   🧾 Invoicelar        : ${totalInvoices}`);
+  console.log(`   👥 Foydalanuvchilar       : ${totalUsers}`);
+  console.log(`   🏥 Bemorlar               : ${totalPatients}`);
+  console.log(`   📅 Uchrashuvlar           : ${totalAppointments}`);
+  console.log(`   📁 Keyslar                : ${totalCases}`);
+  console.log(`   🧬 Lab buyurtmalar        : ${totalLabs}`);
+  console.log(`   🩻 Diagnostika buyurtmalar: ${totalDiagnostics}`);
+  console.log(`   🔪 Operatsiyalar          : ${totalOps}`);
+  console.log(`   🧾 Invoicelar             : ${totalInvoices}`);
   console.log(`\n   🔑 Barcha xodimlar paroli: password123`);
- 
+
   await prisma.$disconnect();
 }
- 
+
 main().catch((e) => {
   console.error("❌ Seed xatosi:", e);
   process.exit(1);

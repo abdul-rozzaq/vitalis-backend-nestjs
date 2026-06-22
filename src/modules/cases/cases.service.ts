@@ -154,6 +154,76 @@ export class CasesService {
       });
     }
 
+    if (dto.type === CaseStepType.DIAGNOSTIC) {
+      if (!dto.diagnosticsId) throw new AppException("diagnosticsId required for DIAGNOSTIC step", 400);
+      if (!dto.diagnosticServiceIds?.length) throw new AppException("diagnosticServiceIds required for DIAGNOSTIC step", 400);
+
+      const services = await this.prisma.diagnosticService.findMany({
+        where: { id: { in: dto.diagnosticServiceIds }, diagnosticsId: dto.diagnosticsId },
+      });
+      if (services.length !== dto.diagnosticServiceIds.length) {
+        throw new AppException("One or more services not found or not belonging to this diagnostics center", 404);
+      }
+
+      return this.prisma.$transaction(async (tx) => {
+        const step = await tx.caseStep.create({
+          data: {
+            caseId,
+            type: CaseStepType.DIAGNOSTIC,
+            status: CaseStepStatus.PENDING,
+            ...(dto.note ? { note: dto.note } : {}),
+          },
+        });
+
+        const diagnosticOrder = await tx.diagnosticOrder.create({
+          data: {
+            caseStep: { connect: { id: step.id } },
+            patient: { connect: { id: patientCase.patientId } },
+            diagnostics: { connect: { id: dto.diagnosticsId! } },
+          },
+        });
+
+        for (const svc of services) {
+          await tx.diagnosticOrderItem.create({
+            data: {
+              diagnosticOrder: { connect: { id: diagnosticOrder.id } },
+              service: { connect: { id: svc.id } },
+            },
+          });
+        }
+
+        const invoiceItems = services.map((svc) => {
+          const unitPrice = new Prisma.Decimal(svc.price ?? 0);
+          return {
+            description: svc.name,
+            quantity: 1,
+            unitPrice,
+            totalPrice: unitPrice,
+            sourceType: InvoiceItemSourceType.DIAGNOSTIC_SERVICE,
+            sourceId: svc.id,
+          };
+        });
+        const totalAmount = invoiceItems.reduce(
+          (sum, item) => sum.add(item.unitPrice),
+          new Prisma.Decimal(0),
+        );
+
+        await tx.invoice.create({
+          data: {
+            patientId: patientCase.patientId,
+            sourceType: InvoiceSourceType.DIAGNOSTIC_ORDER,
+            sourceId: diagnosticOrder.id,
+            totalAmount,
+            status: InvoiceStatus.ISSUED,
+            createdById: user.userId,
+            items: { create: invoiceItems },
+          },
+        });
+
+        return tx.caseStep.findUnique({ where: { id: step.id }, include: STEP_INCLUDE });
+      });
+    }
+
     if (dto.type === CaseStepType.PROCEDURE) {
       const step = await this.repo.createStep(caseId, {
         type: CaseStepType.PROCEDURE,

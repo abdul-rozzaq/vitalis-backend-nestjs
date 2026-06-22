@@ -4,6 +4,7 @@ enum UserRole {
   DOCTOR
   HAMSHIRA
   LABARANT
+  DIAGNOST
   TEXNIK_HODIM
   DIREKTOR
   HISOBCHI
@@ -22,20 +23,21 @@ model User {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  role           UserRole               @default(TEXNIK_HODIM)
-  assignments    Assignment[]
-  labAssignments LaboratoryAssignment[]
-  auditLogs      AuditLog[]
+  role                  UserRole               @default(TEXNIK_HODIM)
+  assignments           Assignment[]
+  labAssignments        LaboratoryAssignment[]
+  diagnosticAssignments DiagnosticAssignment[]
+  auditLogs             AuditLog[]
 
   balanceTransactions BalanceTransaction[]
   bonusTransactions   BonusTransaction[]
   invoicesCreated     Invoice[]            @relation("InvoiceCreatedBy")
   invoicePayments     InvoicePayment[]     @relation("InvoicePaymentCreatedBy")
 
-  doctorShiftAssignments  ShiftAssignment[]   @relation("DoctorShiftAssignments")
-  nurseShiftAssignments   ShiftNurse[]        @relation("NurseShiftAssignments")
-  defaultNurseShifts      ShiftDefaultNurse[] @relation("ShiftDefaultNurse")
-  requestedShiftChanges   ShiftAssignment[]   @relation("ShiftChangeRequester")
+  doctorShiftAssignments ShiftAssignment[]   @relation("DoctorShiftAssignments")
+  nurseShiftAssignments  ShiftNurse[]        @relation("NurseShiftAssignments")
+  defaultNurseShifts     ShiftDefaultNurse[] @relation("ShiftDefaultNurse")
+  requestedShiftChanges  ShiftAssignment[]   @relation("ShiftChangeRequester")
 
   shiftEventsFrom      ShiftChangeEvent[] @relation("ShiftEventFromDoctor")
   shiftEventsTo        ShiftChangeEvent[] @relation("ShiftEventToDoctor")

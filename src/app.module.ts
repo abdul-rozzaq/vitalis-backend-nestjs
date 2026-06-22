@@ -26,7 +26,6 @@ import { StatsModule } from "./modules/stats/stats.module";
 import { UploadsModule } from "./modules/uploads/uploads.module";
 import { UsersModule } from "./modules/users/users.module";
 import { PrismaModule } from "./prisma/prisma.module";
-
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
@@ -40,6 +39,9 @@ import { ShiftAssignmentsModule } from './modules/shift-assignments/shift-assign
 import { WardRoundsModule } from './modules/ward-rounds/ward-rounds.module';
 import { OperationsModule } from "./modules/operations/operations.module";
 import { OperationTypesModule } from "./modules/operation-types/operation-types.module";
+import { DiagnosticsModule } from "./modules/diagnostics/diagnostics.module";
+import { DiagnosticOrdersModule } from "./modules/diagnostic-orders/diagnostic-orders.module";
+import { DiagnosticAssignmentsModule } from "./modules/diagnostic-assignments/diagnostic-assignments.module";
 import { ShiftEventsModule } from "./modules/shift-events/shift-events.module";
 import { ShiftNotificationsModule } from "./modules/shift-notifications/shift-notifications.module";
 import { WorkingHoursModule } from "./modules/working-hours/working-hours.module";
@@ -90,6 +92,9 @@ import { ScheduleModule } from "@nestjs/schedule";
     WardRoundsModule,
     OperationTypesModule,
     OperationsModule,
+    DiagnosticsModule,
+    DiagnosticOrdersModule,
+    DiagnosticAssignmentsModule,
     ShiftEventsModule,
     ShiftNotificationsModule,
     WorkingHoursModule,

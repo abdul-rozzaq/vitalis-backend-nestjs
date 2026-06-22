@@ -3,6 +3,7 @@ import { IsString, IsInt, IsPositive, IsOptional, IsEnum, IsUUID, MinLength, Max
 export enum RoomType {
   WARD = "WARD",
   EXAMINATION = "EXAMINATION",
+  OPERATION = "OPERATION",
 }
 
 export class CreateRoomDto {
