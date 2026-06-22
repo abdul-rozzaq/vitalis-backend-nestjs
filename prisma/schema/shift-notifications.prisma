@@ -1,3 +1,16 @@
+model ShiftNotification {
+  id        String         @id @default(uuid())
+  userId    String
+  type      ShiftNotifType
+  payload   Json
+  readAt    DateTime?
+  createdAt DateTime       @default(now())
+  user      User           @relation("ShiftNotificationUser", fields: [userId], references: [id])
+
+  @@index([userId, readAt])
+  @@map("shift_notifications")
+}
+
 enum ShiftNotifType {
   SWAP_REQUESTED
   SWAP_APPROVED
@@ -6,17 +19,4 @@ enum ShiftNotifType {
   SHIFT_REMINDER
 
   @@map("shift_notif_types")
-}
-
-model ShiftNotification {
-  id        String         @id @default(uuid())
-  userId    String
-  user      User           @relation("ShiftNotificationUser", fields: [userId], references: [id])
-  type      ShiftNotifType
-  payload   Json
-  readAt    DateTime?
-  createdAt DateTime       @default(now())
-
-  @@index([userId, readAt])
-  @@map("shift_notifications")
 }

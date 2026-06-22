@@ -1,53 +1,46 @@
+model User {
+  id                     String                 @id @default(uuid())
+  first_name             String                 @db.VarChar(64)
+  last_name              String                 @db.VarChar(64)
+  phone                  String                 @unique @db.VarChar(20)
+  password               String
+  birthday               DateTime?              @db.Date
+  photo                  String?                @db.VarChar(500)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  role                   UserRole               @default(TEXNIK_HODIM)
+  assignments            Assignment[]
+  auditLogs              AuditLog[]
+  balanceTransactions    BalanceTransaction[]
+  bonusTransactions      BonusTransaction[]
+  diagnosticAssignments  DiagnosticAssignment[]
+  invoicePayments        InvoicePayment[]       @relation("InvoicePaymentCreatedBy")
+  invoicesCreated        Invoice[]              @relation("InvoiceCreatedBy")
+  labAssignments         LaboratoryAssignment[]
+  operationSurgeons      OperationSurgeon[]     @relation("OperationSurgeons")
+  doctorShiftAssignments ShiftAssignment[]      @relation("DoctorShiftAssignments")
+  requestedShiftChanges  ShiftAssignment[]      @relation("ShiftChangeRequester")
+  shiftEventsFrom        ShiftChangeEvent[]     @relation("ShiftEventFromDoctor")
+  shiftEventsRequested   ShiftChangeEvent[]     @relation("ShiftEventRequestedBy")
+  shiftEventsTo          ShiftChangeEvent[]     @relation("ShiftEventToDoctor")
+  defaultNurseShifts     ShiftDefaultNurse[]    @relation("ShiftDefaultNurse")
+  shiftNotifications     ShiftNotification[]    @relation("ShiftNotificationUser")
+  nurseShiftAssignments  ShiftNurse[]           @relation("NurseShiftAssignments")
+  workingHoursLogs       WorkingHoursLog[]      @relation("WorkingHoursUser")
+
+  @@map("users")
+}
+
 enum UserRole {
   ADMIN
   KASSIR
   DOCTOR
   HAMSHIRA
   LABARANT
-  DIAGNOST
   TEXNIK_HODIM
   DIREKTOR
   HISOBCHI
+  DIAGNOST
 
   @@map("user_roles")
-}
-
-model User {
-  id         String    @id @default(uuid())
-  first_name String    @db.VarChar(64)
-  last_name  String    @db.VarChar(64)
-  phone      String    @unique @db.VarChar(20)
-  password   String
-  birthday   DateTime? @db.Date
-  photo      String?   @db.VarChar(500)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-
-  role                  UserRole               @default(TEXNIK_HODIM)
-  assignments           Assignment[]
-  labAssignments        LaboratoryAssignment[]
-  diagnosticAssignments DiagnosticAssignment[]
-  auditLogs             AuditLog[]
-
-  balanceTransactions BalanceTransaction[]
-  bonusTransactions   BonusTransaction[]
-  invoicesCreated     Invoice[]            @relation("InvoiceCreatedBy")
-  invoicePayments     InvoicePayment[]     @relation("InvoicePaymentCreatedBy")
-
-  doctorShiftAssignments ShiftAssignment[]   @relation("DoctorShiftAssignments")
-  nurseShiftAssignments  ShiftNurse[]        @relation("NurseShiftAssignments")
-  defaultNurseShifts     ShiftDefaultNurse[] @relation("ShiftDefaultNurse")
-  requestedShiftChanges  ShiftAssignment[]   @relation("ShiftChangeRequester")
-
-  shiftEventsFrom      ShiftChangeEvent[] @relation("ShiftEventFromDoctor")
-  shiftEventsTo        ShiftChangeEvent[] @relation("ShiftEventToDoctor")
-  shiftEventsRequested ShiftChangeEvent[] @relation("ShiftEventRequestedBy")
-
-  shiftNotifications ShiftNotification[] @relation("ShiftNotificationUser")
-
-  workingHoursLogs WorkingHoursLog[] @relation("WorkingHoursUser")
-
-  operationSurgeons OperationSurgeon[] @relation("OperationSurgeons")
-
-  @@map("users")
 }

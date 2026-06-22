@@ -1,3 +1,91 @@
+model Laboratory {
+  id          String                 @id @default(uuid())
+  name        String                 @db.VarChar(64)
+  description String?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  labOrders   LabOrder[]
+  assignments LaboratoryAssignment[]
+  services    LaboratoryService[]
+
+  @@map("laboratories")
+}
+
+model LaboratoryService {
+  id            String         @id @default(uuid())
+  name          String         @db.VarChar(64)
+  price         Float?
+  laboratoryId  String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  labOrderItems LabOrderItem[]
+  laboratory    Laboratory     @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
+
+  @@map("laboratory_services")
+}
+
+model LaboratoryAssignment {
+  id           String     @id @default(uuid())
+  userId       String
+  laboratoryId String
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  laboratory   Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id])
+
+  @@unique([userId, laboratoryId])
+  @@map("laboratory_assignments")
+}
+
+model LabOrder {
+  id           String         @id @default(uuid())
+  status       LabOrderStatus @default(PENDING)
+  caseStepId   String         @unique
+  patientId    String
+  laboratoryId String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  items        LabOrderItem[]
+  caseStep     CaseStep       @relation(fields: [caseStepId], references: [id], onDelete: Cascade)
+  laboratory   Laboratory     @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
+  patient      Patient        @relation(fields: [patientId], references: [id])
+
+  @@map("lab_orders")
+}
+
+model LabOrderItem {
+  id          String             @id @default(uuid())
+  status      LabItemStatus      @default(PENDING)
+  labOrderId  String
+  serviceId   String
+  fileUrl     String?
+  fileName    String?
+  note        String?
+  completedAt DateTime?
+  startedAt   DateTime?
+  readyAt     DateTime?
+  deliveredAt DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  files       LabOrderItemFile[]
+  labOrder    LabOrder           @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
+  service     LaboratoryService  @relation(fields: [serviceId], references: [id])
+
+  @@map("lab_order_items")
+}
+
+model LabOrderItemFile {
+  id             String       @id @default(uuid())
+  url            String
+  name           String
+  labOrderItemId String
+  createdAt      DateTime     @default(now())
+  labOrderItem   LabOrderItem @relation(fields: [labOrderItemId], references: [id], onDelete: Cascade)
+
+  @@map("lab_order_item_files")
+}
+
 enum LabOrderStatus {
   PENDING
   IN_PROGRESS
@@ -15,106 +103,4 @@ enum LabItemStatus {
   CANCELLED
 
   @@map("lab_item_statuses")
-}
-
-model Laboratory {
-  id          String                 @id @default(uuid())
-  name        String                 @db.VarChar(64)
-  description String?
-  services    LaboratoryService[]
-  assignments LaboratoryAssignment[]
-  labOrders   LabOrder[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("laboratories")
-}
-
-model LaboratoryService {
-  id            String         @id @default(uuid())
-  name          String         @db.VarChar(64)
-  price         Float?
-  laboratory    Laboratory     @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
-  laboratoryId  String
-  labOrderItems LabOrderItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("laboratory_services")
-}
-
-model LaboratoryAssignment {
-  id           String     @id @default(uuid())
-  user         User       @relation(fields: [userId], references: [id])
-  userId       String
-  laboratory   Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
-  laboratoryId String
-  isActive     Boolean    @default(true)
-
-  createdAt DateTime @default(now())
-
-  @@unique([userId, laboratoryId])
-  @@map("laboratory_assignments")
-}
-
-model LabOrder {
-  id     String         @id @default(uuid())
-  status LabOrderStatus @default(PENDING)
-
-  caseStep   CaseStep @relation(fields: [caseStepId], references: [id], onDelete: Cascade)
-  caseStepId String   @unique
-
-  patient   Patient @relation(fields: [patientId], references: [id])
-  patientId String
-
-  laboratory   Laboratory @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
-  laboratoryId String
-
-  items LabOrderItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("lab_orders")
-}
-
-model LabOrderItem {
-  id     String        @id @default(uuid())
-  status LabItemStatus @default(PENDING)
-
-  labOrder   LabOrder @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
-  labOrderId String
-
-  service   LaboratoryService @relation(fields: [serviceId], references: [id])
-  serviceId String
-
-  fileUrl     String?
-  fileName    String?
-  note        String?   @db.Text
-  completedAt DateTime?
-
-  startedAt   DateTime?
-  readyAt     DateTime?
-  deliveredAt DateTime?
-  cancelledAt DateTime?
-
-  files LabOrderItemFile[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("lab_order_items")
-}
-
-model LabOrderItemFile {
-  id             String       @id @default(uuid())
-  url            String
-  name           String
-  labOrderItem   LabOrderItem @relation(fields: [labOrderItemId], references: [id], onDelete: Cascade)
-  labOrderItemId String
-  createdAt      DateTime     @default(now())
-
-  @@map("lab_order_item_files")
 }

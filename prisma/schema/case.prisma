@@ -1,3 +1,39 @@
+model PatientCase {
+  id             String     @id @default(uuid())
+  patientId      String
+  status         CaseStatus @default(ACTIVE)
+  chiefComplaint String?
+  openedAt       DateTime   @default(now())
+  closedAt       DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  steps          CaseStep[]
+  patient        Patient    @relation(fields: [patientId], references: [id])
+
+  @@map("patient_cases")
+}
+
+model CaseStep {
+  id              String           @id @default(uuid())
+  caseId          String
+  type            CaseStepType
+  status          CaseStepStatus   @default(PENDING)
+  assignmentId    String?
+  appointmentId   String?          @unique
+  note            String?
+  completedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  appointment     Appointment?     @relation(fields: [appointmentId], references: [id])
+  assignment      Assignment?      @relation(fields: [assignmentId], references: [id])
+  case            PatientCase      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  diagnosticOrder DiagnosticOrder?
+  labOrder        LabOrder?
+  operation       Operation?
+  prescription    Prescription?
+
+  @@map("case_steps")
+}
+
 enum CaseStatus {
   ACTIVE
   COMPLETED
@@ -10,11 +46,11 @@ enum CaseStepType {
   CHECKIN
   CONSULTATION
   LAB
-  DIAGNOSTIC
   PROCEDURE
   REFERRAL
   DISCHARGE
   OPERATION
+  DIAGNOSTIC
 
   @@map("case_step_types")
 }
@@ -26,43 +62,4 @@ enum CaseStepStatus {
   CANCELLED
 
   @@map("case_step_statuses")
-}
-
-model PatientCase {
-  id             String     @id @default(uuid())
-  patient        Patient    @relation(fields: [patientId], references: [id])
-  patientId      String
-  status         CaseStatus @default(ACTIVE)
-  chiefComplaint String?    @db.Text
-  openedAt       DateTime   @default(now())
-  closedAt       DateTime?
-  steps          CaseStep[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("patient_cases")
-}
-
-model CaseStep {
-  id            String         @id @default(uuid())
-  case          PatientCase    @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  caseId        String
-  type          CaseStepType
-  status        CaseStepStatus @default(PENDING)
-  assignment    Assignment?    @relation(fields: [assignmentId], references: [id])
-  assignmentId  String?
-  appointment   Appointment?   @relation(fields: [appointmentId], references: [id])
-  appointmentId String?        @unique
-  note          String?        @db.Text
-  completedAt   DateTime?
-  prescription  Prescription?
-  labOrder      LabOrder?
-  diagnosticOrder DiagnosticOrder?
-
-
-  createdAt DateTime   @default(now())
-  operation Operation?
-
-  @@map("case_steps")
 }

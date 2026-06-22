@@ -1,3 +1,83 @@
+model OperationType {
+  id          String              @id @default(uuid())
+  name        String              @db.VarChar(128)
+  description String?
+  basePrice   Decimal             @default(0) @db.Decimal(15, 2)
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  items       OperationTypeItem[]
+  operations  Operation[]
+
+  @@map("operation_types")
+}
+
+model OperationTypeItem {
+  id              String          @id @default(uuid())
+  operationTypeId String
+  name            String          @db.VarChar(128)
+  price           Decimal         @db.Decimal(15, 2)
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  operationItems  OperationItem[]
+  operationType   OperationType   @relation(fields: [operationTypeId], references: [id], onDelete: Cascade)
+
+  @@map("operation_type_items")
+}
+
+model Operation {
+  id              String             @id @default(uuid())
+  status          OperationStatus    @default(SCHEDULED)
+  patientId       String
+  operationTypeId String
+  roomId          String?
+  caseStepId      String?            @unique
+  scheduledAt     DateTime
+  startedAt       DateTime?
+  completedAt     DateTime?
+  note            String?
+  totalPrice      Decimal            @default(0) @db.Decimal(15, 2)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  items           OperationItem[]
+  surgeons        OperationSurgeon[]
+  caseStep        CaseStep?          @relation(fields: [caseStepId], references: [id])
+  operationType   OperationType      @relation(fields: [operationTypeId], references: [id])
+  patient         Patient            @relation(fields: [patientId], references: [id])
+  room            Room?              @relation(fields: [roomId], references: [id])
+
+  @@map("operations")
+}
+
+model OperationSurgeon {
+  id          String      @id @default(uuid())
+  operationId String
+  surgeonId   String
+  role        SurgeonRole @default(ASSISTANT)
+  operation   Operation   @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  surgeon     User        @relation("OperationSurgeons", fields: [surgeonId], references: [id])
+
+  @@unique([operationId, surgeonId])
+  @@map("operation_surgeons")
+}
+
+model OperationItem {
+  id                  String            @id @default(uuid())
+  operationId         String
+  operationTypeItemId String
+  name                String            @db.VarChar(128)
+  unitPrice           Decimal           @db.Decimal(15, 2)
+  quantity            Int               @default(1)
+  totalPrice          Decimal           @db.Decimal(15, 2)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  operation           Operation         @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  operationTypeItem   OperationTypeItem @relation(fields: [operationTypeItemId], references: [id])
+
+  @@map("operation_items")
+}
+
 enum OperationStatus {
   SCHEDULED
   IN_PROGRESS
@@ -12,100 +92,4 @@ enum SurgeonRole {
   ASSISTANT
 
   @@map("surgeon_roles")
-}
-
-model OperationType {
-  id          String  @id @default(uuid())
-  name        String  @db.VarChar(128)
-  description String? @db.Text
-  basePrice   Decimal @default(0) @db.Decimal(15, 2)
-  isActive    Boolean @default(true)
-
-  items      OperationTypeItem[]
-  operations Operation[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("operation_types")
-}
-
-model OperationTypeItem {
-  id              String        @id @default(uuid())
-  operationTypeId String
-  operationType   OperationType @relation(fields: [operationTypeId], references: [id], onDelete: Cascade)
-
-  name     String  @db.VarChar(128)
-  price    Decimal @db.Decimal(15, 2)
-  isActive Boolean @default(true)
-
-  operationItems OperationItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("operation_type_items")
-}
-
-model Operation {
-  id     String          @id @default(uuid())
-  status OperationStatus @default(SCHEDULED)
-
-  patient   Patient @relation(fields: [patientId], references: [id])
-  patientId String
-
-  operationType   OperationType @relation(fields: [operationTypeId], references: [id])
-  operationTypeId String
-
-  room   Room?   @relation(fields: [roomId], references: [id])
-  roomId String?
-
-  caseStep   CaseStep? @relation(fields: [caseStepId], references: [id])
-  caseStepId String?   @unique
-
-  scheduledAt DateTime
-  startedAt   DateTime?
-  completedAt DateTime?
-
-  note       String? @db.Text
-  totalPrice Decimal @default(0) @db.Decimal(15, 2)
-
-  surgeons OperationSurgeon[]
-  items    OperationItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("operations")
-}
-
-model OperationSurgeon {
-  id          String      @id @default(uuid())
-  operationId String
-  operation   Operation   @relation(fields: [operationId], references: [id], onDelete: Cascade)
-  surgeonId   String
-  surgeon     User        @relation("OperationSurgeons", fields: [surgeonId], references: [id])
-  role        SurgeonRole @default(ASSISTANT)
-
-  @@unique([operationId, surgeonId])
-  @@map("operation_surgeons")
-}
-
-model OperationItem {
-  id          String    @id @default(uuid())
-  operationId String
-  operation   Operation @relation(fields: [operationId], references: [id], onDelete: Cascade)
-
-  operationTypeItemId String
-  operationTypeItem   OperationTypeItem @relation(fields: [operationTypeItemId], references: [id])
-
-  name       String  @db.VarChar(128)
-  unitPrice  Decimal @db.Decimal(15, 2)
-  quantity   Int     @default(1)
-  totalPrice Decimal @db.Decimal(15, 2)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("operation_items")
 }

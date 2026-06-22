@@ -1,3 +1,29 @@
+model ShiftChangeEvent {
+  id                String          @id @default(uuid())
+  eventType         ShiftEventType
+  shiftAssignmentId String
+  roomShiftId       String
+  fromDoctorId      String
+  toDoctorId        String?
+  requestedById     String
+  date              DateTime        @db.Date
+  windowStart       Int?
+  windowEnd         Int?
+  reason            String?         @db.VarChar(500)
+  metadata          Json?
+  createdAt         DateTime        @default(now())
+  fromDoctor        User            @relation("ShiftEventFromDoctor", fields: [fromDoctorId], references: [id])
+  requestedBy       User            @relation("ShiftEventRequestedBy", fields: [requestedById], references: [id])
+  roomShift         RoomShift       @relation(fields: [roomShiftId], references: [id])
+  shiftAssignment   ShiftAssignment @relation(fields: [shiftAssignmentId], references: [id], onDelete: Cascade)
+  toDoctor          User?           @relation("ShiftEventToDoctor", fields: [toDoctorId], references: [id])
+
+  @@index([shiftAssignmentId])
+  @@index([fromDoctorId])
+  @@index([requestedById])
+  @@map("shift_change_events")
+}
+
 enum ShiftEventType {
   SWAP_REQUEST
   SWAP_APPROVED
@@ -9,37 +35,4 @@ enum ShiftEventType {
   OVERRIDE_DELETED
 
   @@map("shift_event_types")
-}
-
-model ShiftChangeEvent {
-  id                String          @id @default(uuid())
-  eventType         ShiftEventType
-
-  shiftAssignmentId String
-  shiftAssignment   ShiftAssignment @relation(fields: [shiftAssignmentId], references: [id], onDelete: Cascade)
-
-  roomShiftId String
-  roomShift   RoomShift @relation(fields: [roomShiftId], references: [id])
-
-  fromDoctorId String
-  fromDoctor   User   @relation("ShiftEventFromDoctor", fields: [fromDoctorId], references: [id])
-
-  toDoctorId String?
-  toDoctor   User?  @relation("ShiftEventToDoctor", fields: [toDoctorId], references: [id])
-
-  requestedById String
-  requestedBy   User   @relation("ShiftEventRequestedBy", fields: [requestedById], references: [id])
-
-  date        DateTime @db.Date
-  windowStart Int?
-  windowEnd   Int?
-  reason      String?  @db.VarChar(500)
-  metadata    Json?
-
-  createdAt DateTime @default(now())
-
-  @@index([shiftAssignmentId])
-  @@index([fromDoctorId])
-  @@index([requestedById])
-  @@map("shift_change_events")
 }

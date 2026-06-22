@@ -1,23 +1,19 @@
 model WorkingHoursLog {
-  id     String @id @default(uuid())
-  userId String
-  user   User   @relation("WorkingHoursUser", fields: [userId], references: [id])
-
-  date         DateTime @db.Date
-  plannedStart Int
-  plannedEnd   Int
-  plannedHours Float
-
-  actualStart   DateTime?
-  actualEnd     DateTime?
-  actualHours   Float     @default(0)
-  overtimeHours Float     @default(0)
-
+  id                String           @id @default(uuid())
+  userId            String
+  date              DateTime         @db.Date
+  plannedStart      Int
+  plannedEnd        Int
+  plannedHours      Float
+  actualStart       DateTime?
+  actualEnd         DateTime?
+  actualHours       Float            @default(0)
+  overtimeHours     Float            @default(0)
   shiftAssignmentId String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
   shiftAssignment   ShiftAssignment? @relation(fields: [shiftAssignmentId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  user              User             @relation("WorkingHoursUser", fields: [userId], references: [id])
 
   @@unique([userId, date, shiftAssignmentId])
   @@index([userId, date])

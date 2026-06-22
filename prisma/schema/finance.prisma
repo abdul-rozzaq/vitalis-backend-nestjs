@@ -1,3 +1,119 @@
+model PatientBalance {
+  id           String               @id @default(uuid())
+  patientId    String               @unique
+  balance      Decimal              @default(0) @db.Decimal(15, 2)
+  updatedAt    DateTime             @updatedAt
+  transactions BalanceTransaction[]
+  patient      Patient              @relation(fields: [patientId], references: [id])
+
+  @@map("patient_balances")
+}
+
+model BalanceTransaction {
+  id             String          @id @default(uuid())
+  patientId      String
+  type           BalanceTxType
+  amount         Decimal         @db.Decimal(15, 2)
+  balanceAfter   Decimal         @db.Decimal(15, 2)
+  source         BalanceTxSource
+  sourceId       String?
+  note           String?
+  createdAt      DateTime        @default(now())
+  createdById    String
+  createdBy      User            @relation(fields: [createdById], references: [id])
+  patientBalance PatientBalance  @relation(fields: [patientId], references: [patientId])
+
+  @@index([patientId])
+  @@index([source, sourceId])
+  @@map("balance_transactions")
+}
+
+model PatientBonusBalance {
+  id           String             @id @default(uuid())
+  patientId    String             @unique
+  balance      Decimal            @default(0) @db.Decimal(15, 2)
+  updatedAt    DateTime           @updatedAt
+  transactions BonusTransaction[]
+  patient      Patient            @relation(fields: [patientId], references: [id])
+
+  @@map("patient_bonus_balances")
+}
+
+model BonusTransaction {
+  id           String              @id @default(uuid())
+  patientId    String
+  type         BonusTxType
+  amount       Decimal             @db.Decimal(15, 2)
+  balanceAfter Decimal             @db.Decimal(15, 2)
+  source       BonusTxSource
+  sourceId     String?
+  expiresAt    DateTime?
+  note         String?
+  createdAt    DateTime            @default(now())
+  createdById  String
+  createdBy    User                @relation(fields: [createdById], references: [id])
+  bonusBalance PatientBonusBalance @relation(fields: [patientId], references: [patientId])
+
+  @@index([patientId])
+  @@map("bonus_transactions")
+}
+
+model Invoice {
+  id          String            @id @default(uuid())
+  patientId   String
+  status      InvoiceStatus     @default(DRAFT)
+  totalAmount Decimal           @db.Decimal(15, 2)
+  paidCash    Decimal           @default(0) @db.Decimal(15, 2)
+  paidBonus   Decimal           @default(0) @db.Decimal(15, 2)
+  dueDate     DateTime?
+  note        String?
+  sourceType  InvoiceSourceType
+  sourceId    String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  createdById String
+  items       InvoiceItem[]
+  payments    InvoicePayment[]
+  createdBy   User              @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  patient     Patient           @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+  @@index([sourceType, sourceId])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String                @id @default(uuid())
+  invoiceId   String
+  description String                @db.VarChar(255)
+  quantity    Int                   @default(1)
+  unitPrice   Decimal               @db.Decimal(15, 2)
+  totalPrice  Decimal               @db.Decimal(15, 2)
+  dateFrom    DateTime?
+  dateTo      DateTime?
+  sourceType  InvoiceItemSourceType
+  sourceId    String?
+  invoice     Invoice               @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model InvoicePayment {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  cashAmount  Decimal  @db.Decimal(15, 2)
+  bonusAmount Decimal  @db.Decimal(15, 2)
+  totalAmount Decimal  @db.Decimal(15, 2)
+  note        String?
+  createdAt   DateTime @default(now())
+  createdById String
+  createdBy   User     @relation("InvoicePaymentCreatedBy", fields: [createdById], references: [id])
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+
+  @@map("invoice_payments")
+}
+
 enum BalanceTxType {
   CREDIT
   DEBIT
@@ -49,9 +165,9 @@ enum InvoiceSourceType {
   WARD
   APPOINTMENT
   LAB_ORDER
-  DIAGNOSTIC_ORDER
   MANUAL
   OPERATION
+  DIAGNOSTIC_ORDER
 
   @@map("invoice_source_types")
 }
@@ -59,136 +175,10 @@ enum InvoiceSourceType {
 enum InvoiceItemSourceType {
   APPOINTMENT
   LAB_SERVICE
-  DIAGNOSTIC_SERVICE
   WARD_DAILY
   MANUAL
   OPERATION
+  DIAGNOSTIC_SERVICE
 
   @@map("invoice_item_source_types")
-}
-
-model PatientBalance {
-  id        String   @id @default(uuid())
-  patientId String   @unique
-  balance   Decimal  @default(0) @db.Decimal(15, 2)
-  updatedAt DateTime @updatedAt
-
-  patient      Patient              @relation(fields: [patientId], references: [id])
-  transactions BalanceTransaction[]
-
-  @@map("patient_balances")
-}
-
-model BalanceTransaction {
-  id           String          @id @default(uuid())
-  patientId    String
-  type         BalanceTxType
-  amount       Decimal         @db.Decimal(15, 2)
-  balanceAfter Decimal         @db.Decimal(15, 2)
-  source       BalanceTxSource
-  sourceId     String?
-  note         String?
-  createdAt    DateTime        @default(now())
-  createdById  String
-
-  patientBalance PatientBalance @relation(fields: [patientId], references: [patientId])
-  createdBy      User           @relation(fields: [createdById], references: [id])
-
-  @@index([patientId])
-  @@index([source, sourceId])
-  @@map("balance_transactions")
-}
-
-model PatientBonusBalance {
-  id        String   @id @default(uuid())
-  patientId String   @unique
-  balance   Decimal  @default(0) @db.Decimal(15, 2)
-  updatedAt DateTime @updatedAt
-
-  patient      Patient            @relation(fields: [patientId], references: [id])
-  transactions BonusTransaction[]
-
-  @@map("patient_bonus_balances")
-}
-
-model BonusTransaction {
-  id           String        @id @default(uuid())
-  patientId    String
-  type         BonusTxType
-  amount       Decimal       @db.Decimal(15, 2)
-  balanceAfter Decimal       @db.Decimal(15, 2)
-  source       BonusTxSource
-  sourceId     String?
-  expiresAt    DateTime?
-  note         String?
-  createdAt    DateTime      @default(now())
-  createdById  String
-
-  bonusBalance PatientBonusBalance @relation(fields: [patientId], references: [patientId])
-  createdBy    User                @relation(fields: [createdById], references: [id])
-
-  @@index([patientId])
-  @@map("bonus_transactions")
-}
-
-model Invoice {
-  id          String        @id @default(uuid())
-  patientId   String
-  status      InvoiceStatus @default(DRAFT)
-  totalAmount Decimal       @db.Decimal(15, 2)
-  paidCash    Decimal       @default(0) @db.Decimal(15, 2)
-  paidBonus   Decimal       @default(0) @db.Decimal(15, 2)
-  dueDate     DateTime?
-  note        String?
-
-  sourceType InvoiceSourceType
-  sourceId   String
-
-  patient  Patient          @relation(fields: [patientId], references: [id])
-  items    InvoiceItem[]
-  payments InvoicePayment[]
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdById String
-  createdBy   User     @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
-
-  @@index([patientId])
-  @@index([sourceType, sourceId])
-  @@map("invoices")
-}
-
-model InvoiceItem {
-  id          String    @id @default(uuid())
-  invoiceId   String
-  description String    @db.VarChar(255)
-  quantity    Int       @default(1)
-  unitPrice   Decimal   @db.Decimal(15, 2)
-  totalPrice  Decimal   @db.Decimal(15, 2)
-  dateFrom    DateTime?
-  dateTo      DateTime?
-
-  sourceType InvoiceItemSourceType
-  sourceId   String?
-
-  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-
-  @@index([invoiceId])
-  @@map("invoice_items")
-}
-
-model InvoicePayment {
-  id          String   @id @default(uuid())
-  invoiceId   String
-  cashAmount  Decimal  @db.Decimal(15, 2)
-  bonusAmount Decimal  @db.Decimal(15, 2)
-  totalAmount Decimal  @db.Decimal(15, 2)
-  note        String?
-  createdAt   DateTime @default(now())
-  createdById String
-
-  invoice   Invoice @relation(fields: [invoiceId], references: [id])
-  createdBy User    @relation("InvoicePaymentCreatedBy", fields: [createdById], references: [id])
-
-  @@map("invoice_payments")
 }

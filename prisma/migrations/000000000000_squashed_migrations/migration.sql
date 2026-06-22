@@ -5,13 +5,19 @@ CREATE SCHEMA IF NOT EXISTS "public";
 CREATE TYPE "case_statuses" AS ENUM ('ACTIVE', 'COMPLETED', 'CANCELLED');
 
 -- CreateEnum
-CREATE TYPE "case_step_types" AS ENUM ('CHECKIN', 'CONSULTATION', 'LAB', 'PROCEDURE', 'REFERRAL', 'DISCHARGE', 'OPERATION');
+CREATE TYPE "case_step_types" AS ENUM ('CHECKIN', 'CONSULTATION', 'LAB', 'PROCEDURE', 'REFERRAL', 'DISCHARGE', 'OPERATION', 'DIAGNOSTIC');
 
 -- CreateEnum
 CREATE TYPE "case_step_statuses" AS ENUM ('PENDING', 'IN_PROGRESS', 'DONE', 'CANCELLED');
 
 -- CreateEnum
 CREATE TYPE "room_types" AS ENUM ('WARD', 'EXAMINATION', 'OPERATION');
+
+-- CreateEnum
+CREATE TYPE "diagnostic_order_statuses" AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "diagnostic_item_statuses" AS ENUM ('PENDING', 'IN_PROGRESS', 'READY', 'DELIVERED', 'CANCELLED');
 
 -- CreateEnum
 CREATE TYPE "balance_tx_types" AS ENUM ('CREDIT', 'DEBIT');
@@ -29,10 +35,10 @@ CREATE TYPE "bonus_tx_sources" AS ENUM ('REFERRAL', 'FIRST_VISIT', 'LOYALTY', 'P
 CREATE TYPE "invoice_statuses" AS ENUM ('DRAFT', 'ISSUED', 'PARTIALLY_PAID', 'PAID', 'CANCELLED');
 
 -- CreateEnum
-CREATE TYPE "invoice_source_types" AS ENUM ('WARD', 'APPOINTMENT', 'LAB_ORDER', 'MANUAL', 'OPERATION');
+CREATE TYPE "invoice_source_types" AS ENUM ('WARD', 'APPOINTMENT', 'LAB_ORDER', 'MANUAL', 'OPERATION', 'DIAGNOSTIC_ORDER');
 
 -- CreateEnum
-CREATE TYPE "invoice_item_source_types" AS ENUM ('APPOINTMENT', 'LAB_SERVICE', 'WARD_DAILY', 'MANUAL', 'OPERATION');
+CREATE TYPE "invoice_item_source_types" AS ENUM ('APPOINTMENT', 'LAB_SERVICE', 'WARD_DAILY', 'MANUAL', 'OPERATION', 'DIAGNOSTIC_SERVICE');
 
 -- CreateEnum
 CREATE TYPE "lab_order_statuses" AS ENUM ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
@@ -68,7 +74,7 @@ CREATE TYPE "patient_conditions" AS ENUM ('STABLE', 'IMPROVING', 'WORSENING', 'C
 CREATE TYPE "shift_override_types" AS ENUM ('FULL_OVERRIDE', 'SWAP', 'PARTIAL_TRANSFER', 'OVERTIME');
 
 -- CreateEnum
-CREATE TYPE "user_roles" AS ENUM ('ADMIN', 'KASSIR', 'DOCTOR', 'HAMSHIRA', 'LABARANT', 'TEXNIK_HODIM', 'DIREKTOR', 'HISOBCHI');
+CREATE TYPE "user_roles" AS ENUM ('ADMIN', 'KASSIR', 'DOCTOR', 'HAMSHIRA', 'LABARANT', 'TEXNIK_HODIM', 'DIREKTOR', 'HISOBCHI', 'DIAGNOST');
 
 -- CreateEnum
 CREATE TYPE "ward_statuses" AS ENUM ('OCCUPIED', 'VACATED');
@@ -155,7 +161,6 @@ CREATE TABLE "departments" (
 CREATE TABLE "rooms" (
     "id" TEXT NOT NULL,
     "name" VARCHAR(64) NOT NULL,
-    "roomNumber" VARCHAR(20),
     "floor" INTEGER,
     "capacity" INTEGER NOT NULL DEFAULT 1,
     "description" TEXT,
@@ -189,6 +194,82 @@ CREATE TABLE "assignments" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "assignments_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "diagnostic_orders" (
+    "id" TEXT NOT NULL,
+    "status" "diagnostic_order_statuses" NOT NULL DEFAULT 'PENDING',
+    "caseStepId" TEXT NOT NULL,
+    "patientId" TEXT NOT NULL,
+    "diagnosticsId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "diagnostic_orders_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "diagnostic_order_items" (
+    "id" TEXT NOT NULL,
+    "status" "diagnostic_item_statuses" NOT NULL DEFAULT 'PENDING',
+    "diagnosticOrderId" TEXT NOT NULL,
+    "serviceId" TEXT NOT NULL,
+    "note" TEXT,
+    "completedAt" TIMESTAMP(3),
+    "startedAt" TIMESTAMP(3),
+    "readyAt" TIMESTAMP(3),
+    "deliveredAt" TIMESTAMP(3),
+    "cancelledAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "diagnostic_order_items_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "diagnostic_order_item_files" (
+    "id" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "diagnosticOrderItemId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "diagnostic_order_item_files_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "diagnostics" (
+    "id" TEXT NOT NULL,
+    "name" VARCHAR(64) NOT NULL,
+    "description" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "diagnostics_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "diagnostic_services" (
+    "id" TEXT NOT NULL,
+    "name" VARCHAR(64) NOT NULL,
+    "price" DOUBLE PRECISION,
+    "diagnosticsId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "diagnostic_services_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "diagnostic_assignments" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "diagnosticsId" TEXT NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "diagnostic_assignments_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -578,12 +659,8 @@ CREATE TABLE "room_shifts" (
     "endHour" INTEGER NOT NULL,
     "startMinute" INTEGER NOT NULL DEFAULT 0,
     "endMinute" INTEGER NOT NULL DEFAULT 0,
-    "weekdayMask" INTEGER,
-    "startDate" DATE,
-    "endDate" DATE,
     "color" VARCHAR(7),
     "roundHour" INTEGER,
-    "doctorId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -724,6 +801,12 @@ CREATE UNIQUE INDEX "case_steps_appointmentId_key" ON "case_steps"("appointmentI
 CREATE UNIQUE INDEX "assignments_userId_departmentId_key" ON "assignments"("userId", "departmentId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "diagnostic_orders_caseStepId_key" ON "diagnostic_orders"("caseStepId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "diagnostic_assignments_userId_diagnosticsId_key" ON "diagnostic_assignments"("userId", "diagnosticsId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "patient_balances_patientId_key" ON "patient_balances"("patientId");
 
 -- CreateIndex
@@ -814,10 +897,10 @@ CREATE INDEX "working_hours_log_userId_date_idx" ON "working_hours_log"("userId"
 CREATE UNIQUE INDEX "working_hours_log_userId_date_shiftAssignmentId_key" ON "working_hours_log"("userId", "date", "shiftAssignmentId");
 
 -- AddForeignKey
-ALTER TABLE "appointments" ADD CONSTRAINT "appointments_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "appointments" ADD CONSTRAINT "appointments_assignmentId_fkey" FOREIGN KEY ("assignmentId") REFERENCES "assignments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "appointments" ADD CONSTRAINT "appointments_assignmentId_fkey" FOREIGN KEY ("assignmentId") REFERENCES "assignments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "appointments" ADD CONSTRAINT "appointments_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "appointment_files" ADD CONSTRAINT "appointment_files_appointmentId_fkey" FOREIGN KEY ("appointmentId") REFERENCES "appointments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -829,13 +912,13 @@ ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_userId_fkey" FOREIGN KEY ("u
 ALTER TABLE "patient_cases" ADD CONSTRAINT "patient_cases_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "case_steps" ADD CONSTRAINT "case_steps_caseId_fkey" FOREIGN KEY ("caseId") REFERENCES "patient_cases"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "case_steps" ADD CONSTRAINT "case_steps_appointmentId_fkey" FOREIGN KEY ("appointmentId") REFERENCES "appointments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "case_steps" ADD CONSTRAINT "case_steps_assignmentId_fkey" FOREIGN KEY ("assignmentId") REFERENCES "assignments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "case_steps" ADD CONSTRAINT "case_steps_appointmentId_fkey" FOREIGN KEY ("appointmentId") REFERENCES "appointments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "case_steps" ADD CONSTRAINT "case_steps_caseId_fkey" FOREIGN KEY ("caseId") REFERENCES "patient_cases"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "departments" ADD CONSTRAINT "departments_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "departments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -847,46 +930,73 @@ ALTER TABLE "rooms" ADD CONSTRAINT "rooms_departmentId_fkey" FOREIGN KEY ("depar
 ALTER TABLE "schedules" ADD CONSTRAINT "schedules_assignmentId_fkey" FOREIGN KEY ("assignmentId") REFERENCES "assignments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "assignments" ADD CONSTRAINT "assignments_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "assignments" ADD CONSTRAINT "assignments_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "departments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "assignments" ADD CONSTRAINT "assignments_roomId_fkey" FOREIGN KEY ("roomId") REFERENCES "rooms"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "patient_balances" ADD CONSTRAINT "patient_balances_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "assignments" ADD CONSTRAINT "assignments_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "balance_transactions" ADD CONSTRAINT "balance_transactions_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patient_balances"("patientId") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "diagnostic_orders" ADD CONSTRAINT "diagnostic_orders_caseStepId_fkey" FOREIGN KEY ("caseStepId") REFERENCES "case_steps"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "diagnostic_orders" ADD CONSTRAINT "diagnostic_orders_diagnosticsId_fkey" FOREIGN KEY ("diagnosticsId") REFERENCES "diagnostics"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "diagnostic_orders" ADD CONSTRAINT "diagnostic_orders_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "diagnostic_order_items" ADD CONSTRAINT "diagnostic_order_items_diagnosticOrderId_fkey" FOREIGN KEY ("diagnosticOrderId") REFERENCES "diagnostic_orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "diagnostic_order_items" ADD CONSTRAINT "diagnostic_order_items_serviceId_fkey" FOREIGN KEY ("serviceId") REFERENCES "diagnostic_services"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "diagnostic_order_item_files" ADD CONSTRAINT "diagnostic_order_item_files_diagnosticOrderItemId_fkey" FOREIGN KEY ("diagnosticOrderItemId") REFERENCES "diagnostic_order_items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "diagnostic_services" ADD CONSTRAINT "diagnostic_services_diagnosticsId_fkey" FOREIGN KEY ("diagnosticsId") REFERENCES "diagnostics"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "diagnostic_assignments" ADD CONSTRAINT "diagnostic_assignments_diagnosticsId_fkey" FOREIGN KEY ("diagnosticsId") REFERENCES "diagnostics"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "diagnostic_assignments" ADD CONSTRAINT "diagnostic_assignments_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "patient_balances" ADD CONSTRAINT "patient_balances_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "balance_transactions" ADD CONSTRAINT "balance_transactions_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "patient_bonus_balances" ADD CONSTRAINT "patient_bonus_balances_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "balance_transactions" ADD CONSTRAINT "balance_transactions_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patient_balances"("patientId") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "bonus_transactions" ADD CONSTRAINT "bonus_transactions_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patient_bonus_balances"("patientId") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "patient_bonus_balances" ADD CONSTRAINT "patient_bonus_balances_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "bonus_transactions" ADD CONSTRAINT "bonus_transactions_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "invoices" ADD CONSTRAINT "invoices_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "bonus_transactions" ADD CONSTRAINT "bonus_transactions_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patient_bonus_balances"("patientId") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "invoices" ADD CONSTRAINT "invoices_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "invoices" ADD CONSTRAINT "invoices_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "invoice_items" ADD CONSTRAINT "invoice_items_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "invoices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "invoice_payments" ADD CONSTRAINT "invoice_payments_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "invoices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "invoice_payments" ADD CONSTRAINT "invoice_payments_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "invoice_payments" ADD CONSTRAINT "invoice_payments_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "invoice_payments" ADD CONSTRAINT "invoice_payments_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "invoices"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "districts" ADD CONSTRAINT "districts_regionId_fkey" FOREIGN KEY ("regionId") REFERENCES "regions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -895,19 +1005,19 @@ ALTER TABLE "districts" ADD CONSTRAINT "districts_regionId_fkey" FOREIGN KEY ("r
 ALTER TABLE "laboratory_services" ADD CONSTRAINT "laboratory_services_laboratoryId_fkey" FOREIGN KEY ("laboratoryId") REFERENCES "laboratories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "laboratory_assignments" ADD CONSTRAINT "laboratory_assignments_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "laboratory_assignments" ADD CONSTRAINT "laboratory_assignments_laboratoryId_fkey" FOREIGN KEY ("laboratoryId") REFERENCES "laboratories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "laboratory_assignments" ADD CONSTRAINT "laboratory_assignments_laboratoryId_fkey" FOREIGN KEY ("laboratoryId") REFERENCES "laboratories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "laboratory_assignments" ADD CONSTRAINT "laboratory_assignments_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "lab_orders" ADD CONSTRAINT "lab_orders_caseStepId_fkey" FOREIGN KEY ("caseStepId") REFERENCES "case_steps"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "lab_orders" ADD CONSTRAINT "lab_orders_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "lab_orders" ADD CONSTRAINT "lab_orders_laboratoryId_fkey" FOREIGN KEY ("laboratoryId") REFERENCES "laboratories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "lab_orders" ADD CONSTRAINT "lab_orders_laboratoryId_fkey" FOREIGN KEY ("laboratoryId") REFERENCES "laboratories"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "lab_orders" ADD CONSTRAINT "lab_orders_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "lab_order_items" ADD CONSTRAINT "lab_order_items_labOrderId_fkey" FOREIGN KEY ("labOrderId") REFERENCES "lab_orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -922,16 +1032,16 @@ ALTER TABLE "lab_order_item_files" ADD CONSTRAINT "lab_order_item_files_labOrder
 ALTER TABLE "operation_type_items" ADD CONSTRAINT "operation_type_items_operationTypeId_fkey" FOREIGN KEY ("operationTypeId") REFERENCES "operation_types"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "operations" ADD CONSTRAINT "operations_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "operations" ADD CONSTRAINT "operations_caseStepId_fkey" FOREIGN KEY ("caseStepId") REFERENCES "case_steps"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "operations" ADD CONSTRAINT "operations_operationTypeId_fkey" FOREIGN KEY ("operationTypeId") REFERENCES "operation_types"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "operations" ADD CONSTRAINT "operations_roomId_fkey" FOREIGN KEY ("roomId") REFERENCES "rooms"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "operations" ADD CONSTRAINT "operations_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "operations" ADD CONSTRAINT "operations_caseStepId_fkey" FOREIGN KEY ("caseStepId") REFERENCES "case_steps"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "operations" ADD CONSTRAINT "operations_roomId_fkey" FOREIGN KEY ("roomId") REFERENCES "rooms"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "operation_surgeons" ADD CONSTRAINT "operation_surgeons_operationId_fkey" FOREIGN KEY ("operationId") REFERENCES "operations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -958,55 +1068,43 @@ ALTER TABLE "prescriptions" ADD CONSTRAINT "prescriptions_appointmentId_fkey" FO
 ALTER TABLE "prescriptions" ADD CONSTRAINT "prescriptions_caseStepId_fkey" FOREIGN KEY ("caseStepId") REFERENCES "case_steps"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "prescription_items" ADD CONSTRAINT "prescription_items_prescriptionId_fkey" FOREIGN KEY ("prescriptionId") REFERENCES "prescriptions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "prescription_items" ADD CONSTRAINT "prescription_items_medicineId_fkey" FOREIGN KEY ("medicineId") REFERENCES "medicines"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "shift_change_events" ADD CONSTRAINT "shift_change_events_shiftAssignmentId_fkey" FOREIGN KEY ("shiftAssignmentId") REFERENCES "shift_assignments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "shift_change_events" ADD CONSTRAINT "shift_change_events_roomShiftId_fkey" FOREIGN KEY ("roomShiftId") REFERENCES "room_shifts"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "prescription_items" ADD CONSTRAINT "prescription_items_prescriptionId_fkey" FOREIGN KEY ("prescriptionId") REFERENCES "prescriptions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "shift_change_events" ADD CONSTRAINT "shift_change_events_fromDoctorId_fkey" FOREIGN KEY ("fromDoctorId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "shift_change_events" ADD CONSTRAINT "shift_change_events_toDoctorId_fkey" FOREIGN KEY ("toDoctorId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "shift_change_events" ADD CONSTRAINT "shift_change_events_requestedById_fkey" FOREIGN KEY ("requestedById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "shift_change_events" ADD CONSTRAINT "shift_change_events_requestedById_fkey" FOREIGN KEY ("requestedById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "shift_change_events" ADD CONSTRAINT "shift_change_events_roomShiftId_fkey" FOREIGN KEY ("roomShiftId") REFERENCES "room_shifts"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "shift_change_events" ADD CONSTRAINT "shift_change_events_shiftAssignmentId_fkey" FOREIGN KEY ("shiftAssignmentId") REFERENCES "shift_assignments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "shift_change_events" ADD CONSTRAINT "shift_change_events_toDoctorId_fkey" FOREIGN KEY ("toDoctorId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "shift_notifications" ADD CONSTRAINT "shift_notifications_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "room_shifts" ADD CONSTRAINT "room_shifts_doctorId_fkey" FOREIGN KEY ("doctorId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "shift_rooms" ADD CONSTRAINT "shift_rooms_roomId_fkey" FOREIGN KEY ("roomId") REFERENCES "rooms"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "shift_rooms" ADD CONSTRAINT "shift_rooms_roomShiftId_fkey" FOREIGN KEY ("roomShiftId") REFERENCES "room_shifts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "shift_rooms" ADD CONSTRAINT "shift_rooms_roomId_fkey" FOREIGN KEY ("roomId") REFERENCES "rooms"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "shift_default_nurses" ADD CONSTRAINT "shift_default_nurses_nurseId_fkey" FOREIGN KEY ("nurseId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "shift_default_nurses" ADD CONSTRAINT "shift_default_nurses_roomShiftId_fkey" FOREIGN KEY ("roomShiftId") REFERENCES "room_shifts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "shift_default_nurses" ADD CONSTRAINT "shift_default_nurses_nurseId_fkey" FOREIGN KEY ("nurseId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "shift_assignments" ADD CONSTRAINT "shift_assignments_roomShiftId_fkey" FOREIGN KEY ("roomShiftId") REFERENCES "room_shifts"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "shift_assignments" ADD CONSTRAINT "shift_assignments_roomId_fkey" FOREIGN KEY ("roomId") REFERENCES "rooms"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "shift_assignments" ADD CONSTRAINT "shift_assignments_doctorId_fkey" FOREIGN KEY ("doctorId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "shift_assignments" ADD CONSTRAINT "shift_assignments_swappedWithId_fkey" FOREIGN KEY ("swappedWithId") REFERENCES "shift_assignments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "shift_assignments" ADD CONSTRAINT "shift_assignments_parentAssignmentId_fkey" FOREIGN KEY ("parentAssignmentId") REFERENCES "shift_assignments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -1015,19 +1113,28 @@ ALTER TABLE "shift_assignments" ADD CONSTRAINT "shift_assignments_parentAssignme
 ALTER TABLE "shift_assignments" ADD CONSTRAINT "shift_assignments_requestedById_fkey" FOREIGN KEY ("requestedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "shift_nurses" ADD CONSTRAINT "shift_nurses_shiftAssignmentId_fkey" FOREIGN KEY ("shiftAssignmentId") REFERENCES "shift_assignments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "shift_assignments" ADD CONSTRAINT "shift_assignments_roomId_fkey" FOREIGN KEY ("roomId") REFERENCES "rooms"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "shift_assignments" ADD CONSTRAINT "shift_assignments_roomShiftId_fkey" FOREIGN KEY ("roomShiftId") REFERENCES "room_shifts"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "shift_assignments" ADD CONSTRAINT "shift_assignments_swappedWithId_fkey" FOREIGN KEY ("swappedWithId") REFERENCES "shift_assignments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "shift_nurses" ADD CONSTRAINT "shift_nurses_nurseId_fkey" FOREIGN KEY ("nurseId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "shift_nurses" ADD CONSTRAINT "shift_nurses_shiftAssignmentId_fkey" FOREIGN KEY ("shiftAssignmentId") REFERENCES "shift_assignments"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "ward_rounds" ADD CONSTRAINT "ward_rounds_shiftAssignmentId_fkey" FOREIGN KEY ("shiftAssignmentId") REFERENCES "shift_assignments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ward_round_patients" ADD CONSTRAINT "ward_round_patients_roundId_fkey" FOREIGN KEY ("roundId") REFERENCES "ward_rounds"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ward_round_patients" ADD CONSTRAINT "ward_round_patients_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ward_round_patients" ADD CONSTRAINT "ward_round_patients_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ward_round_patients" ADD CONSTRAINT "ward_round_patients_roundId_fkey" FOREIGN KEY ("roundId") REFERENCES "ward_rounds"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "wards" ADD CONSTRAINT "wards_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -1036,8 +1143,8 @@ ALTER TABLE "wards" ADD CONSTRAINT "wards_patientId_fkey" FOREIGN KEY ("patientI
 ALTER TABLE "wards" ADD CONSTRAINT "wards_roomId_fkey" FOREIGN KEY ("roomId") REFERENCES "rooms"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "working_hours_log" ADD CONSTRAINT "working_hours_log_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "working_hours_log" ADD CONSTRAINT "working_hours_log_shiftAssignmentId_fkey" FOREIGN KEY ("shiftAssignmentId") REFERENCES "shift_assignments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "working_hours_log" ADD CONSTRAINT "working_hours_log_shiftAssignmentId_fkey" FOREIGN KEY ("shiftAssignmentId") REFERENCES "shift_assignments"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "working_hours_log" ADD CONSTRAINT "working_hours_log_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
