@@ -1,0 +1,51 @@
+enum UserRole {
+  ADMIN
+  KASSIR
+  DOCTOR
+  HAMSHIRA
+  LABARANT
+  TEXNIK_HODIM
+  DIREKTOR
+  HISOBCHI
+
+  @@map("user_roles")
+}
+
+model User {
+  id         String    @id @default(uuid())
+  first_name String    @db.VarChar(64)
+  last_name  String    @db.VarChar(64)
+  phone      String    @unique @db.VarChar(20)
+  password   String
+  birthday   DateTime? @db.Date
+  photo      String?   @db.VarChar(500)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  role           UserRole               @default(TEXNIK_HODIM)
+  assignments    Assignment[]
+  labAssignments LaboratoryAssignment[]
+  auditLogs      AuditLog[]
+
+  balanceTransactions BalanceTransaction[]
+  bonusTransactions   BonusTransaction[]
+  invoicesCreated     Invoice[]            @relation("InvoiceCreatedBy")
+  invoicePayments     InvoicePayment[]     @relation("InvoicePaymentCreatedBy")
+
+  doctorShiftAssignments  ShiftAssignment[]   @relation("DoctorShiftAssignments")
+  nurseShiftAssignments   ShiftNurse[]        @relation("NurseShiftAssignments")
+  defaultNurseShifts      ShiftDefaultNurse[] @relation("ShiftDefaultNurse")
+  requestedShiftChanges   ShiftAssignment[]   @relation("ShiftChangeRequester")
+
+  shiftEventsFrom      ShiftChangeEvent[] @relation("ShiftEventFromDoctor")
+  shiftEventsTo        ShiftChangeEvent[] @relation("ShiftEventToDoctor")
+  shiftEventsRequested ShiftChangeEvent[] @relation("ShiftEventRequestedBy")
+
+  shiftNotifications ShiftNotification[] @relation("ShiftNotificationUser")
+
+  workingHoursLogs WorkingHoursLog[] @relation("WorkingHoursUser")
+
+  operationSurgeons OperationSurgeon[] @relation("OperationSurgeons")
+
+  @@map("users")
+}

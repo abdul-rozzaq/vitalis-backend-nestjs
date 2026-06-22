@@ -1,0 +1,87 @@
+enum DocumentType {
+  PASSPORT
+  BIRTH_CERTIFICATE
+  FOREIGN_PASSPORT
+  RESIDENCE_PERMIT
+
+  @@map("document_types")
+}
+
+enum BloodType {
+  O_POSITIVE
+  O_NEGATIVE
+  A_POSITIVE
+  A_NEGATIVE
+  B_POSITIVE
+  B_NEGATIVE
+  AB_POSITIVE
+  AB_NEGATIVE
+
+  @@map("blood_types")
+}
+
+model Patient {
+  id           String   @id @default(uuid())
+  first_name   String   @db.VarChar(64)
+  last_name    String   @db.VarChar(64)
+  phone_number String   @db.VarChar(15)
+  gender       String   @db.VarChar(10)
+  birth_date   DateTime @db.Date
+
+  address         String?          @db.VarChar(255)
+  blood_type      BloodType?       @default(O_POSITIVE)
+  document_type   DocumentType?
+  document_series String?          @db.VarChar(10)
+  document_number String?          @db.VarChar(20)
+  pinfl           String?          @unique @db.VarChar(14)
+  district        District         @relation(fields: [districtId], references: [id])
+  districtId      String
+  appointments    Appointment[]
+  medicalCards    MedicalCard003[]
+  cases           PatientCase[]
+  labOrders       LabOrder[]
+  wards           Wards[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  balance        PatientBalance?
+  bonusBalance   PatientBonusBalance?
+  invoices       Invoice[]
+  wardRoundNotes WardRoundPatient[]
+  operations     Operation[]
+
+  @@index([deletedAt])
+  @@map("patients")
+}
+
+model MedicalCard003 {
+  id String @id @default(uuid())
+
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId String
+
+  admissionDate DateTime  @db.Date
+  dischargeDate DateTime? @db.Date
+
+  wardNumber     String? @db.VarChar(20)
+  departmentName String? @db.VarChar(128)
+  doctorName     String? @db.VarChar(128)
+  nurseName      String? @db.VarChar(128)
+
+  complaints    String? @db.Text
+  anamnesis     String? @db.Text
+  lifeAnamnesis String? @db.Text
+
+  diagnosisInitial String? @db.VarChar(500)
+  diagnosisFinal   String? @db.VarChar(500)
+
+  treatment  String? @db.Text
+  dailyNotes Json?   @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("medical_cards_003")
+}

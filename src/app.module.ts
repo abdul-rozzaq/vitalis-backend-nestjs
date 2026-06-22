@@ -26,7 +26,6 @@ import { StatsModule } from "./modules/stats/stats.module";
 import { UploadsModule } from "./modules/uploads/uploads.module";
 import { UsersModule } from "./modules/users/users.module";
 import { PrismaModule } from "./prisma/prisma.module";
-
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
@@ -43,10 +42,15 @@ import { OperationTypesModule } from "./modules/operation-types/operation-types.
 import { DiagnosticsModule } from "./modules/diagnostics/diagnostics.module";
 import { DiagnosticOrdersModule } from "./modules/diagnostic-orders/diagnostic-orders.module";
 import { DiagnosticAssignmentsModule } from "./modules/diagnostic-assignments/diagnostic-assignments.module";
+import { ShiftEventsModule } from "./modules/shift-events/shift-events.module";
+import { ShiftNotificationsModule } from "./modules/shift-notifications/shift-notifications.module";
+import { WorkingHoursModule } from "./modules/working-hours/working-hours.module";
+import { ScheduleModule } from "@nestjs/schedule";
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     JwtModule.registerAsync({
       useFactory: () => ({
         secret: process.env.JWT_SECRET || "fallback_secret",
@@ -91,6 +95,9 @@ import { DiagnosticAssignmentsModule } from "./modules/diagnostic-assignments/di
     DiagnosticsModule,
     DiagnosticOrdersModule,
     DiagnosticAssignmentsModule,
+    ShiftEventsModule,
+    ShiftNotificationsModule,
+    WorkingHoursModule,
   ],
   controllers: [AppController],
   providers: [

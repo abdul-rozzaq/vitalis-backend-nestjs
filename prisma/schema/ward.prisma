@@ -1,0 +1,34 @@
+enum WardStatus {
+  OCCUPIED
+  VACATED
+
+  @@map("ward_statuses")
+}
+
+model Wards {
+  id String @id @default(uuid())
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  roomId String
+  room   Room   @relation(fields: [roomId], references: [id])
+
+  checkIn         DateTime  @default(now())
+  expectedOut     DateTime?
+  actualOut       DateTime?
+  daysStayed      Int?      @default(0)
+  companionsCount Int       @default(0)
+
+  note String? @db.Text
+
+  status WardStatus @default(OCCUPIED)
+
+  dailyRate    Decimal? @db.Decimal(15, 2)
+  totalCharged Decimal  @default(0) @db.Decimal(15, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("wards")
+}

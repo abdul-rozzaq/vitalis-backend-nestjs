@@ -1,0 +1,18 @@
+model Region {
+  id        String     @id @default(uuid())
+  name      String     @unique @db.VarChar(64)
+  districts District[]
+
+  @@map("regions")
+}
+
+model District {
+  id       String    @id @default(uuid())
+  name     String    @db.VarChar(64)
+  regionId String
+  region   Region    @relation(fields: [regionId], references: [id])
+  patients Patient[]
+
+  @@unique([name, regionId])
+  @@map("districts")
+}

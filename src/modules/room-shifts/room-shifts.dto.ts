@@ -1,4 +1,4 @@
-import { IsArray, IsDateString, IsInt, IsOptional, IsString, IsUUID, Max, Min } from "class-validator";
+import { IsArray, IsInt, IsOptional, IsString, IsUUID, Max, Min } from "class-validator";
 
 export class CreateRoomShiftDto {
   @IsString()
@@ -15,12 +15,16 @@ export class CreateRoomShiftDto {
   endHour: number;
 
   @IsOptional()
-  @IsDateString()
-  startDate?: string;
+  @IsInt()
+  @Min(0)
+  @Max(59)
+  startMinute?: number;
 
   @IsOptional()
-  @IsDateString()
-  endDate?: string;
+  @IsInt()
+  @Min(0)
+  @Max(59)
+  endMinute?: number;
 
   @IsOptional()
   @IsString()
@@ -31,10 +35,6 @@ export class CreateRoomShiftDto {
   @Min(0)
   @Max(23)
   roundHour?: number;
-
-  @IsOptional()
-  @IsUUID()
-  doctorId?: string;
 
   @IsOptional()
   @IsArray()
@@ -65,12 +65,16 @@ export class UpdateRoomShiftDto {
   endHour?: number;
 
   @IsOptional()
-  @IsDateString()
-  startDate?: string;
+  @IsInt()
+  @Min(0)
+  @Max(59)
+  startMinute?: number;
 
   @IsOptional()
-  @IsDateString()
-  endDate?: string;
+  @IsInt()
+  @Min(0)
+  @Max(59)
+  endMinute?: number;
 
   @IsOptional()
   @IsString()
@@ -81,10 +85,6 @@ export class UpdateRoomShiftDto {
   @Min(0)
   @Max(23)
   roundHour?: number;
-
-  @IsOptional()
-  @IsUUID()
-  doctorId?: string;
 
   @IsOptional()
   @IsArray()

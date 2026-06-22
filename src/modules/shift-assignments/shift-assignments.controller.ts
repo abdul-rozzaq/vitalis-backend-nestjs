@@ -3,7 +3,15 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
-import { CreateShiftOverrideDto, MaterializeShiftDto, ShiftAssignmentsQueryDto } from "./shift-assignments.dto";
+import {
+  BulkAssignDto,
+  CreateShiftOverrideDto,
+  CreateSwapDto,
+  MaterializeShiftDto,
+  OvertimeDto,
+  PartialTransferDto,
+  ShiftAssignmentsQueryDto,
+} from "./shift-assignments.dto";
 import { ShiftAssignmentsService } from "./shift-assignments.service";
 
 @Controller("/shift-assignments")
@@ -50,5 +58,35 @@ export class ShiftAssignmentsController {
   @Get("/")
   getResolved(@Query() query: ShiftAssignmentsQueryDto) {
     return this.service.getResolvedForRange(query);
+  }
+
+  @Roles(RoleName.ADMIN, RoleName.DIREKTOR)
+  @Post("/bulk")
+  bulkAssign(@Body() dto: BulkAssignDto) {
+    return this.service.bulkAssign(dto);
+  }
+
+  @Roles(RoleName.ADMIN, RoleName.DIREKTOR)
+  @Post("/swap")
+  createSwap(@Body() dto: CreateSwapDto, @CurrentUser() user: JwtPayload) {
+    return this.service.createSwap(dto, user.userId);
+  }
+
+  @Roles(RoleName.ADMIN, RoleName.DIREKTOR)
+  @Post("/partial-transfer")
+  createPartialTransfer(@Body() dto: PartialTransferDto, @CurrentUser() user: JwtPayload) {
+    return this.service.createPartialTransfer(dto, user.userId);
+  }
+
+  @Roles(RoleName.ADMIN, RoleName.DIREKTOR, RoleName.DOCTOR)
+  @Post("/overtime")
+  createOvertime(@Body() dto: OvertimeDto, @CurrentUser() user: JwtPayload) {
+    return this.service.createOvertime(dto, user.userId);
+  }
+
+  @Roles(RoleName.ADMIN, RoleName.DIREKTOR, RoleName.DOCTOR, RoleName.HAMSHIRA)
+  @Get("/:id/history")
+  getHistory(@Param("id") id: string) {
+    return this.service.getAssignmentHistory(id);
   }
 }
