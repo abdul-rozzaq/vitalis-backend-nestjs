@@ -10,9 +10,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { InvoiceService } from '../invoice/invoice.service';
 import { CreateOperationDto, UpdateOperationDto } from './operation.dto';
 import { OperationsRepository } from './operations.repository';
-import { InvoiceService } from '../invoice/invoice.service';
 
 @Injectable()
 export class OperationsService {
@@ -102,6 +102,11 @@ export class OperationsService {
     const leadSurgeon = op.surgeons.find((s) => s.role === 'LEAD');
     const staffId = leadSurgeon?.surgeonId ?? op.surgeons[0]?.surgeonId;
 
+    if (!staffId) {
+      console.warn(`Operation ${id}: staffId topilmadi, invoice yaratilmadi`);
+      return updated;
+    }
+
     const invoiceItems: {
       description: string;
       quantity: number;
@@ -110,17 +115,17 @@ export class OperationsService {
       sourceId: string;
     }[] = [];
 
-    // Operatsiyaning o'z bazaviy narxi (xizmatlardan tashqari)
-    const basePrice = Number(op.operationType.basePrice ?? 0);
-    if (basePrice > 0) {
-      invoiceItems.push({
-        description: op.operationType.name,
-        quantity: 1,
-        unitPrice: new Prisma.Decimal(basePrice.toString()),
-        sourceType: InvoiceItemSourceType.OPERATION,
-        sourceId: op.id,
-      });
-    }
+    const basePrice = new Prisma.Decimal(
+      op.operationType.basePrice?.toString() ?? '0',
+    );
+
+    invoiceItems.push({
+      description: op.operationType.name,
+      quantity: 1,
+      unitPrice: basePrice,
+      sourceType: InvoiceItemSourceType.OPERATION,
+      sourceId: op.id,
+    });
 
     for (const item of op.items) {
       invoiceItems.push({
@@ -131,16 +136,13 @@ export class OperationsService {
         sourceId: item.id,
       });
     }
-
-    if (invoiceItems.length > 0 && staffId) {
-      await this.invoiceService.createInvoice({
-        patientId: op.patientId,
-        sourceType: InvoiceSourceType.OPERATION,
-        sourceId: op.id,
-        staffId,
-        items: invoiceItems,
-      });
-    }
+    await this.invoiceService.createInvoice({
+      patientId: op.patientId,
+      sourceType: InvoiceSourceType.OPERATION,
+      sourceId: op.id,
+      staffId,
+      items: invoiceItems,
+    });
 
     return updated;
   }
