@@ -52,8 +52,10 @@ export class CasesService {
           assignment: { connect: { id: dto.assignmentId! } },
         },
       });
-
-      const price = new Prisma.Decimal(assignment.department.price ?? 0);
+      const price =
+        dto.amount !== undefined && dto.amount !== null
+          ? new Prisma.Decimal(dto.amount)
+          : new Prisma.Decimal(assignment.department.price ?? 0);
       await this.prisma.invoice.create({
         data: {
           patientId: patientCase.patientId,
@@ -243,6 +245,10 @@ export class CasesService {
           price = new Prisma.Decimal(assignment.department.price ?? 0);
           description = `${assignment.department.name} protsedura`;
         }
+      }
+      // Agar doctor narxni o'zgartirib (dto.amount) yuborgan bo'lsa, o'sha narx ustun bo'ladi.
+      if (dto.amount !== undefined && dto.amount !== null) {
+        price = new Prisma.Decimal(dto.amount);
       }
 
       await this.prisma.invoice.create({
