@@ -53,7 +53,8 @@ export class CasesService {
         },
       });
 
-      const price = new Prisma.Decimal(assignment.department.price ?? 0);
+      const price = new Prisma.Decimal(dto.amount ?? assignment.department.price ?? 0);
+
       await this.prisma.invoice.create({
         data: {
           patientId: patientCase.patientId,
@@ -63,14 +64,16 @@ export class CasesService {
           status: InvoiceStatus.ISSUED,
           createdById: user.userId,
           items: {
-            create: [{
-              description: `${assignment.department.name} konsultatsiya`,
-              quantity: 1,
-              unitPrice: price,
-              totalPrice: price,
-              sourceType: InvoiceItemSourceType.APPOINTMENT,
-              sourceId: appointment.id,
-            }],
+            create: [
+              {
+                description: `${assignment.department.name} konsultatsiya`,
+                quantity: 1,
+                unitPrice: price,
+                totalPrice: price,
+                sourceType: InvoiceItemSourceType.APPOINTMENT,
+                sourceId: appointment.id,
+              },
+            ],
           },
         },
       });
@@ -133,10 +136,7 @@ export class CasesService {
             sourceId: svc.id,
           };
         });
-        const totalAmount = invoiceItems.reduce(
-          (sum, item) => sum.add(item.unitPrice),
-          new Prisma.Decimal(0),
-        );
+        const totalAmount = invoiceItems.reduce((sum, item) => sum.add(item.unitPrice), new Prisma.Decimal(0));
 
         await tx.invoice.create({
           data: {
@@ -203,10 +203,7 @@ export class CasesService {
             sourceId: svc.id,
           };
         });
-        const totalAmount = invoiceItems.reduce(
-          (sum, item) => sum.add(item.unitPrice),
-          new Prisma.Decimal(0),
-        );
+        const totalAmount = invoiceItems.reduce((sum, item) => sum.add(item.unitPrice), new Prisma.Decimal(0));
 
         await tx.invoice.create({
           data: {
@@ -234,13 +231,14 @@ export class CasesService {
 
       let price = new Prisma.Decimal(0);
       let description = "Protsedura";
+      
       if (dto.assignmentId) {
         const assignment = await this.prisma.assignment.findUnique({
           where: { id: dto.assignmentId },
           include: { department: true },
         });
         if (assignment) {
-          price = new Prisma.Decimal(assignment.department.price ?? 0);
+          price = new Prisma.Decimal(dto.amount ?? assignment.department.price ?? 0);
           description = `${assignment.department.name} protsedura`;
         }
       }
@@ -254,14 +252,16 @@ export class CasesService {
           status: InvoiceStatus.ISSUED,
           createdById: user.userId,
           items: {
-            create: [{
-              description,
-              quantity: 1,
-              unitPrice: price,
-              totalPrice: price,
-              sourceType: InvoiceItemSourceType.MANUAL,
-              sourceId: step.id,
-            }],
+            create: [
+              {
+                description,
+                quantity: 1,
+                unitPrice: price,
+                totalPrice: price,
+                sourceType: InvoiceItemSourceType.MANUAL,
+                sourceId: step.id,
+              },
+            ],
           },
         },
       });
