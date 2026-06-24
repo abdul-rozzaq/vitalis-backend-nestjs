@@ -242,6 +242,10 @@ export class CasesService {
           description = `${assignment.department.name} protsedura`;
         }
       }
+      // Agar doctor narxni o'zgartirib (dto.amount) yuborgan bo'lsa, o'sha narx ustun bo'ladi.
+      if (dto.amount !== undefined && dto.amount !== null) {
+        price = new Prisma.Decimal(dto.amount);
+      }
 
       await this.prisma.invoice.create({
         data: {

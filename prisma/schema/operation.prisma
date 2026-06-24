@@ -8,6 +8,7 @@ model OperationType {
   updatedAt   DateTime            @updatedAt
   items       OperationTypeItem[]
   operations  Operation[]
+  doctors     OperationTypeDoctor[]
 
   @@map("operation_types")
 }
@@ -92,4 +93,17 @@ enum SurgeonRole {
   ASSISTANT
 
   @@map("surgeon_roles")
+}
+
+
+model OperationTypeDoctor {
+  id              String        @id @default(uuid())
+  operationTypeId String
+  doctorId        String
+  createdAt       DateTime      @default(now())
+  operationType   OperationType @relation(fields: [operationTypeId], references: [id], onDelete: Cascade)
+  doctor          User          @relation("OperationTypeDoctors", fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([operationTypeId, doctorId])
+  @@map("operation_type_doctors")
 }

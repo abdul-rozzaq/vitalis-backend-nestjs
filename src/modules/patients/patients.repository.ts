@@ -25,27 +25,32 @@ export class PatientsRepository {
     });
   }
 
-  async list(userId: string, isDoctor: boolean, search?: string, excludeOccupied?: boolean) {
-    return this.prisma.patient.findMany({
-      where: {
-        deletedAt: null,
-        ...(search
-          ? {
-              OR: [{ id: { contains: search, mode: "insensitive" } }, { first_name: { contains: search, mode: "insensitive" } }, { last_name: { contains: search, mode: "insensitive" } }],
-            }
-          : {}),
-        ...(isDoctor ? { appointments: { some: { assignment: { userId } } } } : {}),
-        ...(excludeOccupied
-          ? {
-              wards: {
-                none: { status: WardStatus.OCCUPIED },
-              },
-            }
-          : {}),
-      },
-      include: { district: { include: { region: true } } },
-    });
-  }
+async list(userId: string, isDoctor: boolean, search?: string, excludeOccupied?: boolean) {
+  return this.prisma.patient.findMany({
+    where: {
+      deletedAt: null,
+      ...(search
+        ? {
+            OR: [
+              { first_name: { contains: search, mode: "insensitive" } },
+              { last_name: { contains: search, mode: "insensitive" } },
+              { phone_number: { contains: search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+      ...(isDoctor ? { appointments: { some: { assignment: { userId } } } } : {}),
+      ...(excludeOccupied
+        ? {
+            wards: {
+              none: { status: WardStatus.OCCUPIED },
+            },
+          }
+        : {}),
+    },
+    include: { district: { include: { region: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+}
 
   async retrieve(id: string, userId: string, isDoctor: boolean) {
     const patient = await this.prisma.patient.findFirst({

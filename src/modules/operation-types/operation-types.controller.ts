@@ -9,8 +9,8 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { AddOperationTypeDoctorDto, CreateOperationTypeDto, UpdateOperationTypeDto } from './operation-type.dto';
 import { OperationTypesService } from './operation-types.service';
-import { CreateOperationTypeDto, UpdateOperationTypeDto } from './operation-type.dto';
 
 @Controller('operation-types')
 export class OperationTypesController {
@@ -30,6 +30,22 @@ export class OperationTypesController {
   create(@Body() dto: CreateOperationTypeDto) {
     return this.service.create(dto);
   }
+
+  @Post(':id/doctors')
+addDoctor(
+  @Param('id', ParseUUIDPipe) id: string,
+  @Body() dto: AddOperationTypeDoctorDto,
+) {
+  return this.service.addDoctor(id, dto.doctorId);
+}
+
+@Delete(':id/doctors/:doctorId')
+removeDoctor(
+  @Param('id', ParseUUIDPipe) id: string,
+  @Param('doctorId', ParseUUIDPipe) doctorId: string,
+) {
+  return this.service.removeDoctor(id, doctorId);
+}
 
   @Patch(':id')
   update(

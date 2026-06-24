@@ -27,7 +27,7 @@ model User {
   shiftNotifications     ShiftNotification[]    @relation("ShiftNotificationUser")
   nurseShiftAssignments  ShiftNurse[]           @relation("NurseShiftAssignments")
   workingHoursLogs       WorkingHoursLog[]      @relation("WorkingHoursUser")
-
+  operationTypeDoctors  OperationTypeDoctor[]  @relation("OperationTypeDoctors")
   @@map("users")
 }
 
