@@ -110,3 +110,8 @@ export class UpdateOperationTypeDto {
   @Type(() => UpdateOperationTypeItemDto)
   items?: UpdateOperationTypeItemDto[];
 }
+
+export class AddOperationTypeDoctorDto {
+  @IsUUID()
+  doctorId: string;
+}

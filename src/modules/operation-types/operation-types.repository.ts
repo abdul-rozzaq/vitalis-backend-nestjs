@@ -1,34 +1,48 @@
+import { PrismaService } from '@/prisma/prisma.service';
 import { Injectable } from '@nestjs/common';
 import { CreateOperationTypeDto, UpdateOperationTypeDto } from './operation-type.dto';
-import { PrismaService } from '@/prisma/prisma.service';
 
 @Injectable()
 export class OperationTypesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll(onlyActive?: boolean) {
-    return this.prisma.operationType.findMany({
-      where: onlyActive ? { isActive: true } : undefined,
-      include: {
-        items: {
-          where: { isActive: true },
-          orderBy: { createdAt: 'asc' },
+ findAll(onlyActive?: boolean) {
+  return this.prisma.operationType.findMany({
+    where: onlyActive ? { isActive: true } : undefined,
+    include: {
+      items: {
+        where: { isActive: true },
+        orderBy: { createdAt: 'asc' },
+      },
+      doctors: {
+        include: {
+          doctor: {
+            select: { id: true, first_name: true, last_name: true, role: true },
+          },
         },
-        _count: { select: { operations: true } },
       },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
+      _count: { select: { operations: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
 
-  findOne(id: string) {
-    return this.prisma.operationType.findUnique({
-      where: { id },
-      include: {
-        items: { orderBy: { createdAt: 'asc' } },
-        _count: { select: { operations: true } },
+findOne(id: string) {
+  return this.prisma.operationType.findUnique({
+    where: { id },
+    include: {
+      items: { orderBy: { createdAt: 'asc' } },
+      doctors: {                          
+        include: {
+          doctor: {
+            select: { id: true, first_name: true, last_name: true, role: true },
+          },
+        },
       },
-    });
-  }
+      _count: { select: { operations: true } },
+    },
+  });
+}
 
   create(dto: CreateOperationTypeDto) {
     return this.prisma.operationType.create({
@@ -103,4 +117,21 @@ export class OperationTypesRepository {
   deleteItem(itemId: string) {
     return this.prisma.operationTypeItem.delete({ where: { id: itemId } });
   }
+
+  addDoctor(operationTypeId: string, doctorId: string) {
+  return this.prisma.operationTypeDoctor.create({
+    data: { operationTypeId, doctorId },
+    include: {
+      doctor: {
+        select: { id: true, first_name: true, last_name: true, role: true },
+      },
+    },
+  });
+}
+
+removeDoctor(operationTypeId: string, doctorId: string) {
+  return this.prisma.operationTypeDoctor.delete({
+    where: { operationTypeId_doctorId: { operationTypeId, doctorId } },
+  });
+}
 }

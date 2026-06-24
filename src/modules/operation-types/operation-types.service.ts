@@ -3,8 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { OperationTypesRepository } from './operation-types.repository';
 import { CreateOperationTypeDto, UpdateOperationTypeDto } from './operation-type.dto';
+import { OperationTypesRepository } from './operation-types.repository';
 
 @Injectable()
 export class OperationTypesService {
@@ -45,4 +45,14 @@ export class OperationTypesService {
   async removeItem(itemId: string) {
     return this.repo.deleteItem(itemId);
   }
+
+  async addDoctor(id: string, doctorId: string) {
+  await this.findOne(id);
+  return this.repo.addDoctor(id, doctorId);
+}
+
+async removeDoctor(id: string, doctorId: string) {
+  await this.findOne(id);
+  return this.repo.removeDoctor(id, doctorId);
+}
 }
