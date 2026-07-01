@@ -26,9 +26,28 @@ export class InvoiceService {
     status?: InvoiceStatus;
     dateFrom?: Date;
     dateTo?: Date;
+    sourceType?: InvoiceSourceType[];
+    patientId?: string;
+    doctorId?: string;
   }) {
     const where: Prisma.InvoiceWhereInput = {};
     if (params.status) where.status = params.status;
+    if (params.patientId) where.patientId = params.patientId;
+    if (params.sourceType && params.sourceType.length > 0) {
+      where.sourceType =
+        params.sourceType.length === 1
+          ? params.sourceType[0]
+          : { in: params.sourceType };
+    }
+    if (params.doctorId) {
+      const appointments = await this.prisma.appointment.findMany({
+        where: { assignment: { userId: params.doctorId } },
+        select: { id: true },
+      });
+      const appointmentIds = appointments.map((a) => a.id);
+      where.sourceType = InvoiceSourceType.APPOINTMENT;
+      where.sourceId = { in: appointmentIds.length > 0 ? appointmentIds : ['__none__'] };
+    }
     if (params.dateFrom || params.dateTo) {
       where.createdAt = {};
       if (params.dateFrom) (where.createdAt as any).gte = params.dateFrom;
@@ -176,19 +195,26 @@ export class InvoiceService {
 
   async getPatientInvoices(
     patientId: string,
-    params: { page: number; limit: number },
+    params: { page: number; limit: number; sourceType?: InvoiceSourceType[] },
   ) {
     const { page, limit } = params;
     const skip = (page - 1) * limit;
+    const where: Prisma.InvoiceWhereInput = { patientId };
+    if (params.sourceType && params.sourceType.length > 0) {
+      where.sourceType =
+        params.sourceType.length === 1
+          ? params.sourceType[0]
+          : { in: params.sourceType };
+    }
     const [data, total] = await Promise.all([
       this.prisma.invoice.findMany({
-        where: { patientId },
+        where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
         include: INVOICE_INCLUDE,
       }),
-      this.prisma.invoice.count({ where: { patientId } }),
+      this.prisma.invoice.count({ where }),
     ]);
     return { data, total, page, limit };
   }
