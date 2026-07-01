@@ -16,11 +16,25 @@ export class InvoiceController {
     @Query('status') status?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
+    @Query('sourceType') sourceType?: string,
+    @Query('patientId') patientId?: string,
+    @Query('doctorId') doctorId?: string,
   ) {
     return this.invoiceService.listInvoices({
       status: status as InvoiceStatus | undefined,
       dateFrom: dateFrom ? new Date(dateFrom) : undefined,
       dateTo: dateTo ? new Date(dateTo) : undefined,
+      // sourceType bitta qiymat ("WARD") yoki vergul bilan ajratilgan ro'yxat
+      // bo'lishi mumkin ("WARD,OPERATION") — bir nechta kategoriyani birga
+      // ko'rsatish uchun.
+      sourceType: sourceType
+        ? (sourceType
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean) as InvoiceSourceType[])
+        : undefined,
+      patientId,
+      doctorId,
     });
   }
 
@@ -80,10 +94,17 @@ export class PatientInvoiceController {
     @Param('patientId') patientId: string,
     @Query('page') page = '1',
     @Query('limit') limit = '20',
+    @Query('sourceType') sourceType?: string,
   ) {
     return this.invoiceService.getPatientInvoices(patientId, {
       page: parseInt(page),
       limit: parseInt(limit),
+      sourceType: sourceType
+        ? (sourceType
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean) as InvoiceSourceType[])
+        : undefined,
     });
   }
 }
