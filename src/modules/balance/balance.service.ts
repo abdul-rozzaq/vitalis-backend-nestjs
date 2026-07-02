@@ -157,11 +157,12 @@ export class BalanceService {
       bonusToUse: Prisma.Decimal;
       source: BalanceTxSource;
       sourceId: string;
+      paymentMethod?: PaymentMethod;
       note?: string;
       staffId: string;
     },
   ) {
-    const { patientId, totalAmount, cashToUse, bonusToUse, source, sourceId, note, staffId } = params;
+    const { patientId, totalAmount, cashToUse, bonusToUse, source, sourceId, paymentMethod, note, staffId } = params;
     const zero = new Prisma.Decimal(0);
 
     if (!cashToUse.add(bonusToUse).equals(totalAmount)) {
@@ -219,6 +220,7 @@ export class BalanceService {
           balanceAfter: updatedCash!.balance,
           source,
           sourceId,
+          paymentMethod,
           note,
           patientBalance: { connect: { patientId } },
           createdBy: { connect: { id: staffId } },

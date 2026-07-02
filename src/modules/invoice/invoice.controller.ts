@@ -5,6 +5,7 @@ import { Prisma } from '../../generated/prisma/client';
 import { InvoiceItemSourceType, InvoiceSourceType, InvoiceStatus } from '../../generated/prisma/enums';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { PayInvoiceDto } from './dto/pay-invoice.dto';
+import { UpdatePaymentMethodDto } from './dto/update-payment-method.dto';
 import { InvoiceService } from './invoice.service';
 
 @Controller('invoices')
@@ -19,14 +20,14 @@ export class InvoiceController {
     @Query('sourceType') sourceType?: string,
     @Query('patientId') patientId?: string,
     @Query('doctorId') doctorId?: string,
+    @Query('patientSearch') patientSearch?: string,
+    @Query('amountMin') amountMin?: string,
+    @Query('amountMax') amountMax?: string,
   ) {
     return this.invoiceService.listInvoices({
       status: status as InvoiceStatus | undefined,
       dateFrom: dateFrom ? new Date(dateFrom) : undefined,
       dateTo: dateTo ? new Date(dateTo) : undefined,
-      // sourceType bitta qiymat ("WARD") yoki vergul bilan ajratilgan ro'yxat
-      // bo'lishi mumkin ("WARD,OPERATION") — bir nechta kategoriyani birga
-      // ko'rsatish uchun.
       sourceType: sourceType
         ? (sourceType
             .split(',')
@@ -35,7 +36,51 @@ export class InvoiceController {
         : undefined,
       patientId,
       doctorId,
+      patientSearch,
+      amountMin: amountMin ? parseFloat(amountMin) : undefined,
+      amountMax: amountMax ? parseFloat(amountMax) : undefined,
     });
+  }
+
+  @Get('payments')
+  listPayments(
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
+    @Query('patientId') patientId?: string,
+    @Query('patientSearch') patientSearch?: string,
+    @Query('amountMin') amountMin?: string,
+    @Query('amountMax') amountMax?: string,
+    @Query('invoiceSourceType') invoiceSourceType?: string,
+    @Query('paymentMethod') paymentMethod?: string,
+  ) {
+    return this.invoiceService.listPayments({
+      dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+      dateTo: dateTo ? new Date(dateTo) : undefined,
+      patientId,
+      patientSearch,
+      amountMin: amountMin ? parseFloat(amountMin) : undefined,
+      amountMax: amountMax ? parseFloat(amountMax) : undefined,
+      invoiceSourceType: invoiceSourceType
+        ? (invoiceSourceType
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean) as any[])
+        : undefined,
+      paymentMethod: paymentMethod
+        ? (paymentMethod
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean) as any[])
+        : undefined,
+    });
+  }
+
+  @Patch('payments/:id/method')
+  updatePaymentMethod(
+    @Param('id') paymentId: string,
+    @Body() dto: UpdatePaymentMethodDto,
+  ) {
+    return this.invoiceService.updatePaymentMethod(paymentId, dto.paymentMethod);
   }
 
   @Post()

@@ -2,9 +2,11 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Prisma } from '../../generated/prisma/client';
 import {
   BalanceTxSource,
+  BalanceTxType,
   InvoiceItemSourceType,
   InvoiceSourceType,
   InvoiceStatus,
+  PaymentMethod,
 } from '../../generated/prisma/enums';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BalanceService } from '../balance/balance.service';
@@ -29,10 +31,26 @@ export class InvoiceService {
     sourceType?: InvoiceSourceType[];
     patientId?: string;
     doctorId?: string;
+    patientSearch?: string;
+    amountMin?: number;
+    amountMax?: number;
   }) {
     const where: Prisma.InvoiceWhereInput = {};
     if (params.status) where.status = params.status;
     if (params.patientId) where.patientId = params.patientId;
+    if (params.patientSearch) {
+      where.patient = {
+        OR: [
+          { first_name: { contains: params.patientSearch, mode: 'insensitive' } },
+          { last_name: { contains: params.patientSearch, mode: 'insensitive' } },
+        ],
+      };
+    }
+    if (params.amountMin !== undefined || params.amountMax !== undefined) {
+      where.totalAmount = {};
+      if (params.amountMin !== undefined) (where.totalAmount as any).gte = params.amountMin;
+      if (params.amountMax !== undefined) (where.totalAmount as any).lte = params.amountMax;
+    }
     if (params.sourceType && params.sourceType.length > 0) {
       where.sourceType =
         params.sourceType.length === 1
@@ -58,6 +76,112 @@ export class InvoiceService {
       orderBy: { createdAt: 'desc' },
       include: INVOICE_INCLUDE,
     });
+  }
+
+  async listPayments(params: {
+    dateFrom?: Date;
+    dateTo?: Date;
+    patientId?: string;
+    patientSearch?: string;
+    amountMin?: number;
+    amountMax?: number;
+    invoiceSourceType?: InvoiceSourceType[];
+    paymentMethod?: PaymentMethod[];
+  }) {
+    const where: Prisma.InvoicePaymentWhereInput = {};
+
+    if (params.patientId || params.patientSearch || (params.invoiceSourceType && params.invoiceSourceType.length > 0)) {
+      where.invoice = {};
+
+      if (params.patientId) {
+        where.invoice.patientId = params.patientId;
+      }
+
+      if (params.patientSearch) {
+        where.invoice.patient = {
+          OR: [
+            { first_name: { contains: params.patientSearch, mode: 'insensitive' } },
+            { last_name: { contains: params.patientSearch, mode: 'insensitive' } },
+          ],
+        };
+      }
+
+      if (params.invoiceSourceType && params.invoiceSourceType.length > 0) {
+        where.invoice.sourceType =
+          params.invoiceSourceType.length === 1
+            ? params.invoiceSourceType[0]
+            : { in: params.invoiceSourceType };
+      }
+    }
+
+    if (params.amountMin !== undefined || params.amountMax !== undefined) {
+      where.totalAmount = {};
+      if (params.amountMin !== undefined) (where.totalAmount as any).gte = params.amountMin;
+      if (params.amountMax !== undefined) (where.totalAmount as any).lte = params.amountMax;
+    }
+
+    if (params.dateFrom || params.dateTo) {
+      where.createdAt = {};
+      if (params.dateFrom) (where.createdAt as any).gte = params.dateFrom;
+      if (params.dateTo) (where.createdAt as any).lte = params.dateTo;
+    }
+
+    if (params.paymentMethod && params.paymentMethod.length > 0) {
+      const matchingTxs = await this.prisma.balanceTransaction.findMany({
+        where: {
+          source: BalanceTxSource.INVOICE_PAYMENT,
+          paymentMethod: { in: params.paymentMethod },
+        },
+        select: { sourceId: true },
+      });
+      where.id = { in: matchingTxs.map(tx => tx.sourceId).filter(Boolean) as string[] };
+    }
+
+    const payments = await this.prisma.invoicePayment.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        invoice: {
+          include: {
+            patient: true,
+          },
+        },
+        createdBy: true,
+      },
+    });
+
+    if (payments.length === 0) return [];
+
+    const balanceTxs = await this.prisma.balanceTransaction.findMany({
+      where: {
+        source: BalanceTxSource.INVOICE_PAYMENT,
+        sourceId: { in: payments.map(p => p.id) },
+      },
+      select: { sourceId: true, paymentMethod: true },
+    });
+    const methodMap = new Map(balanceTxs.map(tx => [tx.sourceId, tx.paymentMethod]));
+
+    return payments.map(p => ({
+      ...p,
+      paymentMethod: methodMap.get(p.id) || null,
+    }));
+  }
+
+  async updatePaymentMethod(paymentId: string, paymentMethod: PaymentMethod) {
+    const txs = await this.prisma.balanceTransaction.findMany({
+      where: { source: BalanceTxSource.INVOICE_PAYMENT, sourceId: paymentId }
+    });
+    
+    if (txs.length === 0) {
+      throw new NotFoundException("To'lov tranzaksiyasi topilmadi");
+    }
+
+    await this.prisma.balanceTransaction.updateMany({
+      where: { source: BalanceTxSource.INVOICE_PAYMENT, sourceId: paymentId, type: BalanceTxType.DEBIT },
+      data: { paymentMethod }
+    });
+    
+    return { success: true };
   }
 
   async createInvoice(params: {
