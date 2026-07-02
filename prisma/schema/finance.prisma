@@ -17,6 +17,7 @@ model BalanceTransaction {
   balanceAfter   Decimal         @db.Decimal(15, 2)
   source         BalanceTxSource
   sourceId       String?
+  paymentMethod  PaymentMethod?
   note           String?
   createdAt      DateTime        @default(now())
   createdById    String
@@ -181,4 +182,13 @@ enum InvoiceItemSourceType {
   DIAGNOSTIC_SERVICE
 
   @@map("invoice_item_source_types")
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+  OTHER
+
+  @@map("payment_methods")
 }

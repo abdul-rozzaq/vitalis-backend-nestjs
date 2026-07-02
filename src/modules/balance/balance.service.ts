@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
-import { BalanceTxSource, BalanceTxType, BonusTxType, BonusTxSource } from '../../generated/prisma/enums';
+import { BalanceTxSource, BalanceTxType, BonusTxType, BonusTxSource, PaymentMethod } from '../../generated/prisma/enums';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -10,6 +10,7 @@ export class BalanceService {
   async deposit(params: {
     patientId: string;
     amount: Prisma.Decimal;
+    paymentMethod: PaymentMethod;
     note?: string;
     staffId: string;
   }) {
@@ -30,6 +31,7 @@ export class BalanceService {
           amount: params.amount,
           balanceAfter: updated!.balance,
           source: BalanceTxSource.DEPOSIT,
+          paymentMethod: params.paymentMethod,
           note: params.note,
           patientBalance: { connect: { patientId: params.patientId } },
           createdBy: { connect: { id: params.staffId } },

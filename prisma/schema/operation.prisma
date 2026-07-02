@@ -1,11 +1,11 @@
 model OperationType {
-  id          String              @id @default(uuid())
-  name        String              @db.VarChar(128)
+  id          String                @id @default(uuid())
+  name        String                @db.VarChar(128)
   description String?
-  basePrice   Decimal             @default(0) @db.Decimal(15, 2)
-  isActive    Boolean             @default(true)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  basePrice   Decimal               @default(0) @db.Decimal(15, 2)
+  isActive    Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
   items       OperationTypeItem[]
   operations  Operation[]
   doctors     OperationTypeDoctor[]
@@ -94,7 +94,6 @@ enum SurgeonRole {
 
   @@map("surgeon_roles")
 }
-
 
 model OperationTypeDoctor {
   id              String        @id @default(uuid())

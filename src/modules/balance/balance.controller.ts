@@ -27,6 +27,7 @@ export class BalanceController {
     return this.balanceService.deposit({
       patientId,
       amount: new Prisma.Decimal(dto.amount),
+      paymentMethod: dto.paymentMethod,
       note: dto.note,
       staffId: user.userId,
     });

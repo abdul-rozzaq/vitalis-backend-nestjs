@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsNumberString, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumberString, IsOptional, IsString } from 'class-validator';
+import { PaymentMethod } from '../../../generated/prisma/enums';
 
 export class DepositDto {
   @IsString()
@@ -7,6 +8,9 @@ export class DepositDto {
 
   @IsNumberString()
   amount: string;
+
+  @IsEnum(PaymentMethod)
+  paymentMethod: PaymentMethod;
 
   @IsOptional()
   @IsString()
