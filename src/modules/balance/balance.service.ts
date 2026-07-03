@@ -14,29 +14,40 @@ export class BalanceService {
     note?: string;
     staffId: string;
   }) {
-    return this.prisma.$transaction(async (tx) => {
-      await tx.patientBalance.upsert({
-        where: { patientId: params.patientId },
-        create: { patientId: params.patientId, balance: params.amount },
-        update: { balance: { increment: params.amount } },
-      });
+    return this.prisma.$transaction((tx) => this.depositInTx(tx, params));
+  }
 
-      const updated = await tx.patientBalance.findUnique({
-        where: { patientId: params.patientId },
-      });
+  async depositInTx(
+    tx: Prisma.TransactionClient,
+    params: {
+      patientId: string;
+      amount: Prisma.Decimal;
+      paymentMethod: PaymentMethod;
+      note?: string;
+      staffId: string;
+    },
+  ) {
+    await tx.patientBalance.upsert({
+      where: { patientId: params.patientId },
+      create: { patientId: params.patientId, balance: params.amount },
+      update: { balance: { increment: params.amount } },
+    });
 
-      return tx.balanceTransaction.create({
-        data: {
-          type: BalanceTxType.CREDIT,
-          amount: params.amount,
-          balanceAfter: updated!.balance,
-          source: BalanceTxSource.DEPOSIT,
-          paymentMethod: params.paymentMethod,
-          note: params.note,
-          patientBalance: { connect: { patientId: params.patientId } },
-          createdBy: { connect: { id: params.staffId } },
-        },
-      });
+    const updated = await tx.patientBalance.findUnique({
+      where: { patientId: params.patientId },
+    });
+
+    return tx.balanceTransaction.create({
+      data: {
+        type: BalanceTxType.CREDIT,
+        amount: params.amount,
+        balanceAfter: updated!.balance,
+        source: BalanceTxSource.DEPOSIT,
+        paymentMethod: params.paymentMethod,
+        note: params.note,
+        patientBalance: { connect: { patientId: params.patientId } },
+        createdBy: { connect: { id: params.staffId } },
+      },
     });
   }
 

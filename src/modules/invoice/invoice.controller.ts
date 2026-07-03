@@ -121,6 +121,8 @@ export class InvoiceController {
       bonusAmount: new Prisma.Decimal(dto.bonusAmount),
       staffId: user.userId,
       note: dto.note,
+      paymentMethod: dto.paymentMethod,
+      topUp: dto.topUp,
     });
   }
 

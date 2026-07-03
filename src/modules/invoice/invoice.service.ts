@@ -237,6 +237,8 @@ export class InvoiceService {
     bonusAmount: Prisma.Decimal;
     staffId: string;
     note?: string;
+    paymentMethod?: PaymentMethod;
+    topUp?: boolean;
   }) {
     return this.prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.findUnique({
@@ -254,6 +256,19 @@ export class InvoiceService {
       }
 
       const totalPayment = params.cashAmount.add(params.bonusAmount);
+
+      // "To'g'ridan-to'g'ri" to'lov: naqd summani avval balansga tashlab,
+      // keyin darhol shu tranzaksiya ichida sarflaymiz — ikkalasi ham bir xil
+      // paymentMethod bilan belgilanadi va bitta atomic operatsiya bo'ladi.
+      if (params.topUp && params.paymentMethod && params.cashAmount.greaterThan(0)) {
+        await this.balanceService.depositInTx(tx, {
+          patientId: invoice.patientId,
+          amount: params.cashAmount,
+          paymentMethod: params.paymentMethod,
+          note: params.note,
+          staffId: params.staffId,
+        });
+      }
 
       const invoicePayment = await tx.invoicePayment.create({
         data: {
@@ -273,6 +288,7 @@ export class InvoiceService {
         bonusToUse: params.bonusAmount,
         source: BalanceTxSource.INVOICE_PAYMENT,
         sourceId: invoicePayment.id,
+        paymentMethod: params.paymentMethod,
         note: params.note,
         staffId: params.staffId,
       });
