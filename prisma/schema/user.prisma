@@ -18,15 +18,7 @@ model User {
   invoicesCreated        Invoice[]              @relation("InvoiceCreatedBy")
   labAssignments         LaboratoryAssignment[]
   operationSurgeons      OperationSurgeon[]     @relation("OperationSurgeons")
-  doctorShiftAssignments ShiftAssignment[]      @relation("DoctorShiftAssignments")
-  requestedShiftChanges  ShiftAssignment[]      @relation("ShiftChangeRequester")
-  shiftEventsFrom        ShiftChangeEvent[]     @relation("ShiftEventFromDoctor")
-  shiftEventsRequested   ShiftChangeEvent[]     @relation("ShiftEventRequestedBy")
-  shiftEventsTo          ShiftChangeEvent[]     @relation("ShiftEventToDoctor")
-  defaultNurseShifts     ShiftDefaultNurse[]    @relation("ShiftDefaultNurse")
-  shiftNotifications     ShiftNotification[]    @relation("ShiftNotificationUser")
-  nurseShiftAssignments  ShiftNurse[]           @relation("NurseShiftAssignments")
-  workingHoursLogs       WorkingHoursLog[]      @relation("WorkingHoursUser")
+  shiftStaff             ShiftStaff[]           @relation("ShiftStaffAssignments")
   operationTypeDoctors   OperationTypeDoctor[]  @relation("OperationTypeDoctors")
 
   @@map("users")

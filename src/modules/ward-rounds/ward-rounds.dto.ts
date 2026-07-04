@@ -4,7 +4,7 @@ import { PatientCondition } from "../../generated/prisma/client";
 
 export class CreateWardRoundDto {
   @IsUUID()
-  shiftAssignmentId: string;
+  shiftId: string;
 
   @IsOptional()
   @IsString()

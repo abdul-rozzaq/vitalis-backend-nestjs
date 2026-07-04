@@ -8,6 +8,7 @@ model Department {
   parent      Department?  @relation("DepartmentTree", fields: [parentId], references: [id])
   children    Department[] @relation("DepartmentTree")
   rooms       Room[]
+  shifts      Shift[]
 
   @@map("departments")
 }
@@ -25,8 +26,6 @@ model Room {
   assignments      Assignment[]
   operations       Operation[]
   department       Department?       @relation(fields: [departmentId], references: [id])
-  shiftAssignments ShiftAssignment[] @relation("RoomShiftAssignments")
-  shiftRooms       ShiftRoom[]
   wards            Wards[]
 
   @@map("rooms")

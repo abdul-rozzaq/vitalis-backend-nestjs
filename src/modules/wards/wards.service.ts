@@ -1,7 +1,7 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { WardStatus } from "../../generated/prisma/client";
 import { RoleName } from "../../common/enums/role-name.enum";
-import { ShiftAssignmentsService } from "../shift-assignments/shift-assignments.service";
+import { ShiftsService } from "../shifts/shifts.service";
 import { CheckOutDto, CreateWardDto, UpdateWardDto, WardQueryDto } from "./wards.dto";
 import { WardsRepository } from "./wards.repository";
 
@@ -9,16 +9,12 @@ import { WardsRepository } from "./wards.repository";
 export class WardsService {
   constructor(
     private readonly repository: WardsRepository,
-    private readonly shiftAssignmentsService: ShiftAssignmentsService,
+    private readonly shiftsService: ShiftsService,
   ) {}
 
   private async assertOnDuty(userId: string, roomId: string, userRole: RoleName) {
     if (userRole === RoleName.ADMIN || userRole === RoleName.DIREKTOR) return;
-    const active = await this.shiftAssignmentsService.resolveActiveForRoom(roomId);
-    if (!active) throw new ForbiddenException("Hozir bu xonada faol smena yo'q");
-    const isDoc = active.doctorId === userId;
-    const isNurse = active.nurses.some((n) => n.nurseId === userId);
-    if (!isDoc && !isNurse) throw new ForbiddenException("Siz bu xonada navbatda emassiz");
+    await this.shiftsService.assertUserOnDutyForRoom(userId, roomId);
   }
 
   // Bemorni palataga yotqizish

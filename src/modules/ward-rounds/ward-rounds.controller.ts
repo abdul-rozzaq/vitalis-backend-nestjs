@@ -17,8 +17,8 @@ export class WardRoundsController {
   }
 
   @Get("/")
-  findByAssignment(@Query("shiftAssignmentId") shiftAssignmentId: string) {
-    return this.service.findByAssignment(shiftAssignmentId);
+  findByShift(@Query("shiftId") shiftId: string) {
+    return this.service.findByShift(shiftId);
   }
 
   @Get("/:id")

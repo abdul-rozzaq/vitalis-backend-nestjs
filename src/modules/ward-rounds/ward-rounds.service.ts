@@ -1,98 +1,66 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
-import { ShiftAssignmentsService } from "../shift-assignments/shift-assignments.service";
 import { CompleteWardRoundDto, CreateWardRoundDto } from "./ward-rounds.dto";
 
 const PATIENT_SELECT = { id: true, first_name: true, last_name: true };
 
+const ROUND_INCLUDE = {
+  shift: { include: { department: { select: { id: true, name: true } } } },
+  patientNotes: { include: { patient: { select: PATIENT_SELECT } } },
+} as const;
+
 @Injectable()
 export class WardRoundsService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly shiftAssignmentsService: ShiftAssignmentsService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateWardRoundDto, userId: string) {
-    // Verify the user is the doctor for this assignment
-    const assignment = await this.prisma.shiftAssignment.findUnique({
-      where: { id: dto.shiftAssignmentId },
-      include: { nurses: true },
+    const shift = await this.prisma.shift.findUnique({
+      where: { id: dto.shiftId },
+      include: { staff: { select: { userId: true } } },
     });
+    if (!shift) throw new NotFoundException("Smena topilmadi");
 
-    // If no concrete assignment, check via recurring rule
-    let assignmentId = dto.shiftAssignmentId;
-
-    if (!assignment) {
-      throw new NotFoundException("Tayinlov topilmadi");
-    } else {
-      const isDoctor = assignment.doctorId === userId;
-      const isNurse = assignment.nurses.some((n) => n.nurseId === userId);
-      if (!isDoctor && !isNurse) throw new ForbiddenException("Siz bu smena uchun apoxot yarata olmaysiz");
-    }
+    const isStaff = shift.staff.some((s) => s.userId === userId);
+    if (!isStaff) throw new ForbiddenException("Siz bu smena uchun obhod yarata olmaysiz");
 
     return this.prisma.wardRound.create({
       data: {
-        shiftAssignmentId: assignmentId,
+        shiftId: dto.shiftId,
         scheduledAt: new Date(),
         notes: dto.notes,
       },
-      include: {
-        shiftAssignment: {
-          include: {
-            roomShift: { include: { rooms: { include: { room: { select: { id: true, name: true } } } } } },
-            doctor: { select: PATIENT_SELECT },
-          },
-        },
-        patientNotes: { include: { patient: { select: PATIENT_SELECT } } },
-      },
+      include: ROUND_INCLUDE,
     });
   }
 
-  async findByAssignment(shiftAssignmentId: string) {
+  async findByShift(shiftId: string) {
     return this.prisma.wardRound.findMany({
-      where: { shiftAssignmentId },
-      include: {
-        patientNotes: { include: { patient: { select: PATIENT_SELECT } } },
-      },
+      where: { shiftId },
+      include: { patientNotes: { include: { patient: { select: PATIENT_SELECT } } } },
       orderBy: { scheduledAt: "desc" },
     });
   }
 
   async findById(id: string) {
-    const round = await this.prisma.wardRound.findUnique({
-      where: { id },
-      include: {
-        shiftAssignment: {
-          include: {
-            roomShift: { include: { rooms: { include: { room: { select: { id: true, name: true } } } } } },
-            doctor: { select: PATIENT_SELECT },
-            nurses: { include: { nurse: { select: PATIENT_SELECT } } },
-          },
-        },
-        patientNotes: { include: { patient: { select: PATIENT_SELECT } } },
-      },
-    });
-    if (!round) throw new NotFoundException("Apoxot topilmadi");
+    const round = await this.prisma.wardRound.findUnique({ where: { id }, include: ROUND_INCLUDE });
+    if (!round) throw new NotFoundException("Obhod topilmadi");
     return round;
   }
 
   async complete(id: string, dto: CompleteWardRoundDto, userId: string) {
     const round = await this.prisma.wardRound.findUnique({
       where: { id },
-      include: { shiftAssignment: { include: { nurses: true } } },
+      include: { shift: { include: { staff: { select: { userId: true } } } } },
     });
-    if (!round) throw new NotFoundException("Apoxot topilmadi");
-    if (round.completedAt) throw new ForbiddenException("Apoxot allaqachon yakunlangan");
+    if (!round) throw new NotFoundException("Obhod topilmadi");
+    if (round.completedAt) throw new ForbiddenException("Obhod allaqachon yakunlangan");
 
-    const isDoctor = round.shiftAssignment.doctorId === userId;
-    const isNurse = round.shiftAssignment.nurses.some((n) => n.nurseId === userId);
-    if (!isDoctor && !isNurse) throw new ForbiddenException("Siz bu apoxotni yakunlay olmaysiz");
+    const isStaff = round.shift.staff.some((s) => s.userId === userId);
+    if (!isStaff) throw new ForbiddenException("Siz bu obhodni yakunlay olmaysiz");
 
     return this.prisma.$transaction(async (tx) => {
-      // Delete old patient notes if any
       await tx.wardRoundPatient.deleteMany({ where: { roundId: id } });
 
-      // Create new patient status records
       if (dto.patients.length > 0) {
         await tx.wardRoundPatient.createMany({
           data: dto.patients.map((p) => ({
@@ -107,9 +75,7 @@ export class WardRoundsService {
       return tx.wardRound.update({
         where: { id },
         data: { completedAt: new Date(), notes: dto.notes ?? round.notes },
-        include: {
-          patientNotes: { include: { patient: { select: PATIENT_SELECT } } },
-        },
+        include: { patientNotes: { include: { patient: { select: PATIENT_SELECT } } } },
       });
     });
   }

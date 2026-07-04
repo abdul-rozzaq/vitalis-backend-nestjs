@@ -34,17 +34,13 @@ import { WardsModule } from './modules/wards/wards.module';
 import { BalanceModule } from './modules/balance/balance.module';
 import { InvoiceModule } from './modules/invoice/invoice.module';
 import { WardBillingModule } from './modules/ward-billing/ward-billing.module';
-import { RoomShiftsModule } from './modules/room-shifts/room-shifts.module';
-import { ShiftAssignmentsModule } from './modules/shift-assignments/shift-assignments.module';
+import { ShiftsModule } from './modules/shifts/shifts.module';
 import { WardRoundsModule } from './modules/ward-rounds/ward-rounds.module';
 import { OperationsModule } from "./modules/operations/operations.module";
 import { OperationTypesModule } from "./modules/operation-types/operation-types.module";
 import { DiagnosticsModule } from "./modules/diagnostics/diagnostics.module";
 import { DiagnosticOrdersModule } from "./modules/diagnostic-orders/diagnostic-orders.module";
 import { DiagnosticAssignmentsModule } from "./modules/diagnostic-assignments/diagnostic-assignments.module";
-import { ShiftEventsModule } from "./modules/shift-events/shift-events.module";
-import { ShiftNotificationsModule } from "./modules/shift-notifications/shift-notifications.module";
-import { WorkingHoursModule } from "./modules/working-hours/working-hours.module";
 import { ScheduleModule } from "@nestjs/schedule";
 
 @Module({
@@ -87,17 +83,13 @@ import { ScheduleModule } from "@nestjs/schedule";
     BalanceModule,
     InvoiceModule,
     WardBillingModule,
-    RoomShiftsModule,
-    ShiftAssignmentsModule,
+    ShiftsModule,
     WardRoundsModule,
     OperationTypesModule,
     OperationsModule,
     DiagnosticsModule,
     DiagnosticOrdersModule,
     DiagnosticAssignmentsModule,
-    ShiftEventsModule,
-    ShiftNotificationsModule,
-    WorkingHoursModule,
   ],
   controllers: [AppController],
   providers: [

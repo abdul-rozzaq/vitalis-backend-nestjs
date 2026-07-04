@@ -1,97 +1,44 @@
-model RoomShift {
-  id            String              @id @default(uuid())
-  name          String              @db.VarChar(64)
-  startHour     Int
-  endHour       Int
-  startMinute   Int                 @default(0)
-  endMinute     Int                 @default(0)
-  color         String?             @db.VarChar(7)
-  roundHour     Int?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  assignments   ShiftAssignment[]
-  changeEvents  ShiftChangeEvent[]
-  defaultNurses ShiftDefaultNurse[]
-  rooms         ShiftRoom[]
+model Shift {
+  id              String       @id @default(uuid())
+  departmentId    String
+  startAt         DateTime // to'liq timestamp (smena boshlanishi)
+  endAt           DateTime // to'liq timestamp (tugash — ertasi kun bo'lishi mumkin)
+  requiredDoctors Int          @default(1)
+  requiredNurses  Int          @default(1)
+  note            String?      @db.VarChar(500)
+  status          ShiftStatus  @default(SCHEDULED)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  department      Department   @relation(fields: [departmentId], references: [id])
+  staff           ShiftStaff[]
+  rounds          WardRound[]
 
-  @@map("room_shifts")
+  @@index([departmentId, startAt])
+  @@map("shifts")
 }
 
-model ShiftRoom {
-  id          String    @id @default(uuid())
-  roomShiftId String
-  roomId      String
-  room        Room      @relation(fields: [roomId], references: [id])
-  roomShift   RoomShift @relation(fields: [roomShiftId], references: [id], onDelete: Cascade)
+model ShiftStaff {
+  id      String         @id @default(uuid())
+  shiftId String
+  userId  String
+  /// Qaysi kvotani band qilyapti: DOCTOR yoki NURSE
+  role    ShiftStaffRole
+  shift   Shift          @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  user    User           @relation("ShiftStaffAssignments", fields: [userId], references: [id])
 
-  @@unique([roomShiftId, roomId])
-  @@map("shift_rooms")
-}
-
-model ShiftDefaultNurse {
-  id          String    @id @default(uuid())
-  roomShiftId String
-  nurseId     String
-  nurse       User      @relation("ShiftDefaultNurse", fields: [nurseId], references: [id])
-  roomShift   RoomShift @relation(fields: [roomShiftId], references: [id], onDelete: Cascade)
-
-  @@unique([roomShiftId, nurseId])
-  @@map("shift_default_nurses")
-}
-
-model ShiftAssignment {
-  id                 String             @id @default(uuid())
-  roomShiftId        String
-  roomId             String
-  date               DateTime           @db.Date
-  doctorId           String
-  isOverride         Boolean            @default(false)
-  overrideType       ShiftOverrideType?
-  overrideStart      Int?
-  overrideEnd        Int?
-  swappedWithId      String?
-  parentAssignmentId String?
-  requestedById      String?
-  reason             String?            @db.VarChar(500)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  doctor             User               @relation("DoctorShiftAssignments", fields: [doctorId], references: [id])
-  parent             ShiftAssignment?   @relation("SplitChildren", fields: [parentAssignmentId], references: [id])
-  children           ShiftAssignment[]  @relation("SplitChildren")
-  requestedBy        User?              @relation("ShiftChangeRequester", fields: [requestedById], references: [id])
-  room               Room               @relation("RoomShiftAssignments", fields: [roomId], references: [id])
-  roomShift          RoomShift          @relation(fields: [roomShiftId], references: [id])
-  swappedWith        ShiftAssignment?   @relation("SwapPair", fields: [swappedWithId], references: [id])
-  swapInverse        ShiftAssignment[]  @relation("SwapPair")
-  changeEvents       ShiftChangeEvent[]
-  nurses             ShiftNurse[]
-  rounds             WardRound[]
-  workingHoursLogs   WorkingHoursLog[]
-
-  @@unique([roomShiftId, roomId, date])
-  @@map("shift_assignments")
-}
-
-model ShiftNurse {
-  id                String          @id @default(uuid())
-  shiftAssignmentId String
-  nurseId           String
-  nurse             User            @relation("NurseShiftAssignments", fields: [nurseId], references: [id])
-  shiftAssignment   ShiftAssignment @relation(fields: [shiftAssignmentId], references: [id], onDelete: Cascade)
-
-  @@unique([shiftAssignmentId, nurseId])
-  @@map("shift_nurses")
+  @@unique([shiftId, userId])
+  @@map("shift_staff")
 }
 
 model WardRound {
-  id                String             @id @default(uuid())
-  shiftAssignmentId String
-  scheduledAt       DateTime
-  completedAt       DateTime?
-  notes             String?
-  createdAt         DateTime           @default(now())
-  patientNotes      WardRoundPatient[]
-  shiftAssignment   ShiftAssignment    @relation(fields: [shiftAssignmentId], references: [id])
+  id           String             @id @default(uuid())
+  shiftId      String
+  scheduledAt  DateTime
+  completedAt  DateTime?
+  notes        String?
+  createdAt    DateTime           @default(now())
+  patientNotes WardRoundPatient[]
+  shift        Shift              @relation(fields: [shiftId], references: [id], onDelete: Cascade)
 
   @@map("ward_rounds")
 }
@@ -118,11 +65,18 @@ enum PatientCondition {
   @@map("patient_conditions")
 }
 
-enum ShiftOverrideType {
-  FULL_OVERRIDE
-  SWAP
-  PARTIAL_TRANSFER
-  OVERTIME
+enum ShiftStatus {
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  CANCELLED
 
-  @@map("shift_override_types")
+  @@map("shift_statuses")
+}
+
+enum ShiftStaffRole {
+  DOCTOR
+  NURSE
+
+  @@map("shift_staff_roles")
 }
