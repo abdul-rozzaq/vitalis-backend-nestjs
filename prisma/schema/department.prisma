@@ -10,23 +10,27 @@ model Department {
   rooms       Room[]
   shifts      Shift[]
 
+  // New scheduling relations
+  workSchedules  WorkSchedule[]
+  shiftTemplates ShiftTemplate[]
+
   @@map("departments")
 }
 
 model Room {
-  id               String            @id @default(uuid())
-  name             String            @db.VarChar(64)
-  floor            Int?
-  capacity         Int               @default(1)
-  description      String?
-  roomType         RoomType          @map("room_type")
-  departmentId     String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  assignments      Assignment[]
-  operations       Operation[]
-  department       Department?       @relation(fields: [departmentId], references: [id])
-  wards            Wards[]
+  id           String       @id @default(uuid())
+  name         String       @db.VarChar(64)
+  floor        Int?
+  capacity     Int          @default(1)
+  description  String?
+  roomType     RoomType     @map("room_type")
+  departmentId String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  assignments  Assignment[]
+  operations   Operation[]
+  department   Department?  @relation(fields: [departmentId], references: [id])
+  wards        Wards[]
 
   @@map("rooms")
 }

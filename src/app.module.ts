@@ -42,6 +42,7 @@ import { DiagnosticsModule } from "./modules/diagnostics/diagnostics.module";
 import { DiagnosticOrdersModule } from "./modules/diagnostic-orders/diagnostic-orders.module";
 import { DiagnosticAssignmentsModule } from "./modules/diagnostic-assignments/diagnostic-assignments.module";
 import { ScheduleModule } from "@nestjs/schedule";
+import { SchedulingModule } from "./modules/scheduling/scheduling.module";
 
 @Module({
   imports: [
@@ -90,6 +91,7 @@ import { ScheduleModule } from "@nestjs/schedule";
     DiagnosticsModule,
     DiagnosticOrdersModule,
     DiagnosticAssignmentsModule,
+    SchedulingModule,
   ],
   controllers: [AppController],
   providers: [

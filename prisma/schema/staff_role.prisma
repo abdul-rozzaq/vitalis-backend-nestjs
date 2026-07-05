@@ -1,0 +1,13 @@
+model StaffRole {
+  id                   String                     @id @default(uuid())
+  code                 String                     @unique // e.g., "DOCTOR", "NURSE", "FELDSHER"
+  name                 String // e.g., "Shifokor", "Hamshira", "Feldsher"
+  description          String?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  requirements         ShiftRequirement[]
+  assignments          ShiftAssignment[]
+  templateRequirements ShiftTemplateRequirement[]
+
+  @@map("staff_roles")
+}

@@ -1,0 +1,27 @@
+model ShiftTemplate {
+  id           String   @id @default(uuid())
+  departmentId String? // Optional: global vs department template
+  name         String // e.g., "Morning Shift (ICU)"
+  startTime    String // "08:00"
+  endTime      String // "16:00"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department   Department?                @relation(fields: [departmentId], references: [id])
+  requirements ShiftTemplateRequirement[]
+
+  @@map("shift_templates")
+}
+
+model ShiftTemplateRequirement {
+  id            String @id @default(uuid())
+  templateId    String
+  roleId        String
+  requiredCount Int    @default(1)
+
+  template ShiftTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  role     StaffRole     @relation(fields: [roleId], references: [id])
+
+  @@unique([templateId, roleId])
+  @@map("shift_template_requirements")
+}

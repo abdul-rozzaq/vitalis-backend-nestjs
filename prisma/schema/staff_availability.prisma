@@ -1,0 +1,46 @@
+model StaffAvailability {
+  id        String           @id @default(uuid())
+  userId    String
+  dayOfWeek Int // 1=Mon, ..., 7=Sun
+  startTime String           @db.VarChar(5)
+  endTime   String           @db.VarChar(5)
+  type      AvailabilityType @default(AVAILABLE)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, dayOfWeek])
+  @@map("staff_availabilities")
+}
+
+model StaffTimeOff {
+  id        String        @id @default(uuid())
+  userId    String
+  startDate DateTime
+  endDate   DateTime
+  reason    String?
+  status    TimeOffStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startDate, endDate])
+  @@map("staff_time_offs")
+}
+
+enum AvailabilityType {
+  AVAILABLE
+  UNAVAILABLE
+
+  @@map("availability_types")
+}
+
+enum TimeOffStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("time_off_statuses")
+}
