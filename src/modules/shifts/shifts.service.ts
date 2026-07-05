@@ -9,6 +9,8 @@ const STAFF_SELECT = { id: true, first_name: true, last_name: true, role: true }
 const SHIFT_INCLUDE = {
   department: { select: { id: true, name: true } },
   staff: { include: { user: { select: STAFF_SELECT } } },
+  requirements: { include: { role: true } },
+  assignments: { include: { user: { select: STAFF_SELECT }, role: true } },
 } as const;
 
 type ShiftWithStaff = {
@@ -43,9 +45,9 @@ export class ShiftsService {
     if (query.departmentId) where.departmentId = query.departmentId;
     if (query.status) where.status = query.status;
     if (query.from || query.to) {
-      where.startAt = {};
-      if (query.from) where.startAt.gte = new Date(query.from);
-      if (query.to) where.startAt.lte = new Date(query.to);
+      where.AND = [];
+      if (query.from) where.AND.push({ endAt: { gte: new Date(query.from) } });
+      if (query.to) where.AND.push({ startAt: { lte: new Date(query.to) } });
     }
 
     const shifts = await this.prisma.shift.findMany({
@@ -85,9 +87,31 @@ export class ShiftsService {
         note: dto.note,
         staff: staff.length ? { create: staff.map((s) => ({ userId: s.userId, role: s.role })) } : undefined,
       },
-      include: SHIFT_INCLUDE,
     });
-    return withStaffing(shift);
+
+    // Dual-write requirements and assignments
+    const docRole = await this.getRoleByCode('DOCTOR');
+    const nurseRole = await this.getRoleByCode('NURSE');
+
+    const reqs = [];
+    if (dto.requiredDoctors) reqs.push({ shiftId: shift.id, roleId: docRole.id, requiredCount: dto.requiredDoctors });
+    else reqs.push({ shiftId: shift.id, roleId: docRole.id, requiredCount: 1 });
+    if (dto.requiredNurses) reqs.push({ shiftId: shift.id, roleId: nurseRole.id, requiredCount: dto.requiredNurses });
+    else reqs.push({ shiftId: shift.id, roleId: nurseRole.id, requiredCount: 1 });
+    
+    await this.prisma.shiftRequirement.createMany({ data: reqs });
+
+    if (staff.length) {
+      const assigns = staff.map(s => ({
+        shiftId: shift.id,
+        userId: s.userId,
+        roleId: s.role === ShiftStaffRole.DOCTOR ? docRole.id : nurseRole.id
+      }));
+      await this.prisma.shiftAssignment.createMany({ data: assigns });
+    }
+
+    const finalShift = await this.prisma.shift.findUnique({ where: { id: shift.id }, include: SHIFT_INCLUDE });
+    return withStaffing(finalShift as any);
   }
 
   async update(id: string, dto: UpdateShiftDto) {
@@ -114,9 +138,31 @@ export class ShiftsService {
         note: dto.note,
         status: dto.status,
       },
-      include: SHIFT_INCLUDE,
     });
-    return withStaffing(shift);
+
+    // Dual-update requirements
+    if (dto.requiredDoctors !== undefined || dto.requiredNurses !== undefined) {
+      const docRole = await this.getRoleByCode('DOCTOR');
+      const nurseRole = await this.getRoleByCode('NURSE');
+      
+      if (dto.requiredDoctors !== undefined) {
+        await this.prisma.shiftRequirement.upsert({
+          where: { shiftId_roleId: { shiftId: id, roleId: docRole.id } },
+          create: { shiftId: id, roleId: docRole.id, requiredCount: dto.requiredDoctors },
+          update: { requiredCount: dto.requiredDoctors }
+        });
+      }
+      if (dto.requiredNurses !== undefined) {
+        await this.prisma.shiftRequirement.upsert({
+          where: { shiftId_roleId: { shiftId: id, roleId: nurseRole.id } },
+          create: { shiftId: id, roleId: nurseRole.id, requiredCount: dto.requiredNurses },
+          update: { requiredCount: dto.requiredNurses }
+        });
+      }
+    }
+
+    const finalShift = await this.prisma.shift.findUnique({ where: { id }, include: SHIFT_INCLUDE });
+    return withStaffing(finalShift as any);
   }
 
   async delete(id: string) {
@@ -129,15 +175,37 @@ export class ShiftsService {
   // ── Xodim biriktirish ──────────────────────────────────────────────────────
 
   async assignStaff(id: string, dto: AssignStaffDto) {
-    const shift = await this.prisma.shift.findUnique({ where: { id }, select: { id: true } });
+    const shift = await this.prisma.shift.findUnique({ where: { id }, select: { id: true, startAt: true, endAt: true } });
     if (!shift) throw new NotFoundException("Smena topilmadi");
     await this.validateStaffRole(dto.userId, dto.role);
+
+    // Improvement 3: Overlap validation
+    const overlapping = await this.prisma.shiftStaff.findFirst({
+      where: {
+        userId: dto.userId,
+        shift: {
+          id: { not: id },
+          startAt: { lt: shift.endAt },
+          endAt: { gt: shift.startAt }
+        }
+      }
+    });
+    if (overlapping) throw new BadRequestException("Xodim bu vaqtda boshqa smenaga biriktirilgan (Overlap)");
 
     await this.prisma.shiftStaff.upsert({
       where: { shiftId_userId: { shiftId: id, userId: dto.userId } },
       create: { shiftId: id, userId: dto.userId, role: dto.role },
       update: { role: dto.role },
     });
+
+    // Dual-write to ShiftAssignment
+    const roleId = (await this.getRoleByCode(dto.role)).id;
+    await this.prisma.shiftAssignment.upsert({
+      where: { shiftId_userId: { shiftId: id, userId: dto.userId } },
+      create: { shiftId: id, userId: dto.userId, roleId },
+      update: { roleId },
+    });
+
     return this.retrieve(id);
   }
 
@@ -145,6 +213,7 @@ export class ShiftsService {
     const shift = await this.prisma.shift.findUnique({ where: { id }, select: { id: true } });
     if (!shift) throw new NotFoundException("Smena topilmadi");
     await this.prisma.shiftStaff.deleteMany({ where: { shiftId: id, userId } });
+    await this.prisma.shiftAssignment.deleteMany({ where: { shiftId: id, userId } });
     return this.retrieve(id);
   }
 
@@ -237,5 +306,13 @@ export class ShiftsService {
     if (role === ShiftStaffRole.NURSE && user.role !== RoleName.HAMSHIRA) {
       throw new BadRequestException("Tanlangan xodim hamshira emas");
     }
+  }
+
+  private async getRoleByCode(code: string) {
+    let role = await this.prisma.staffRole.findUnique({ where: { code } });
+    if (!role) {
+      role = await this.prisma.staffRole.create({ data: { code, name: code } });
+    }
+    return role;
   }
 }
