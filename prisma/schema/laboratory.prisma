@@ -16,6 +16,10 @@ model LaboratoryService {
   name          String         @db.VarChar(64)
   price         Float?
   laboratoryId  String
+  // Har bir xizmat turi uchun standart natija qatorlari shabloni,
+  // masalan: [{ "indicator": "Лейкоцитлар сони (WBC)", "norm": "4.0-10.0", "unit": "10^9 г/л" }, ...]
+  // Laborant natija jadvalini birinchi ochganda shu shablon bilan oldindan to'ldiriladi.
+  defaultRows   Json?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   labOrderItems LabOrderItem[]
@@ -38,41 +42,84 @@ model LaboratoryAssignment {
 }
 
 model LabOrder {
-  id           String         @id @default(uuid())
-  status       LabOrderStatus @default(PENDING)
-  caseStepId   String         @unique
-  patientId    String
-  laboratoryId String
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  items        LabOrderItem[]
-  caseStep     CaseStep       @relation(fields: [caseStepId], references: [id], onDelete: Cascade)
-  laboratory   Laboratory     @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
-  patient      Patient        @relation(fields: [patientId], references: [id])
+  id            String         @id @default(uuid())
+  status        LabOrderStatus @default(PENDING)
+  caseStepId    String         @unique
+  patientId     String
+  laboratoryId  String
+  // Buyurtmaning ko'rinadigan tartib raqami (masalan blank/hujjatda chop etish uchun).
+  // Bo'sh bo'lsa, hujjat generatorida id'ning oxirgi 4 belgisidan foydalaniladi.
+  orderNumber   String?
+  // Namuna (qon/siydik va h.k.) haqiqatda olingan sana. Bo'sh bo'lsa, buyurtma
+  // yaratilgan sana (createdAt) ishlatiladi.
+  sampleTakenAt DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  items         LabOrderItem[]
+  caseStep      CaseStep       @relation(fields: [caseStepId], references: [id], onDelete: Cascade)
+  laboratory    Laboratory     @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
+  patient       Patient        @relation(fields: [patientId], references: [id])
 
   @@map("lab_orders")
 }
 
 model LabOrderItem {
-  id          String             @id @default(uuid())
-  status      LabItemStatus      @default(PENDING)
-  labOrderId  String
-  serviceId   String
-  fileUrl     String?
-  fileName    String?
-  note        String?
-  completedAt DateTime?
-  startedAt   DateTime?
-  readyAt     DateTime?
-  deliveredAt DateTime?
-  cancelledAt DateTime?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  files       LabOrderItemFile[]
-  labOrder    LabOrder           @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
-  service     LaboratoryService  @relation(fields: [serviceId], references: [id])
+  id            String             @id @default(uuid())
+  status        LabItemStatus      @default(PENDING)
+  labOrderId    String
+  serviceId     String
+  // Natijani kim kiritgani/tasdiqlagani (odatda laborant). Bo'sh bo'lishi mumkin —
+  // masalan hali natija kiritilmagan yoki eski yozuvlar uchun.
+  performedById String?
+  fileUrl       String?
+  fileName      String?
+  note          String?
+  completedAt   DateTime?
+  startedAt     DateTime?
+  readyAt       DateTime?
+  deliveredAt   DateTime?
+  cancelledAt   DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  files         LabOrderItemFile[]
+  labOrder      LabOrder           @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
+  service       LaboratoryService  @relation(fields: [serviceId], references: [id])
+  performedBy   User?              @relation("LabOrderItemPerformedBy", fields: [performedById], references: [id])
+  resultTable   LabResultTable?
 
   @@map("lab_order_items")
+}
+
+// Structured lab-result entry: replaces the old "fill it in Word, then upload"
+// workflow. A lab item gets one result table made up of ordered rows
+// (indicator / result / norm / unit), entered directly in the system.
+model LabResultTable {
+  id             String         @id @default(uuid())
+  labOrderItemId String         @unique
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  labOrderItem   LabOrderItem   @relation(fields: [labOrderItemId], references: [id], onDelete: Cascade)
+  rows           LabResultRow[]
+
+  @@map("lab_result_tables")
+}
+
+model LabResultRow {
+  id        String         @id @default(uuid())
+  tableId   String
+  // Qisqa kod/qisqartma (masalan WBC, RBC, HGB) — blankalarda "Кўрсаткичлар" ustunidan
+  // chapda alohida ko'rsatiladigan qisqa belgi. Har doim ham bo'lmasligi mumkin.
+  code      String?
+  indicator String
+  result    String
+  norm      String?
+  unit      String?
+  sortOrder Int            @default(0)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  table     LabResultTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@map("lab_result_rows")
 }
 
 model LabOrderItemFile {

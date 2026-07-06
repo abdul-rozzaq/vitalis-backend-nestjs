@@ -4,14 +4,30 @@ import { PrismaService } from "../../prisma/prisma.service";
 
 const LAB_ORDER_INCLUDE = {
   patient: {
-    select: { id: true, first_name: true, last_name: true, phone_number: true },
+    select: {
+      id: true,
+      first_name: true,
+      last_name: true,
+      phone_number: true,
+      birth_date: true, // "Туғилган йили" uchun
+    },
   },
-  laboratory: { select: { id: true, name: true } },
+  laboratory: {
+    select: { id: true, name: true }, // logotip endi backend'dagi statik fayldan olinadi, DB'da saqlash shart emas
+  },
   caseStep: { select: { id: true, caseId: true, status: true } },
   items: {
     include: {
-      service: { select: { id: true, name: true, price: true } },
+      service: { select: { id: true, name: true, price: true, defaultRows: true } },
       files: { orderBy: { createdAt: "asc" as const } },
+      resultTable: {
+        include: { rows: { orderBy: { sortOrder: "asc" as const } } },
+      },
+      performedBy: {
+        // Natijani kiritgan/tasdiqlagan laborant — mavjud bo'lmasa null qaytaradi,
+        // servis darajasida joriy foydalanuvchi bilan fallback qilinadi
+        select: { id: true, first_name: true, last_name: true },
+      },
     },
     orderBy: { createdAt: "asc" as const },
   },
@@ -43,7 +59,7 @@ export class LabOrdersRepository {
     });
   }
 
-  updateItem(itemId: string, data: { status?: LabItemStatus; note?: string }) {
+  updateItem(itemId: string, data: { status?: LabItemStatus; note?: string; performedById?: string }) {
     const now = new Date();
 
     const timeData = {
@@ -76,6 +92,45 @@ export class LabOrdersRepository {
 
   findFile(fileId: string) {
     return this.prisma.labOrderItemFile.findUnique({ where: { id: fileId } });
+  }
+
+  upsertResultTable(
+    itemId: string,
+    rows: { code?: string; indicator: string; result?: string; norm?: string; unit?: string; sortOrder?: number }[],
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const table = await tx.labResultTable.upsert({
+        where: { labOrderItemId: itemId },
+        create: { labOrderItemId: itemId },
+        update: {},
+      });
+
+      await tx.labResultRow.deleteMany({ where: { tableId: table.id } });
+
+      await tx.labResultRow.createMany({
+        data: rows.map((r, index) => ({
+          tableId: table.id,
+          code: r.code,
+          indicator: r.indicator,
+          // Natija hali tayyor bo'lmagan ko'rsatkichlar uchun (masalan tahlil hali
+          // qilinmagan) bo'sh qoldirilsa, "-" bilan avtomatik to'ldiramiz — shu orqali
+          // laborant to'liq bo'lmagan jadvalni ham saqlashi mumkin.
+          result: r.result?.trim() ? r.result : "-",
+          norm: r.norm,
+          unit: r.unit,
+          sortOrder: r.sortOrder ?? index,
+        })),
+      });
+
+      return tx.labResultTable.findUniqueOrThrow({
+        where: { id: table.id },
+        include: { rows: { orderBy: { sortOrder: "asc" } } },
+      });
+    });
+  }
+
+  deleteResultTable(itemId: string) {
+    return this.prisma.labResultTable.deleteMany({ where: { labOrderItemId: itemId } });
   }
 
   async recalcOrderStatus(labOrderId: string) {

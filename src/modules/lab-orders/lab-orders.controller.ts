@@ -1,9 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Put, Res } from "@nestjs/common";
+import { Response } from "express";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
-import { AddLabOrderItemFileDto, UpdateLabOrderItemDto } from "./lab-orders.dto";
+import { AddLabOrderItemFileDto, UpdateLabOrderItemDto, UpsertLabResultTableDto } from "./lab-orders.dto";
 import { LabOrdersService } from "./lab-orders.service";
 
 @Roles(RoleName.ADMIN, RoleName.DOCTOR, RoleName.LABARANT)
@@ -24,6 +25,42 @@ export class LabOrdersController {
   @Patch(":id/items/:itemId")
   updateItem(@Param("id") id: string, @Param("itemId") itemId: string, @Body() dto: UpdateLabOrderItemDto) {
     return this.service.updateItem(id, itemId, dto);
+  }
+
+  @Put(":id/items/:itemId/result-table")
+  saveResultTable(
+    @Param("id") id: string,
+    @Param("itemId") itemId: string,
+    @Body() dto: UpsertLabResultTableDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.saveResultTable(id, itemId, dto, user);
+  }
+
+  @Get(":id/items/:itemId/download/:format")
+  async downloadDocument(
+    @Param("id") id: string,
+    @Param("itemId") itemId: string,
+    @Param("format") format: string,
+    @CurrentUser() user: JwtPayload,
+    @Res() res: Response,
+  ) {
+    if (format !== "pdf" && format !== "docx") {
+      throw new BadRequestException("Format faqat 'pdf' yoki 'docx' bo'lishi mumkin");
+    }
+
+    const buffer = await this.service.generateDocument(id, itemId, format, user);
+
+    res.set({
+      "Content-Type":
+        format === "pdf"
+          ? "application/pdf"
+          : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "Content-Disposition": `attachment; filename=natija-${itemId}.${format}`,
+      "Content-Length": buffer.length,
+    });
+
+    res.send(buffer);
   }
 
   @Post(":id/items/:itemId/files")
