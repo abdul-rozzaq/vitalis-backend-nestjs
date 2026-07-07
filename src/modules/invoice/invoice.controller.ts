@@ -5,6 +5,7 @@ import { Prisma } from '../../generated/prisma/client';
 import { InvoiceItemSourceType, InvoiceSourceType, InvoiceStatus } from '../../generated/prisma/enums';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { PayInvoiceDto } from './dto/pay-invoice.dto';
+import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { UpdatePaymentMethodDto } from './dto/update-payment-method.dto';
 import { InvoiceService } from './invoice.service';
 
@@ -127,8 +128,8 @@ export class InvoiceController {
   }
 
   @Patch(':id')
-  cancelInvoice(@Param('id') id: string) {
-    return this.invoiceService.cancelInvoice(id);
+  updateInvoice(@Param('id') id: string, @Body() dto: UpdateInvoiceDto) {
+    return this.invoiceService.updateInvoice(id, dto);
   }
 }
 

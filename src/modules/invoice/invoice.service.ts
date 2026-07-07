@@ -10,6 +10,7 @@ import {
 } from '../../generated/prisma/enums';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BalanceService } from '../balance/balance.service';
+import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 
 const INVOICE_INCLUDE = {
   items: true,
@@ -358,5 +359,105 @@ export class InvoiceService {
       this.prisma.invoice.count({ where }),
     ]);
     return { data, total, page, limit };
+  }
+
+  async updateInvoice(id: string, dto: UpdateInvoiceDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const invoice = await tx.invoice.findUnique({
+        where: { id },
+        include: { items: true },
+      });
+
+      if (!invoice) {
+        throw new NotFoundException('Invoice not found');
+      }
+
+      // If status is being updated to CANCELLED, use the cancel logic
+      if (dto.status === InvoiceStatus.CANCELLED) {
+        if (invoice.status === InvoiceStatus.PAID) {
+          throw new BadRequestException('Cannot cancel a paid invoice');
+        }
+        return tx.invoice.update({
+          where: { id },
+          data: { status: InvoiceStatus.CANCELLED },
+          include: INVOICE_INCLUDE,
+        });
+      }
+
+      // Otherwise, prevent any changes if it's already PAID or CANCELLED
+      if (
+        invoice.status === InvoiceStatus.PAID ||
+        invoice.status === InvoiceStatus.CANCELLED
+      ) {
+        throw new BadRequestException('Cannot edit a paid or cancelled invoice');
+      }
+
+      const updateData: Prisma.InvoiceUpdateInput = {};
+
+      if (dto.patientId) {
+        updateData.patient = { connect: { id: dto.patientId } };
+      }
+      if (dto.dueDate !== undefined) {
+        updateData.dueDate = dto.dueDate;
+      }
+      if (dto.note !== undefined) {
+        updateData.note = dto.note;
+      }
+      if (dto.sourceType !== undefined) {
+        updateData.sourceType = dto.sourceType;
+      }
+      if (dto.sourceId !== undefined) {
+        updateData.sourceId = dto.sourceId;
+      }
+      if (dto.status !== undefined) {
+        updateData.status = dto.status;
+      }
+
+      if (dto.items) {
+        // Delete all old items
+        await tx.invoiceItem.deleteMany({
+          where: { invoiceId: id },
+        });
+
+        // Calculate new total amount
+        const totalAmount = dto.items.reduce((sum, item) => {
+          return sum.add(new Prisma.Decimal(item.unitPrice).mul(item.quantity));
+        }, new Prisma.Decimal(0));
+
+        updateData.totalAmount = totalAmount;
+
+        // Recreate items
+        updateData.items = {
+          create: dto.items.map((item) => ({
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: new Prisma.Decimal(item.unitPrice),
+            totalPrice: new Prisma.Decimal(item.unitPrice).mul(item.quantity),
+            sourceType: item.sourceType,
+            sourceId: item.sourceId,
+            dateFrom: item.dateFrom,
+            dateTo: item.dateTo,
+          })),
+        };
+
+        // Automatically adjust status based on payments
+        if (dto.status === undefined) {
+          const totalPaid = invoice.paidCash.add(invoice.paidBonus);
+          if (totalPaid.greaterThanOrEqualTo(totalAmount)) {
+            updateData.status = InvoiceStatus.PAID;
+          } else if (totalPaid.greaterThan(0)) {
+            updateData.status = InvoiceStatus.PARTIALLY_PAID;
+          } else {
+            updateData.status = InvoiceStatus.ISSUED;
+          }
+        }
+      }
+
+      return tx.invoice.update({
+        where: { id },
+        data: updateData,
+        include: INVOICE_INCLUDE,
+      });
+    });
   }
 }
