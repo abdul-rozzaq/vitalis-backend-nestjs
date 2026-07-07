@@ -38,6 +38,7 @@ model Operation {
   startedAt       DateTime?
   completedAt     DateTime?
   note            String?
+  basePrice       Decimal            @default(0) @db.Decimal(15, 2)  
   totalPrice      Decimal            @default(0) @db.Decimal(15, 2)
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
@@ -50,7 +51,6 @@ model Operation {
 
   @@map("operations")
 }
-
 model OperationSurgeon {
   id          String      @id @default(uuid())
   operationId String

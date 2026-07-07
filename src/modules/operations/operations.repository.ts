@@ -45,145 +45,145 @@ export class OperationsRepository {
     });
   }
 
-  async create(dto: CreateOperationDto) {
-    return this.prisma.$transaction(async (tx) => {
-      const operationType = await tx.operationType.findUniqueOrThrow({
-        where: { id: dto.operationTypeId },
-        select: { basePrice: true },
-      });
-
-      const itemsTotal = (dto.items ?? []).reduce(
-        (sum, i) => sum + i.unitPrice * i.quantity,
-        0,
-      );
-      const totalPrice = Number(operationType.basePrice) + itemsTotal;
-
-      const caseStep = await tx.caseStep.create({
-        data: {
-          caseId: dto.caseId,
-          type: CaseStepType.OPERATION,
-          status: CaseStepStatus.PENDING,
-          note: dto.note,
-        },
-      });
-
-      const operation = await tx.operation.create({
-        data: {
-          patientId: dto.patientId,
-          operationTypeId: dto.operationTypeId,
-          roomId: dto.roomId,
-          caseStepId: caseStep.id,
-          scheduledAt: new Date(dto.scheduledAt),
-          note: dto.note,
-          totalPrice,
-          surgeons: {
-            create: dto.surgeons.map((s) => ({
-              surgeonId: s.surgeonId,
-              role: s.role,
-            })),
-          },
-          items: dto.items?.length
-            ? {
-                create: dto.items.map((item) => ({
-                  operationTypeItemId: item.operationTypeItemId,
-                  name: item.name,
-                  unitPrice: item.unitPrice,
-                  quantity: item.quantity,
-                  totalPrice: item.unitPrice * item.quantity,
-                })),
-              }
-            : undefined,
-        },
-        include: this.includeAll,
-      });
-
-      return operation;
+async create(dto: CreateOperationDto) {
+  return this.prisma.$transaction(async (tx) => {
+    const operationType = await tx.operationType.findUniqueOrThrow({
+      where: { id: dto.operationTypeId },
+      select: { basePrice: true },
     });
-  }
 
-  async update(id: string, dto: UpdateOperationDto) {
-    const { surgeons, items, ...rest } = dto;
+    const basePrice = dto.basePrice ?? Number(operationType.basePrice);
 
-    return this.prisma.$transaction(async (tx) => {
-      await tx.operation.update({
-        where: { id },
-        data: {
-          ...rest,
-          scheduledAt: rest.scheduledAt
-            ? new Date(rest.scheduledAt)
-            : undefined,
-        },
-      });
+    const itemsTotal = (dto.items ?? []).reduce(
+      (sum, i) => sum + i.unitPrice * i.quantity,
+      0,
+    );
+    const totalPrice = basePrice + itemsTotal;
 
-      if (surgeons !== undefined) {
-        await tx.operationSurgeon.deleteMany({ where: { operationId: id } });
-        await tx.operationSurgeon.createMany({
-          data: surgeons.map((s) => ({
-            operationId: id,
+    const caseStep = await tx.caseStep.create({
+      data: {
+        caseId: dto.caseId,
+        type: CaseStepType.OPERATION,
+        status: CaseStepStatus.PENDING,
+        note: dto.note,
+      },
+    });
+
+    const operation = await tx.operation.create({
+      data: {
+        patientId: dto.patientId,
+        operationTypeId: dto.operationTypeId,
+        roomId: dto.roomId,
+        caseStepId: caseStep.id,
+        scheduledAt: new Date(dto.scheduledAt),
+        note: dto.note,
+        basePrice,
+        totalPrice,
+        surgeons: {
+          create: dto.surgeons.map((s) => ({
             surgeonId: s.surgeonId,
             role: s.role,
           })),
-        });
-      }
-
-      if (items !== undefined) {
-        const incomingIds = items.filter((i) => i.id).map((i) => i.id!);
-
-        await tx.operationItem.deleteMany({
-          where: { operationId: id, id: { notIn: incomingIds } },
-        });
-
-        for (const item of items) {
-          if (item.id) {
-            await tx.operationItem.update({
-              where: { id: item.id },
-              data: {
-                name: item.name,
-                unitPrice: item.unitPrice,
-                quantity: item.quantity,
-                totalPrice: item.unitPrice * item.quantity,
-              },
-            });
-          } else {
-            await tx.operationItem.create({
-              data: {
-                operationId: id,
+        },
+        items: dto.items?.length
+          ? {
+              create: dto.items.map((item) => ({
                 operationTypeItemId: item.operationTypeItemId,
                 name: item.name,
                 unitPrice: item.unitPrice,
                 quantity: item.quantity,
                 totalPrice: item.unitPrice * item.quantity,
-              },
-            });
-          }
-        }
-
-        const [allItems, operation] = await Promise.all([
-          tx.operationItem.findMany({ where: { operationId: id } }),
-          tx.operation.findUniqueOrThrow({
-            where: { id },
-            select: { operationType: { select: { basePrice: true } } },
-          }),
-        ]);
-
-        const itemsTotal = allItems.reduce(
-          (sum, i) => sum + Number(i.totalPrice),
-          0,
-        );
-        const newTotal = Number(operation.operationType.basePrice) + itemsTotal;
-
-        await tx.operation.update({
-          where: { id },
-          data: { totalPrice: newTotal },
-        });
-      }
-
-      return tx.operation.findUnique({
-        where: { id },
-        include: this.includeAll,
-      });
+              })),
+            }
+          : undefined,
+      },
+      include: this.includeAll,
     });
-  }
+
+    return operation;
+  });
+}
+async update(id: string, dto: UpdateOperationDto) {
+  const { surgeons, items, ...rest } = dto;
+
+  return this.prisma.$transaction(async (tx) => {
+    await tx.operation.update({
+      where: { id },
+      data: {
+        ...rest, // basePrice shu yerda ham qo'llanadi, chunki UpdateOperationDto'da bor
+        scheduledAt: rest.scheduledAt
+          ? new Date(rest.scheduledAt)
+          : undefined,
+      },
+    });
+
+    if (surgeons !== undefined) {
+      await tx.operationSurgeon.deleteMany({ where: { operationId: id } });
+      await tx.operationSurgeon.createMany({
+        data: surgeons.map((s) => ({
+          operationId: id,
+          surgeonId: s.surgeonId,
+          role: s.role,
+        })),
+      });
+    }
+
+    if (items !== undefined) {
+      const incomingIds = items.filter((i) => i.id).map((i) => i.id!);
+
+      await tx.operationItem.deleteMany({
+        where: { operationId: id, id: { notIn: incomingIds } },
+      });
+
+      for (const item of items) {
+        if (item.id) {
+          await tx.operationItem.update({
+            where: { id: item.id },
+            data: {
+              name: item.name,
+              unitPrice: item.unitPrice,
+              quantity: item.quantity,
+              totalPrice: item.unitPrice * item.quantity,
+            },
+          });
+        } else {
+          await tx.operationItem.create({
+            data: {
+              operationId: id,
+              operationTypeItemId: item.operationTypeItemId,
+              name: item.name,
+              unitPrice: item.unitPrice,
+              quantity: item.quantity,
+              totalPrice: item.unitPrice * item.quantity,
+            },
+          });
+        }
+      }
+    }
+
+    // basePrice yoki items o'zgargan bo'lishi mumkin — totalPrice HAR DOIM qayta hisoblanadi
+    const [allItems, operation] = await Promise.all([
+      tx.operationItem.findMany({ where: { operationId: id } }),
+      tx.operation.findUniqueOrThrow({ where: { id } }),
+    ]);
+
+    const itemsTotal = allItems.reduce(
+      (sum, i) => sum + Number(i.totalPrice),
+      0,
+    );
+    const newTotal = Number(operation.basePrice) + itemsTotal;
+
+    await tx.operation.update({
+      where: { id },
+      data: { totalPrice: newTotal },
+    });
+
+    return tx.operation.findUnique({
+      where: { id },
+      include: this.includeAll,
+    });
+  });
+}
 
   updateStatus(
     id: string,

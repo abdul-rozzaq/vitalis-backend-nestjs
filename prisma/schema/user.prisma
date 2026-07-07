@@ -1,64 +1,31 @@
 model User {
-<<<<<<< HEAD
-  id                    String                 @id @default(uuid())
-  first_name            String                 @db.VarChar(64)
-  last_name             String                 @db.VarChar(64)
-  phone                 String                 @unique @db.VarChar(20)
-  password              String
-  birthday              DateTime?              @db.Date
-  photo                 String?                @db.VarChar(500)
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  role                  UserRole               @default(TEXNIK_HODIM)
-  assignments           Assignment[]
-  auditLogs             AuditLog[]
-  balanceTransactions   BalanceTransaction[]
-  bonusTransactions     BonusTransaction[]
+  id                   String                 @id @default(uuid())
+  first_name           String                 @db.VarChar(64)
+  last_name            String                 @db.VarChar(64)
+  phone                String                 @unique @db.VarChar(20)
+  password             String
+  birthday             DateTime?              @db.Date
+  photo                String?                @db.VarChar(500)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  role                 UserRole               @default(TEXNIK_HODIM)
+  assignments          Assignment[]
+  auditLogs            AuditLog[]
+  balanceTransactions  BalanceTransaction[]
+  bonusTransactions    BonusTransaction[]
   diagnosticAssignments DiagnosticAssignment[]
-  invoicePayments       InvoicePayment[]       @relation("InvoicePaymentCreatedBy")
-  invoicesCreated       Invoice[]              @relation("InvoiceCreatedBy")
-  labAssignments        LaboratoryAssignment[]
-  operationSurgeons     OperationSurgeon[]     @relation("OperationSurgeons")
-  shiftStaff            ShiftStaff[]           @relation("ShiftStaffAssignments")
-=======
-  id                     String                 @id @default(uuid())
-  first_name             String                 @db.VarChar(64)
-  last_name              String                 @db.VarChar(64)
-  phone                  String                 @unique @db.VarChar(20)
-  password               String
-  birthday               DateTime?              @db.Date
-  photo                  String?                @db.VarChar(500)
-  createdAt              DateTime               @default(now())
-  updatedAt              DateTime               @updatedAt
-  role                   UserRole               @default(TEXNIK_HODIM)
-  assignments            Assignment[]
-  auditLogs              AuditLog[]
-  balanceTransactions    BalanceTransaction[]
-  bonusTransactions      BonusTransaction[]
-  diagnosticAssignments  DiagnosticAssignment[]
-  invoicePayments        InvoicePayment[]       @relation("InvoicePaymentCreatedBy")
-  invoicesCreated        Invoice[]              @relation("InvoiceCreatedBy")
-  labAssignments         LaboratoryAssignment[]
-  performedLabItems      LabOrderItem[]         @relation("LabOrderItemPerformedBy")
-  operationSurgeons      OperationSurgeon[]     @relation("OperationSurgeons")
-  doctorShiftAssignments ShiftAssignment[]      @relation("DoctorShiftAssignments")
-  requestedShiftChanges  ShiftAssignment[]      @relation("ShiftChangeRequester")
-  shiftEventsFrom        ShiftChangeEvent[]     @relation("ShiftEventFromDoctor")
-  shiftEventsRequested   ShiftChangeEvent[]     @relation("ShiftEventRequestedBy")
-  shiftEventsTo          ShiftChangeEvent[]     @relation("ShiftEventToDoctor")
-  defaultNurseShifts     ShiftDefaultNurse[]    @relation("ShiftDefaultNurse")
-  shiftNotifications     ShiftNotification[]    @relation("ShiftNotificationUser")
-  nurseShiftAssignments  ShiftNurse[]           @relation("NurseShiftAssignments")
-  workingHoursLogs       WorkingHoursLog[]      @relation("WorkingHoursUser")
->>>>>>> 41f2b29 (labaratory)
-  operationTypeDoctors  OperationTypeDoctor[]  @relation("OperationTypeDoctors")
-
-  // New scheduling relations
-  createdSchedules   WorkSchedule[]
-  publishedSchedules WorkScheduleVersion[]
-  shiftAssignments   ShiftAssignment[]
-  availabilities     StaffAvailability[]
-  timeOffs           StaffTimeOff[]
+  invoicePayments      InvoicePayment[]       @relation("InvoicePaymentCreatedBy")
+  invoicesCreated      Invoice[]              @relation("InvoiceCreatedBy")
+  labAssignments       LaboratoryAssignment[]
+  performedLabItems    LabOrderItem[]         @relation("LabOrderItemPerformedBy")
+  operationSurgeons    OperationSurgeon[]     @relation("OperationSurgeons")
+  operationTypeDoctors OperationTypeDoctor[]  @relation("OperationTypeDoctors")
+  shiftStaff           ShiftStaff[]           @relation("ShiftStaffAssignments")
+  createdSchedules     WorkSchedule[]
+  publishedSchedules   WorkScheduleVersion[]
+  shiftAssignments     ShiftAssignment[]
+  availabilities       StaffAvailability[]
+  timeOffs             StaffTimeOff[]
 
   @@map("users")
 }

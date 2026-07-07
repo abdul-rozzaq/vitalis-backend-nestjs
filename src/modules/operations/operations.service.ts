@@ -31,12 +31,59 @@ export class OperationsService {
     return op;
   }
 
-  create(dto: CreateOperationDto) {
+  async create(dto: CreateOperationDto) {
     const hasLead = dto.surgeons.some((s) => s.role === 'LEAD');
     if (!hasLead) {
       throw new BadRequestException("Kamida 1 ta LEAD jarroh bo'lishi kerak");
     }
-    return this.repo.create(dto);
+
+    const op = await this.repo.create(dto);
+
+    const leadSurgeon = op.surgeons.find((s) => s.role === 'LEAD');
+    const staffId = leadSurgeon?.surgeonId ?? op.surgeons[0]?.surgeonId;
+
+    if (!staffId) {
+      console.warn(`Operation ${op.id}: staffId topilmadi, invoice yaratilmadi`);
+      return { ...op, invoice: null };
+    }
+
+    const invoiceItems: {
+      description: string;
+      quantity: number;
+      unitPrice: Prisma.Decimal;
+      sourceType: InvoiceItemSourceType;
+      sourceId: string;
+    }[] = [];
+
+    const basePrice = new Prisma.Decimal(op.basePrice?.toString() ?? '0');
+
+    invoiceItems.push({
+      description: op.operationType.name,
+      quantity: 1,
+      unitPrice: basePrice,
+      sourceType: InvoiceItemSourceType.OPERATION,
+      sourceId: op.id,
+    });
+
+    for (const item of op.items) {
+      invoiceItems.push({
+        description: item.name,
+        quantity: item.quantity,
+        unitPrice: new Prisma.Decimal(item.unitPrice.toString()),
+        sourceType: InvoiceItemSourceType.OPERATION,
+        sourceId: item.id,
+      });
+    }
+
+    const invoice = await this.invoiceService.createInvoice({
+      patientId: op.patientId,
+      sourceType: InvoiceSourceType.OPERATION,
+      sourceId: op.id,
+      staffId,
+      items: invoiceItems,
+    });
+
+    return { ...op, invoice };
   }
 
   async update(id: string, dto: UpdateOperationDto) {
@@ -98,51 +145,6 @@ export class OperationsService {
         completedAt: new Date(),
       });
     }
-
-    const leadSurgeon = op.surgeons.find((s) => s.role === 'LEAD');
-    const staffId = leadSurgeon?.surgeonId ?? op.surgeons[0]?.surgeonId;
-
-    if (!staffId) {
-      console.warn(`Operation ${id}: staffId topilmadi, invoice yaratilmadi`);
-      return updated;
-    }
-
-    const invoiceItems: {
-      description: string;
-      quantity: number;
-      unitPrice: Prisma.Decimal;
-      sourceType: InvoiceItemSourceType;
-      sourceId: string;
-    }[] = [];
-
-    const basePrice = new Prisma.Decimal(
-      op.operationType.basePrice?.toString() ?? '0',
-    );
-
-    invoiceItems.push({
-      description: op.operationType.name,
-      quantity: 1,
-      unitPrice: basePrice,
-      sourceType: InvoiceItemSourceType.OPERATION,
-      sourceId: op.id,
-    });
-
-    for (const item of op.items) {
-      invoiceItems.push({
-        description: item.name,
-        quantity: item.quantity,
-        unitPrice: new Prisma.Decimal(item.unitPrice.toString()),
-        sourceType: InvoiceItemSourceType.OPERATION,
-        sourceId: item.id,
-      });
-    }
-    await this.invoiceService.createInvoice({
-      patientId: op.patientId,
-      sourceType: InvoiceSourceType.OPERATION,
-      sourceId: op.id,
-      staffId,
-      items: invoiceItems,
-    });
 
     return updated;
   }
