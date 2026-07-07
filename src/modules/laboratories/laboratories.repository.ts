@@ -1,5 +1,8 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "../../generated/prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
+
+type DefaultRow = { code?: string; indicator: string; norm?: string; unit?: string; sortOrder?: number };
 
 const LAB_INCLUDE = {
   services: { orderBy: { name: "asc" as const } },
@@ -34,12 +37,28 @@ export class LaboratoriesRepository {
     return this.prisma.labOrder.count({ where: { laboratoryId } });
   }
 
-  createService(laboratoryId: string, data: { name: string; price?: number | null }) {
-    return this.prisma.laboratoryService.create({ data: { ...data, laboratoryId } });
+  createService(laboratoryId: string, data: { name: string; price?: number | null; defaultRows?: DefaultRow[] }) {
+    const { defaultRows, ...rest } = data;
+    return this.prisma.laboratoryService.create({
+      data: {
+        ...rest,
+        laboratoryId,
+        defaultRows: defaultRows as unknown as Prisma.InputJsonValue,
+      },
+    });
   }
 
-  updateService(serviceId: string, data: { name?: string; price?: number | null }) {
-    return this.prisma.laboratoryService.update({ where: { id: serviceId }, data });
+  updateService(serviceId: string, data: { name?: string; price?: number | null; defaultRows?: DefaultRow[] | null }) {
+    const { defaultRows, ...rest } = data;
+    return this.prisma.laboratoryService.update({
+      where: { id: serviceId },
+      data: {
+        ...rest,
+        ...(defaultRows !== undefined && {
+          defaultRows: defaultRows === null ? Prisma.JsonNull : (defaultRows as unknown as Prisma.InputJsonValue),
+        }),
+      },
+    });
   }
 
   deleteService(serviceId: string) {

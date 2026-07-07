@@ -8,6 +8,14 @@
       {
         "include": "modules/prescriptions/templates/**/*",
         "outDir": "dist/src"
+      },
+      {
+        "include": "assets/fonts/**/*",
+        "outDir": "dist/src"
+      },
+      {
+        "include": "assets/images/**/*",
+        "outDir": "dist/src"
       }
     ]
   }

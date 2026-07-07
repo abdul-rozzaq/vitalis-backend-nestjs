@@ -1,4 +1,39 @@
-import { IsNumber, IsOptional, IsPositive, IsString, MaxLength, MinLength } from "class-validator";
+import { Type } from "class-transformer";
+import {
+  ArrayMinSize,
+  IsArray,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsPositive,
+  IsString,
+  MaxLength,
+  Min,
+  MinLength,
+  ValidateNested,
+} from "class-validator";
+
+export class DefaultLabResultRowDto {
+  @IsOptional()
+  @IsString()
+  code?: string;
+
+  @IsString()
+  indicator: string;
+
+  @IsOptional()
+  @IsString()
+  norm?: string;
+
+  @IsOptional()
+  @IsString()
+  unit?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  sortOrder?: number;
+}
 
 export class CreateLaboratoryDto {
   @IsString()
@@ -33,6 +68,13 @@ export class CreateLaboratoryServiceDto {
   @IsNumber()
   @IsPositive()
   price?: number | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => DefaultLabResultRowDto)
+  defaultRows?: DefaultLabResultRowDto[];
 }
 
 export class UpdateLaboratoryServiceDto {
@@ -46,4 +88,11 @@ export class UpdateLaboratoryServiceDto {
   @IsNumber()
   @IsPositive()
   price?: number | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => DefaultLabResultRowDto)
+  defaultRows?: DefaultLabResultRowDto[] | null;
 }

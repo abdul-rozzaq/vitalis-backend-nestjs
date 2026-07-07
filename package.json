@@ -16,6 +16,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "load-admin": "ts-node -r tsconfig-paths/register prisma/seeds/load_admin.ts",
     "load-defaults": "ts-node -r tsconfig-paths/register prisma/seeds/load_defaults.ts",
+    "load-lab-templates": "ts-node -r tsconfig-paths/register prisma/seeds/load_lab_templates.ts",
     "load-places": "ts-node -r tsconfig-paths/register prisma/seeds/load_places.ts",
     "load-roles": "ts-node -r tsconfig-paths/register prisma/seeds/load_roles.ts",
     "load-test-data": "ts-node -r tsconfig-paths/register prisma/seeds/load_test_data.ts"
@@ -36,6 +37,7 @@
     "docx": "^9.6.1",
     "eta": "^4.5.1",
     "multer": "^2.1.1",
+    "pdfkit": "^0.19.1",
     "pg": "^8.16.0",
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
@@ -47,6 +49,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.0.0",
+    "@types/pdfkit": "^0.17.6",
     "prisma": "^7.4.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",

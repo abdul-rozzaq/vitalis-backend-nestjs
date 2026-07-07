@@ -210,6 +210,7 @@ export class InvoiceService {
         patientId: params.patientId,
         sourceType: params.sourceType,
         sourceId: params.sourceId,
+        status: InvoiceStatus.ISSUED,
         totalAmount,
         dueDate: params.dueDate,
         note: params.note,

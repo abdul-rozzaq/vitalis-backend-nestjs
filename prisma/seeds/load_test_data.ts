@@ -10,6 +10,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import * as bcrypt from "bcryptjs";
 import "dotenv/config";
 import { PrismaClient } from "../../src/generated/prisma/client";
+import { UMUMIY_QON_TAHLILI_ROWS, BIOKIMYOVIY_TAHLIL_ROWS } from "./data/lab-default-rows";
 
 const connectionString = process.env.DATABASE_URL!;
 
@@ -80,8 +81,8 @@ const LABORATORIES = [
     name: "Klinik laboratoriya",
     description: "Qon va siydik tahlillari",
     services: [
-      { name: "Umumiy qon tahlili",      price: 25000 },
-      { name: "Biokimyoviy qon tahlili", price: 45000 },
+      { name: "Umumiy qon tahlili",      price: 25000, defaultRows: UMUMIY_QON_TAHLILI_ROWS },
+      { name: "Biokimyoviy qon tahlili", price: 45000, defaultRows: BIOKIMYOVIY_TAHLIL_ROWS },
       { name: "Qon guruhi aniqlash",     price: 20000 },
       { name: "Glyukoza darajasi",       price: 18000 },
       { name: "Umumiy siydik tahlili",   price: 15000 },
@@ -286,12 +287,19 @@ async function main() {
     }
     createdLabs.push(labRec);
     for (const svc of lab.services) {
+      const rows = (svc as any).defaultRows?.map((r: any, i: number) => ({ ...r, sortOrder: i }));
       let svcRec = await prisma.laboratoryService.findFirst({
         where: { name: svc.name, laboratoryId: labRec.id },
       });
       if (!svcRec) {
         svcRec = await prisma.laboratoryService.create({
-          data: { name: svc.name, price: svc.price, laboratoryId: labRec.id },
+          data: { name: svc.name, price: svc.price, laboratoryId: labRec.id, defaultRows: rows },
+        });
+      } else if (rows) {
+        // Shablon avval bo'sh bo'lgan xizmat qayta seed qilinsa ham yangilanadi
+        svcRec = await prisma.laboratoryService.update({
+          where: { id: svcRec.id },
+          data: { defaultRows: rows },
         });
       }
       allLabServices.push(svcRec);

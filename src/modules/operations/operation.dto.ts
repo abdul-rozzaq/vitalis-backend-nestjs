@@ -67,6 +67,12 @@ export class CreateOperationDto {
   @IsString()
   note?: string;
 
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  basePrice?: number;
+
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(2)
@@ -80,7 +86,6 @@ export class CreateOperationDto {
   @Type(() => CreateOperationItemDto)
   items?: CreateOperationItemDto[];
 }
-
 /* ================= UPDATE ================= */
 
 export class UpdateOperationSurgeonDto {
@@ -114,7 +119,6 @@ export class UpdateOperationItemDto {
   @Min(1)
   quantity: number;
 }
-
 export class UpdateOperationDto {
   @IsOptional()
   @IsUUID()
@@ -127,6 +131,12 @@ export class UpdateOperationDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  basePrice?: number;
 
   @IsOptional()
   @IsEnum(OperationStatus)
