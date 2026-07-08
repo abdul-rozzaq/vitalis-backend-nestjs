@@ -14,6 +14,7 @@ import { CasesModule } from "./modules/cases/cases.module";
 import { DepartmentsModule } from "./modules/departments/departments.module";
 import { DistrictsModule } from "./modules/districts/districts.module";
 import { LabOrdersModule } from "./modules/lab-orders/lab-orders.module";
+import { LabResultTemplatesModule } from "./modules/lab-result-templates/lab-result-templates.module";
 import { LaboratoriesModule } from "./modules/laboratories/laboratories.module";
 import { LaboratoryAssignmentsModule } from "./modules/laboratory-assignments/laboratory-assignments.module";
 import { MedicalCardsModule } from "./modules/medical-cards/medical-cards.module";
@@ -78,6 +79,7 @@ import { SchedulingModule } from "./modules/scheduling/scheduling.module";
     MedicalCardsModule,
     CasesModule,
     LabOrdersModule,
+    LabResultTemplatesModule,
     LaboratoriesModule,
     LaboratoryAssignmentsModule,
     WardsModule,

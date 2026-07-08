@@ -46,6 +46,11 @@ export class LabResultRowDto {
   sortOrder?: number;
 }
 
+export class ApplyLabResultTemplateDto {
+  @IsString()
+  templateId: string;
+}
+
 export class UpsertLabResultTableDto {
   @IsArray()
   @ArrayMinSize(1)

@@ -4,7 +4,7 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
-import { AddLabOrderItemFileDto, UpdateLabOrderItemDto, UpsertLabResultTableDto } from "./lab-orders.dto";
+import { ApplyLabResultTemplateDto, AddLabOrderItemFileDto, UpdateLabOrderItemDto, UpsertLabResultTableDto } from "./lab-orders.dto";
 import { LabOrdersService } from "./lab-orders.service";
 
 @Roles(RoleName.ADMIN, RoleName.DOCTOR, RoleName.LABARANT)
@@ -35,6 +35,16 @@ export class LabOrdersController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.service.saveResultTable(id, itemId, dto, user);
+  }
+
+  @Put(":id/items/:itemId/result-table/apply-template")
+  applyTemplate(
+    @Param("id") id: string,
+    @Param("itemId") itemId: string,
+    @Body() dto: ApplyLabResultTemplateDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.applyTemplate(id, itemId, dto, user);
   }
 
   @Get(":id/items/:itemId/download/:format")

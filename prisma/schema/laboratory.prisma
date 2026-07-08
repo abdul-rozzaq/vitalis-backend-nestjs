@@ -16,9 +16,6 @@ model LaboratoryService {
   name          String         @db.VarChar(64)
   price         Float?
   laboratoryId  String
-  // Har bir xizmat turi uchun standart natija qatorlari shabloni,
-  // masalan: [{ "indicator": "Лейкоцитлар сони (WBC)", "norm": "4.0-10.0", "unit": "10^9 г/л" }, ...]
-  // Laborant natija jadvalini birinchi ochganda shu shablon bilan oldindan to'ldiriladi.
   defaultRows   Json?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -47,11 +44,7 @@ model LabOrder {
   caseStepId    String         @unique
   patientId     String
   laboratoryId  String
-  // Buyurtmaning ko'rinadigan tartib raqami (masalan blank/hujjatda chop etish uchun).
-  // Bo'sh bo'lsa, hujjat generatorida id'ning oxirgi 4 belgisidan foydalaniladi.
   orderNumber   String?
-  // Namuna (qon/siydik va h.k.) haqiqatda olingan sana. Bo'sh bo'lsa, buyurtma
-  // yaratilgan sana (createdAt) ishlatiladi.
   sampleTakenAt DateTime?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -68,8 +61,6 @@ model LabOrderItem {
   status        LabItemStatus      @default(PENDING)
   labOrderId    String
   serviceId     String
-  // Natijani kim kiritgani/tasdiqlagani (odatda laborant). Bo'sh bo'lishi mumkin —
-  // masalan hali natija kiritilmagan yoki eski yozuvlar uchun.
   performedById String?
   fileUrl       String?
   fileName      String?
@@ -90,9 +81,6 @@ model LabOrderItem {
   @@map("lab_order_items")
 }
 
-// Structured lab-result entry: replaces the old "fill it in Word, then upload"
-// workflow. A lab item gets one result table made up of ordered rows
-// (indicator / result / norm / unit), entered directly in the system.
 model LabResultTable {
   id             String         @id @default(uuid())
   labOrderItemId String         @unique
@@ -107,8 +95,6 @@ model LabResultTable {
 model LabResultRow {
   id        String         @id @default(uuid())
   tableId   String
-  // Qisqa kod/qisqartma (masalan WBC, RBC, HGB) — blankalarda "Кўрсаткичлар" ustunidan
-  // chapda alohida ko'rsatiladigan qisqa belgi. Har doim ham bo'lmasligi mumkin.
   code      String?
   indicator String
   result    String
@@ -120,6 +106,16 @@ model LabResultRow {
   table     LabResultTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
   @@map("lab_result_rows")
+}
+
+model LabResultTemplate {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(128)
+  rows      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("lab_result_templates")
 }
 
 model LabOrderItemFile {

@@ -6,7 +6,7 @@ import { JwtPayload } from "../../common/types/jwt-payload.type";
 import { PrismaService } from "../../prisma/prisma.service";
 import { generateDocx } from "./generators/docx-generator";
 import { generatePdf } from "./generators/pdf-generator";
-import { AddLabOrderItemFileDto, UpdateLabOrderItemDto, UpsertLabResultTableDto } from "./lab-orders.dto";
+import { ApplyLabResultTemplateDto, AddLabOrderItemFileDto, UpdateLabOrderItemDto, UpsertLabResultTableDto } from "./lab-orders.dto";
 import { LabOrdersRepository } from "./lab-orders.repository";
 
 export type DocumentFormat = "pdf" | "docx";
@@ -103,6 +103,49 @@ export class LabOrdersService {
 
     await this.repo.updateItem(itemId, itemUpdate);
     await this.repo.recalcOrderStatus(orderId);
+
+    return table;
+  }
+
+  /**
+   * Laborant natija jadvalini to'ldirayotganda mustaqil shablonlar ro'yxatidan
+   * (LabResultTemplate — hech qanday xizmatga tayinlanmagan) birini tanlaydi.
+   * Shu metod tanlangan shablonning qatorlarini item'ning natija jadvaliga
+   * nusxalaydi ("result" ustuni bo'sh — "-" bilan boshlanadi), shundan keyin
+   * laborant odatdagidek saveResultTable orqali qiymatlarni to'ldirib boradi.
+   */
+  async applyTemplate(orderId: string, itemId: string, dto: ApplyLabResultTemplateDto, user: JwtPayload) {
+    const order = await this.repo.findById(orderId);
+    if (!order) throw new NotFoundException("Lab order not found");
+    const item = order.items.find((i) => i.id === itemId);
+    if (!item) throw new NotFoundException("Lab order item not found");
+
+    const template = await this.prisma.labResultTemplate.findUnique({ where: { id: dto.templateId } });
+    if (!template) throw new NotFoundException("Natija shabloni topilmadi");
+
+    const templateRows = (template.rows as unknown as {
+      code?: string;
+      indicator: string;
+      norm?: string;
+      unit?: string;
+    }[]) ?? [];
+
+    const rows = templateRows.map((r, index) => ({
+      code: r.code,
+      indicator: r.indicator,
+      norm: r.norm,
+      unit: r.unit,
+      sortOrder: index,
+    }));
+
+    const table = await this.repo.upsertResultTable(itemId, rows);
+
+    // Shablon tanlash — ish boshlanganini bildiradi, lekin hali yakuniy
+    // tasdiqlash emas, shuning uchun faqat PENDING bo'lsa IN_PROGRESS'ga o'tadi.
+    if (item.status === "PENDING") {
+      await this.repo.updateItem(itemId, { status: "IN_PROGRESS" });
+      await this.repo.recalcOrderStatus(orderId);
+    }
 
     return table;
   }
