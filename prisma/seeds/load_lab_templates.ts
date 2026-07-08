@@ -1,32 +1,20 @@
 import "dotenv/config";
 
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../../src/generated/prisma/client";
-import { UMUMIY_QON_TAHLILI_ROWS, BIOKIMYOVIY_TAHLIL_ROWS, DefaultRowSeed } from "./data/lab-default-rows";
+import { PrismaClient, Prisma } from "../../src/generated/prisma/client";
+import { UMUMIY_QON_TAHLILI_ROWS, BIOKIMYOVIY_TAHLIL_ROWS, KOAGULOGRAMMA_ROWS, DefaultRowSeed } from "./data/lab-default-rows";
 
 const connectionString = process.env.DATABASE_URL;
 
-interface LabServiceSeed {
+interface LabResultTemplateSeed {
   name: string;
-  price?: number;
-  defaultRows: DefaultRowSeed[];
+  rows: DefaultRowSeed[];
 }
 
-interface LaboratorySeed {
-  name: string;
-  description?: string;
-  services: LabServiceSeed[];
-}
-
-export const LAB_TEMPLATES: LaboratorySeed[] = [
-  {
-    name: "Klinik laboratoriya",
-    description: "Qon va siydik tahlillari",
-    services: [
-      { name: "Umumiy qon tahlili", price: 25000, defaultRows: UMUMIY_QON_TAHLILI_ROWS },
-      { name: "Biokimyoviy qon tahlili", price: 45000, defaultRows: BIOKIMYOVIY_TAHLIL_ROWS },
-    ],
-  },
+export const LAB_RESULT_TEMPLATES: LabResultTemplateSeed[] = [
+  { name: "Umumiy qon tahlili", rows: UMUMIY_QON_TAHLILI_ROWS },
+  { name: "Biokimyoviy qon tahlili", rows: BIOKIMYOVIY_TAHLIL_ROWS },
+  { name: "Koagulogramma tahlili", rows: KOAGULOGRAMMA_ROWS },
 ];
 
 async function main() {
@@ -34,41 +22,24 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
 
   try {
-    console.log("🔬 Laboratoriya natija shablonlari yuklanmoqda...");
+    console.log("🔬 Natija shablonlari yuklanmoqda...");
 
-    for (const lab of LAB_TEMPLATES) {
-      let labRec = await prisma.laboratory.findFirst({ where: { name: lab.name } });
-      if (!labRec) {
-        labRec = await prisma.laboratory.create({
-          data: { name: lab.name, description: lab.description },
+    for (const tpl of LAB_RESULT_TEMPLATES) {
+      const rows = tpl.rows.map((r, i) => ({ ...r, sortOrder: i }));
+
+      const existing = await prisma.labResultTemplate.findFirst({ where: { name: tpl.name } });
+
+      if (existing) {
+        await prisma.labResultTemplate.update({
+          where: { id: existing.id },
+          data: { rows: rows as unknown as Prisma.InputJsonValue },
         });
-        console.log(`   + Laboratoriya yaratildi: ${labRec.name}`);
-      }
-
-      for (const svc of lab.services) {
-        const rows = svc.defaultRows.map((r, i) => ({ ...r, sortOrder: i }));
-
-        const svcRec = await prisma.laboratoryService.findFirst({
-          where: { name: svc.name, laboratoryId: labRec.id },
+        console.log(`   ✓ Shablon yangilandi: ${tpl.name} (${rows.length} qator)`);
+      } else {
+        await prisma.labResultTemplate.create({
+          data: { name: tpl.name, rows: rows as unknown as Prisma.InputJsonValue },
         });
-
-        if (svcRec) {
-          await prisma.laboratoryService.update({
-            where: { id: svcRec.id },
-            data: { defaultRows: rows },
-          });
-          console.log(`   ✓ Shablon yangilandi: ${lab.name} → ${svc.name} (${rows.length} qator)`);
-        } else {
-          await prisma.laboratoryService.create({
-            data: {
-              name: svc.name,
-              price: svc.price,
-              laboratoryId: labRec.id,
-              defaultRows: rows,
-            },
-          });
-          console.log(`   + Xizmat va shablon yaratildi: ${lab.name} → ${svc.name} (${rows.length} qator)`);
-        }
+        console.log(`   + Shablon yaratildi: ${tpl.name} (${rows.length} qator)`);
       }
     }
 

@@ -55,3 +55,12 @@ export const BIOKIMYOVIY_TAHLIL_ROWS: DefaultRowSeed[] = [
   { indicator: "HIV-anti 1/2", norm: "манфий" },
   { indicator: "Қон группаси, Резус фактор" },
 ];
+
+// ─── "Коагулограмма таҳлил натижалари" ─────────────────────────────────────
+export const KOAGULOGRAMMA_ROWS: DefaultRowSeed[] = [
+  { code: "PT", indicator: "Протромбин вақти (PT)", norm: "11-15", unit: "сек" },
+  { code: "PTI", indicator: "Протромбин индекси (PTI)", norm: "80-120", unit: "%" },
+  { code: "INR", indicator: "Халқаро меъёрлаштирилган нисбат (INR)", norm: "0.8-1.2" },
+  { indicator: "Фибриноген", norm: "2.0-4.0", unit: "г/л" },
+  { code: "АЧТВ", indicator: "Активланган қисман тромбопластин вақти (АЧТВ)", norm: "25-35", unit: "сек" },
+];
