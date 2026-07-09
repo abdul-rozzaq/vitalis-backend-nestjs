@@ -22,7 +22,7 @@ export class RoomsRepository {
     const rooms = await this.prisma.room.findMany({
       orderBy: { name: "asc" },
       include: {
-        department: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true, patientDailyPrice: true, companionDailyPrice: true } },
         wards: {
           where: { status: "OCCUPIED" },
           select: { companionsCount: true },
@@ -55,7 +55,7 @@ export class RoomsRepository {
       where: { roomType: "WARD" },
       orderBy: { name: "asc" },
       include: {
-        department: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true, patientDailyPrice: true, companionDailyPrice: true } },
         wards: {
           where: { status: "OCCUPIED" },
           select: { companionsCount: true },
@@ -85,7 +85,7 @@ export class RoomsRepository {
     const room = await this.prisma.room.findUnique({
       where: { id },
       include: {
-        department: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true, patientDailyPrice: true, companionDailyPrice: true } },
         wards: {
           where: { status: "OCCUPIED" },
           select: { companionsCount: true },

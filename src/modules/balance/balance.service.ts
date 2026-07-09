@@ -127,6 +127,39 @@ export class BalanceService {
     });
   }
 
+  async earnBonusInTx(
+    tx: Prisma.TransactionClient,
+    params: {
+      patientId: string;
+      amount: Prisma.Decimal;
+      source: BonusTxSource;
+      note?: string;
+      staffId: string;
+    },
+  ) {
+    await tx.patientBonusBalance.upsert({
+      where: { patientId: params.patientId },
+      create: { patientId: params.patientId, balance: params.amount },
+      update: { balance: { increment: params.amount } },
+    });
+
+    const updated = await tx.patientBonusBalance.findUnique({
+      where: { patientId: params.patientId },
+    });
+
+    return tx.bonusTransaction.create({
+      data: {
+        type: BonusTxType.EARN,
+        amount: params.amount,
+        balanceAfter: updated!.balance,
+        source: params.source,
+        note: params.note,
+        bonusBalance: { connect: { patientId: params.patientId } },
+        createdBy: { connect: { id: params.staffId } },
+      },
+    });
+  }
+
   async earnBonus(params: {
     patientId: string;
     amount: Prisma.Decimal;
@@ -134,29 +167,7 @@ export class BalanceService {
     note?: string;
     staffId: string;
   }) {
-    return this.prisma.$transaction(async (tx) => {
-      await tx.patientBonusBalance.upsert({
-        where: { patientId: params.patientId },
-        create: { patientId: params.patientId, balance: params.amount },
-        update: { balance: { increment: params.amount } },
-      });
-
-      const updated = await tx.patientBonusBalance.findUnique({
-        where: { patientId: params.patientId },
-      });
-
-      return tx.bonusTransaction.create({
-        data: {
-          type: BonusTxType.EARN,
-          amount: params.amount,
-          balanceAfter: updated!.balance,
-          source: params.source,
-          note: params.note,
-          bonusBalance: { connect: { patientId: params.patientId } },
-          createdBy: { connect: { id: params.staffId } },
-        },
-      });
-    });
+    return this.prisma.$transaction((tx) => this.earnBonusInTx(tx, params));
   }
 
   async charge(

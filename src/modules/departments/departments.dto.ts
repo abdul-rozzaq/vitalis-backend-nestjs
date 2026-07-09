@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsPositive, IsOptional, IsUUID, MinLength, MaxLength } from "class-validator";
+import { IsString, IsNumber, IsPositive, IsOptional, IsUUID, MinLength, MaxLength, Min } from "class-validator";
 
 export class CreateDepartmentDto {
   @IsString()
@@ -18,6 +18,16 @@ export class CreateDepartmentDto {
   @IsNumber()
   @IsPositive()
   price?: number | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  patientDailyPrice?: number | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  companionDailyPrice?: number | null;
 }
 
 export class UpdateDepartmentDto {
@@ -39,4 +49,14 @@ export class UpdateDepartmentDto {
   @IsNumber()
   @IsPositive()
   price?: number | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  patientDailyPrice?: number | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  companionDailyPrice?: number | null;
 }

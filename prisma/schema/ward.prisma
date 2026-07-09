@@ -9,7 +9,9 @@ model Wards {
   companionsCount Int        @default(0)
   note            String?
   status          WardStatus @default(OCCUPIED)
-  dailyRate       Decimal?   @db.Decimal(15, 2)
+  dailyRate            Decimal?   @db.Decimal(15, 2)
+  patientPricePerDay   Decimal?   @db.Decimal(15, 2) @map("patient_price_per_day")
+  companionPricePerDay Decimal?   @db.Decimal(15, 2) @map("companion_price_per_day")
   totalCharged    Decimal    @default(0) @db.Decimal(15, 2)
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt

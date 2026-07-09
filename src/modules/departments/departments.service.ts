@@ -7,6 +7,8 @@ interface CreateDepartmentDto {
   description?: string | null;
   parentId?: string | null;
   price?: number | null;
+  patientDailyPrice?: number | null;
+  companionDailyPrice?: number | null;
 }
 
 interface UpdateDepartmentDto {
@@ -14,6 +16,8 @@ interface UpdateDepartmentDto {
   description?: string | null;
   parentId?: string | null;
   price?: number | null;
+  patientDailyPrice?: number | null;
+  companionDailyPrice?: number | null;
 }
 
 @Injectable()
@@ -33,6 +37,12 @@ export class DepartmentsService {
       name: data.name,
       description: data.description,
       price: data.price,
+      ...(data.patientDailyPrice != null && {
+        patientDailyPrice: new Prisma.Decimal(data.patientDailyPrice),
+      }),
+      ...(data.companionDailyPrice != null && {
+        companionDailyPrice: new Prisma.Decimal(data.companionDailyPrice),
+      }),
       ...(data.parentId && { parent: { connect: { id: data.parentId } } }),
     };
     return this.repository.create(createData);
@@ -43,6 +53,18 @@ export class DepartmentsService {
       name: data.name,
       description: data.description,
       price: data.price,
+      ...(data.patientDailyPrice !== undefined && {
+        patientDailyPrice:
+          data.patientDailyPrice != null
+            ? new Prisma.Decimal(data.patientDailyPrice)
+            : null,
+      }),
+      ...(data.companionDailyPrice !== undefined && {
+        companionDailyPrice:
+          data.companionDailyPrice != null
+            ? new Prisma.Decimal(data.companionDailyPrice)
+            : null,
+      }),
       ...(data.parentId !== undefined && {
         parent: data.parentId ? { connect: { id: data.parentId } } : { disconnect: true },
       }),

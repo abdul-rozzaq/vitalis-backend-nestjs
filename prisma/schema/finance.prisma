@@ -148,6 +148,7 @@ enum BonusTxSource {
   LOYALTY
   PROMOTION
   SERVICE_SPEND
+  ACCOMMODATION
 
   @@map("bonus_tx_sources")
 }

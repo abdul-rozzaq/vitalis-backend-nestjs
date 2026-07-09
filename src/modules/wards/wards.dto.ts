@@ -1,7 +1,6 @@
 import { Type } from "class-transformer";
-import { IsDateString, IsInt, IsOptional, IsString, IsUUID, Min } from "class-validator";
+import { IsDateString, IsInt, IsNumber, IsOptional, IsString, IsUUID, Min } from "class-validator";
 
-// Bemorni palataga yotqizish
 // Bemorni palataga yotqizish
 export class CreateWardDto {
   @IsUUID()
@@ -12,36 +11,7 @@ export class CreateWardDto {
 
   @IsOptional()
   @IsDateString()
-  checkIn?: string; // ← QO'SHILDI: agar berilmasa new Date() ishlatiladi
-
-  @IsOptional()
-  @IsDateString()
-  expectedOut?: string;
-
-  @IsOptional()
-  @IsString()
-  note?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  companionsCount?: number = 0;
-}
-
-// Yozuvni yangilash — HAMMA maydon optional
-export class UpdateWardDto {
-  @IsOptional()
-  @IsUUID()
-  patientId?: string; // ← QO'SHILDI
-
-  @IsOptional()
-  @IsUUID()
-  roomId?: string; // ← QO'SHILDI
-
-  @IsOptional()
-  @IsDateString()
-  checkIn?: string; // ← QO'SHILDI: qachon yotgan sanasini o'zgartirish
+  checkIn?: string;
 
   @IsOptional()
   @IsDateString()
@@ -56,7 +26,66 @@ export class UpdateWardDto {
   @IsInt()
   @Min(0)
   companionsCount?: number;
+
+  // Price snapshot — if omitted, service fills from department defaults
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  patientPricePerDay?: number | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  companionPricePerDay?: number | null;
+
+  // Free days bonus — NOT stored in DB; used only to trigger earnBonus
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  freeDays?: number;
 }
+
+// Yozuvni yangilash — HAMMA maydon optional
+export class UpdateWardDto {
+  @IsOptional()
+  @IsUUID()
+  patientId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  roomId?: string;
+
+  @IsOptional()
+  @IsDateString()
+  checkIn?: string;
+
+  @IsOptional()
+  @IsDateString()
+  expectedOut?: string;
+
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  companionsCount?: number;
+
+  // Future billing prices — changing these does NOT recalculate past transactions
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  patientPricePerDay?: number | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  companionPricePerDay?: number | null;
+}
+
 // Bemorni palatadan chiqarish
 export class CheckOutDto {
   @IsOptional()
@@ -78,12 +107,10 @@ export class WardQueryDto {
   @IsUUID()
   roomId?: string;
 
-  // OCCUPIED yoki VACATED
   @IsOptional()
   @IsString()
   status?: string;
 
-  // Sana bo'yicha filter (checkIn dan)
   @IsOptional()
   @IsDateString()
   dateFrom?: string;

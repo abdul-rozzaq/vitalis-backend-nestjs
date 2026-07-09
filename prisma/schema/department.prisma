@@ -2,7 +2,9 @@ model Department {
   id          String       @id @default(uuid())
   name        String       @db.VarChar(64)
   description String?
-  price       Float?
+  price               Float?
+  patientDailyPrice   Decimal? @db.Decimal(15, 2) @map("patient_daily_price")
+  companionDailyPrice Decimal? @db.Decimal(15, 2) @map("companion_daily_price")
   parentId    String?
   assignments Assignment[]
   parent      Department?  @relation("DepartmentTree", fields: [parentId], references: [id])

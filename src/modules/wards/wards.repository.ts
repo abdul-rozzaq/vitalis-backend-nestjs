@@ -1,7 +1,19 @@
 import { Injectable } from "@nestjs/common";
-import { WardStatus } from "../../generated/prisma/client";
+import { Prisma, WardStatus } from "../../generated/prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
-import { CreateWardDto, UpdateWardDto } from "./wards.dto";
+import { UpdateWardDto } from "./wards.dto";
+
+// Internal type for ward creation — decoupled from DTO (service maps DTO → this)
+export interface WardCreateData {
+  patientId: string;
+  roomId: string;
+  checkIn?: string;
+  expectedOut?: string;
+  note?: string;
+  companionsCount?: number;
+  patientPricePerDay?: Prisma.Decimal | null;
+  companionPricePerDay?: Prisma.Decimal | null;
+}
 
 const WARD_INCLUDE = {
   patient: {
@@ -21,7 +33,15 @@ const WARD_INCLUDE = {
       roomType: true,
       capacity: true,
       description: true,
-      department: { select: { id: true, name: true } },
+      departmentId: true,
+      department: {
+        select: {
+          id: true,
+          name: true,
+          patientDailyPrice: true,
+          companionDailyPrice: true,
+        },
+      },
     },
   },
 } as const;
@@ -38,9 +58,14 @@ export class WardsRepository {
     });
   }
 
-  // Yangi yotqizish yaratish
-  async create(data: CreateWardDto) {
-    return this.prisma.wards.create({
+  // Yangi yotqizish yaratish (delegates to createInTx)
+  async create(data: WardCreateData) {
+    return this.prisma.$transaction((tx) => this.createInTx(tx, data));
+  }
+
+  // Composable create — accepts caller's tx (used by WardsService for atomic bonus grant)
+  async createInTx(tx: Prisma.TransactionClient, data: WardCreateData) {
+    return tx.wards.create({
       data: {
         patientId: data.patientId,
         roomId: data.roomId,
@@ -49,10 +74,13 @@ export class WardsRepository {
         note: data.note,
         companionsCount: data.companionsCount ?? 0,
         status: WardStatus.OCCUPIED,
+        ...(data.patientPricePerDay != null && { patientPricePerDay: data.patientPricePerDay }),
+        ...(data.companionPricePerDay != null && { companionPricePerDay: data.companionPricePerDay }),
       },
       include: WARD_INCLUDE,
     });
   }
+
   // Faqat hozir yotayotganlar (OCCUPIED)
   async findAllOccupied() {
     return this.prisma.wards.findMany({
@@ -72,7 +100,6 @@ export class WardsRepository {
     if (filters.roomId) where.roomId = filters.roomId;
     if (filters.status) where.status = filters.status;
 
-    // Sana filtri — checkIn oralig'i
     if (filters.dateFrom || filters.dateTo) {
       where.checkIn = {};
       if (filters.dateFrom) where.checkIn.gte = new Date(filters.dateFrom);
@@ -97,7 +124,10 @@ export class WardsRepository {
     // Hozir yotayotganlar uchun kunlar real-time hisoblash
     const enriched = data.map((w) => ({
       ...w,
-      daysStayed: w.status === WardStatus.OCCUPIED ? Math.ceil((Date.now() - new Date(w.checkIn).getTime()) / (1000 * 60 * 60 * 24)) || 1 : w.daysStayed,
+      daysStayed:
+        w.status === WardStatus.OCCUPIED
+          ? Math.ceil((Date.now() - new Date(w.checkIn).getTime()) / (1000 * 60 * 60 * 24)) || 1
+          : w.daysStayed,
     }));
 
     return {
@@ -117,10 +147,12 @@ export class WardsRepository {
     });
     if (!ward) return null;
 
-    // Real-time kunlar
     return {
       ...ward,
-      daysStayed: ward.status === WardStatus.OCCUPIED ? Math.ceil((Date.now() - new Date(ward.checkIn).getTime()) / (1000 * 60 * 60 * 24)) || 1 : ward.daysStayed,
+      daysStayed:
+        ward.status === WardStatus.OCCUPIED
+          ? Math.ceil((Date.now() - new Date(ward.checkIn).getTime()) / (1000 * 60 * 60 * 24)) || 1
+          : ward.daysStayed,
     };
   }
 
@@ -146,6 +178,7 @@ export class WardsRepository {
       include: WARD_INCLUDE,
     });
   }
+
   async update(id: string, data: UpdateWardDto) {
     return this.prisma.wards.update({
       where: { id },
@@ -155,7 +188,26 @@ export class WardsRepository {
         ...(data.checkIn !== undefined ? { checkIn: new Date(data.checkIn) } : {}),
         ...(data.note !== undefined ? { note: data.note } : {}),
         ...(data.companionsCount !== undefined ? { companionsCount: data.companionsCount } : {}),
-        ...(data.expectedOut !== undefined ? { expectedOut: data.expectedOut ? new Date(data.expectedOut) : null } : {}),
+        ...(data.expectedOut !== undefined
+          ? { expectedOut: data.expectedOut ? new Date(data.expectedOut) : null }
+          : {}),
+        // Future billing prices — changing these does NOT recalculate past transactions
+        ...(data.patientPricePerDay !== undefined
+          ? {
+              patientPricePerDay:
+                data.patientPricePerDay != null
+                  ? new Prisma.Decimal(data.patientPricePerDay)
+                  : null,
+            }
+          : {}),
+        ...(data.companionPricePerDay !== undefined
+          ? {
+              companionPricePerDay:
+                data.companionPricePerDay != null
+                  ? new Prisma.Decimal(data.companionPricePerDay)
+                  : null,
+            }
+          : {}),
       },
       include: WARD_INCLUDE,
     });
@@ -171,7 +223,7 @@ export class WardsRepository {
     const records = await this.prisma.wards.findMany({
       where: { status: WardStatus.OCCUPIED },
       select: {
-        checkIn: true, // ← shu qatorni qo'shing
+        checkIn: true,
         patient: { select: { first_name: true, last_name: true } },
         room: { select: { name: true, capacity: true } },
       },
@@ -182,13 +234,9 @@ export class WardsRepository {
       capacity: r.room.capacity,
       firstName: r.patient.first_name,
       lastName: r.patient.last_name,
-      admittedAt: r.checkIn, // ← shu qatorni qo'shing
+      admittedAt: r.checkIn,
     }));
   }
-
-  // Statistika: xona sig'imi vs band o'rinlar
-  // wards.repository.ts ichidagi roomOccupancy metodini
-  // quyidagi to'g'rilangan versiyaga almashtiring:
 
   async roomOccupancy(roomId: string) {
     const [room, occupiedWards] = await Promise.all([
@@ -204,16 +252,15 @@ export class WardsRepository {
       }),
     ]);
 
-    // Haqiqiy band o'rinlar: har bir bemor (1) + uning qarovchilari
     const totalOccupied = occupiedWards.reduce((sum, w) => sum + 1 + w.companionsCount, 0);
     const capacity = room?.capacity ?? 0;
     const free = Math.max(0, capacity - totalOccupied);
 
     return {
       room,
-      occupied: occupiedWards.length, // faqat bemorlar soni
-      totalOccupied, // bemorlar + qarovchilar (o'rinlar)
-      free, // bo'sh o'rinlar
+      occupied: occupiedWards.length,
+      totalOccupied,
+      free,
       capacity,
       currentPatients: occupiedWards.map((w) => ({
         ...w.patient,
