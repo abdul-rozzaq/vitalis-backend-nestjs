@@ -1,5 +1,6 @@
 import { Type } from "class-transformer";
-import { IsDateString, IsInt, IsNumber, IsOptional, IsString, IsUUID, Min } from "class-validator";
+import { IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, IsUUID, Min, IsBoolean } from "class-validator";
+import { PaymentMethod } from "../../generated/prisma/enums";
 
 // Bemorni palataga yotqizish
 export class CreateWardDto {
@@ -38,12 +39,24 @@ export class CreateWardDto {
   @Min(0)
   companionPricePerDay?: number | null;
 
-  // Free days bonus — NOT stored in DB; used only to trigger earnBonus
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
   freeDays?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isBonusForCompanions?: boolean;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  prepaymentAmount?: number;
+
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  paymentMethod?: PaymentMethod;
 }
 
 // Yozuvni yangilash — HAMMA maydon optional

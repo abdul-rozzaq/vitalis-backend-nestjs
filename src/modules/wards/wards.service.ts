@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, WardStatus } from "../../generated/prisma/client";
-import { BonusTxSource } from "../../generated/prisma/enums";
+import { BonusTxSource, PaymentMethod } from "../../generated/prisma/enums";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { PrismaService } from "../../prisma/prisma.service";
 import { BalanceService } from "../balance/balance.service";
@@ -82,15 +82,32 @@ export class WardsService {
         companionPricePerDay,
       });
 
-      // Free days → accommodation bonus (only if freeDays > 0 and patient price is known)
-      // Formula: Bonus = patientPricePerDay × freeDays (companion NOT included)
+      // Free days → accommodation bonus
+      // Default: patientPricePerDay × freeDays
+      // If isBonusForCompanions: (patientPricePerDay + companionPricePerDay × companionsCount) × freeDays
       if (dto.freeDays && dto.freeDays > 0 && patientPricePerDay) {
-        const bonusAmount = patientPricePerDay.mul(dto.freeDays);
+        let dailyBonus = patientPricePerDay;
+        if (dto.isBonusForCompanions && companionPricePerDay && dto.companionsCount) {
+          dailyBonus = dailyBonus.add(companionPricePerDay.mul(dto.companionsCount));
+        }
+
+        const bonusAmount = dailyBonus.mul(dto.freeDays);
         await this.balanceService.earnBonusInTx(tx, {
           patientId: dto.patientId,
           amount: bonusAmount,
           source: BonusTxSource.ACCOMMODATION,
           note: `Bepul ${dto.freeDays} kun yotoqxona bonusi (${ward.room.name})`,
+          staffId: userId,
+        });
+      }
+
+      // Prepayment
+      if (dto.prepaymentAmount && dto.prepaymentAmount > 0 && dto.paymentMethod) {
+        await this.balanceService.depositInTx(tx, {
+          patientId: dto.patientId,
+          amount: new Prisma.Decimal(dto.prepaymentAmount),
+          paymentMethod: dto.paymentMethod,
+          note: `Palata uchun oldindan to'lov (${ward.room.name})`,
           staffId: userId,
         });
       }
