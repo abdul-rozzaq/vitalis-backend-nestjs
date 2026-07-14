@@ -60,12 +60,20 @@ export class CreateOperationDto {
   @IsUUID()
   roomId?: string;
 
+  @IsUUID()
+  departmentId: string;
+
   @IsDateString()
   scheduledAt: string;
 
   @IsOptional()
   @IsString()
   note?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  contractNumber?: string;
 
   @IsOptional()
   @Type(() => Number)
@@ -125,12 +133,21 @@ export class UpdateOperationDto {
   roomId?: string;
 
   @IsOptional()
+  @IsUUID()
+  departmentId?: string;
+
+  @IsOptional()
   @IsDateString()
   scheduledAt?: string;
 
   @IsOptional()
   @IsString()
   note?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  contractNumber?: string;
 
   @IsOptional()
   @Type(() => Number)

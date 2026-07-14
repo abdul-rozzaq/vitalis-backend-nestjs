@@ -6,9 +6,14 @@ import { CreateOperationTypeDto, UpdateOperationTypeDto } from './operation-type
 export class OperationTypesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
- findAll(onlyActive?: boolean) {
+ findAll(onlyActive?: boolean, departmentId?: string) {
   return this.prisma.operationType.findMany({
-    where: onlyActive ? { isActive: true } : undefined,
+    where: {
+      ...(onlyActive ? { isActive: true } : {}),
+      ...(departmentId
+        ? { departments: { some: { departmentId } } }
+        : {}),
+    },
     include: {
       items: {
         where: { isActive: true },
@@ -18,6 +23,13 @@ export class OperationTypesRepository {
         include: {
           doctor: {
             select: { id: true, first_name: true, last_name: true, role: true },
+          },
+        },
+      },
+      departments: {
+        include: {
+          department: {
+            select: { id: true, name: true },
           },
         },
       },
@@ -36,6 +48,13 @@ findOne(id: string) {
         include: {
           doctor: {
             select: { id: true, first_name: true, last_name: true, role: true },
+          },
+        },
+      },
+      departments: {
+        include: {
+          department: {
+            select: { id: true, name: true },
           },
         },
       },
@@ -132,6 +151,23 @@ findOne(id: string) {
 removeDoctor(operationTypeId: string, doctorId: string) {
   return this.prisma.operationTypeDoctor.delete({
     where: { operationTypeId_doctorId: { operationTypeId, doctorId } },
+  });
+}
+
+addDepartment(operationTypeId: string, departmentId: string) {
+  return this.prisma.operationTypeDepartment.create({
+    data: { operationTypeId, departmentId },
+    include: {
+      department: {
+        select: { id: true, name: true },
+      },
+    },
+  });
+}
+
+removeDepartment(operationTypeId: string, departmentId: string) {
+  return this.prisma.operationTypeDepartment.delete({
+    where: { operationTypeId_departmentId: { operationTypeId, departmentId } },
   });
 }
 }

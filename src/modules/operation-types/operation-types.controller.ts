@@ -9,7 +9,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { AddOperationTypeDoctorDto, CreateOperationTypeDto, UpdateOperationTypeDto } from './operation-type.dto';
+import { AddOperationTypeDepartmentDto, AddOperationTypeDoctorDto, CreateOperationTypeDto, UpdateOperationTypeDto } from './operation-type.dto';
 import { OperationTypesService } from './operation-types.service';
 
 @Controller('operation-types')
@@ -17,8 +17,11 @@ export class OperationTypesController {
   constructor(private readonly service: OperationTypesService) {}
 
   @Get()
-  findAll(@Query('onlyActive') onlyActive?: string) {
-    return this.service.findAll(onlyActive === 'true');
+  findAll(
+    @Query('onlyActive') onlyActive?: string,
+    @Query('departmentId') departmentId?: string,
+  ) {
+    return this.service.findAll(onlyActive === 'true', departmentId);
   }
 
   @Get(':id')
@@ -45,6 +48,22 @@ removeDoctor(
   @Param('doctorId', ParseUUIDPipe) doctorId: string,
 ) {
   return this.service.removeDoctor(id, doctorId);
+}
+
+@Post(':id/departments')
+addDepartment(
+  @Param('id', ParseUUIDPipe) id: string,
+  @Body() dto: AddOperationTypeDepartmentDto,
+) {
+  return this.service.addDepartment(id, dto.departmentId);
+}
+
+@Delete(':id/departments/:departmentId')
+removeDepartment(
+  @Param('id', ParseUUIDPipe) id: string,
+  @Param('departmentId', ParseUUIDPipe) departmentId: string,
+) {
+  return this.service.removeDepartment(id, departmentId);
 }
 
   @Patch(':id')

@@ -10,8 +10,8 @@ import { OperationTypesRepository } from './operation-types.repository';
 export class OperationTypesService {
   constructor(private readonly repo: OperationTypesRepository) {}
 
-  findAll(onlyActive?: boolean) {
-    return this.repo.findAll(onlyActive);
+  findAll(onlyActive?: boolean, departmentId?: string) {
+    return this.repo.findAll(onlyActive, departmentId);
   }
 
   async findOne(id: string) {
@@ -54,5 +54,15 @@ export class OperationTypesService {
 async removeDoctor(id: string, doctorId: string) {
   await this.findOne(id);
   return this.repo.removeDoctor(id, doctorId);
+}
+
+async addDepartment(id: string, departmentId: string) {
+  await this.findOne(id);
+  return this.repo.addDepartment(id, departmentId);
+}
+
+async removeDepartment(id: string, departmentId: string) {
+  await this.findOne(id);
+  return this.repo.removeDepartment(id, departmentId);
 }
 }

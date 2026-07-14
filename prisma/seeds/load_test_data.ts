@@ -365,6 +365,39 @@ async function main() {
   }
   console.log(`   ✓ ${createdOpTypes.length} ta operatsiya turi`);
 
+  // ── 7b. Operation Type Departments + Doctors ───────────────────────────────
+  console.log("🏥 Operatsiya turlariga bo'lim va doktorlar biriktirilmoqda...");
+  const xirurgiyaDep = createdDeps.find((d) => d.name === "Xirurgiya") ?? createdDeps[0];
+  let opTypeDepsLinked = 0;
+  let opTypeDoctorsLinked = 0;
+
+  for (const opType of createdOpTypes) {
+    const existingDep = await prisma.operationTypeDepartment.findFirst({
+      where: { operationTypeId: opType.id, departmentId: xirurgiyaDep.id },
+    });
+    if (!existingDep) {
+      await prisma.operationTypeDepartment.create({
+        data: { operationTypeId: opType.id, departmentId: xirurgiyaDep.id },
+      });
+      opTypeDepsLinked++;
+    }
+
+    // Jarrohlik operatsiyalariga yetakchi jarroh sifatida birinchi doktorni biriktiramiz
+    const leadDoctor = doctors[0];
+    if (leadDoctor) {
+      const existingDoc = await prisma.operationTypeDoctor.findFirst({
+        where: { operationTypeId: opType.id, doctorId: leadDoctor.id },
+      });
+      if (!existingDoc) {
+        await prisma.operationTypeDoctor.create({
+          data: { operationTypeId: opType.id, doctorId: leadDoctor.id },
+        });
+        opTypeDoctorsLinked++;
+      }
+    }
+  }
+  console.log(`   ✓ ${opTypeDepsLinked} ta bo'lim, ${opTypeDoctorsLinked} ta doktor operatsiya turlariga biriktirildi`);
+
   // ── 8. Assignments (Doctor + Hamshira) ─────────────────────────────────────
   console.log("📋 Tayinlashlar (assignments)...");
   const createdAssignments: any[] = [];
