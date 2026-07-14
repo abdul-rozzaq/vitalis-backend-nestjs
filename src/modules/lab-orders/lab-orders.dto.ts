@@ -51,6 +51,33 @@ export class ApplyLabResultTemplateDto {
   templateId: string;
 }
 
+export class BulkSaveLabResultsItemDto {
+  @IsString()
+  itemId: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => LabResultRowDto)
+  rows: LabResultRowDto[];
+}
+
+// "Umumiy" natija kiritish — bitta buyurtmadagi bir nechta xizmat (item)
+// natijasini bitta so'rovda saqlaydi. Laborant butun buyurtmani (masalan,
+// Koagulogrammaga kiruvchi barcha tahlillarni) bitta ekranda to'ldirib,
+// bitta marta "Saqlash"/"Yuborish" bosadi.
+export class BulkSaveLabResultsDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => BulkSaveLabResultsItemDto)
+  items: BulkSaveLabResultsItemDto[];
+
+  @IsOptional()
+  @IsBoolean()
+  submit?: boolean;
+}
+
 export class UpsertLabResultTableDto {
   @IsArray()
   @ArrayMinSize(1)

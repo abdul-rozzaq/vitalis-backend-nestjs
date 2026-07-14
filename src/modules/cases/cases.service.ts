@@ -88,15 +88,29 @@ export class CasesService {
     }
 
     if (dto.type === CaseStepType.LAB) {
-      if (!dto.laboratoryId) throw new AppException("laboratoryId required for LAB step", 400);
       if (!dto.serviceIds?.length) throw new AppException("serviceIds required for LAB step", 400);
 
-      const services = await this.prisma.laboratoryService.findMany({
-        where: { id: { in: dto.serviceIds }, laboratoryId: dto.laboratoryId },
-      });
+      // Load all services first and group them by their laboratoryId. This allows
+      // creating one LabOrder per laboratory (instead of one per service).
+      const services = await this.prisma.laboratoryService.findMany({ where: { id: { in: dto.serviceIds } } });
       if (services.length !== dto.serviceIds.length) {
-        throw new AppException("One or more services not found or not belonging to this laboratory", 404);
+        throw new AppException("One or more services not found", 404);
       }
+
+      // If a single laboratoryId was explicitly provided, ensure all services
+      // belong to it (backwards-compatible behaviour).
+      if (dto.laboratoryId) {
+        if (services.some((s) => s.laboratoryId !== dto.laboratoryId)) {
+          throw new AppException("One or more services not belonging to the specified laboratory", 404);
+        }
+      }
+
+      const groups = services.reduce((m, s) => {
+        const key = s.laboratoryId;
+        if (!m.has(key)) m.set(key, [] as typeof services);
+        m.get(key)!.push(s);
+        return m;
+      }, new Map<string, typeof services>());
 
       return this.prisma.$transaction(async (tx) => {
         const step = await tx.caseStep.create({
@@ -108,47 +122,50 @@ export class CasesService {
           },
         });
 
-        const labOrder = await tx.labOrder.create({
-          data: {
-            caseStep: { connect: { id: step.id } },
-            patient: { connect: { id: patientCase.patientId } },
-            laboratory: { connect: { id: dto.laboratoryId! } },
-          },
-        });
-
-        for (const svc of services) {
-          await tx.labOrderItem.create({
+        // For each laboratory group, create one LabOrder and its items + invoice
+        for (const [labId, svcs] of groups.entries()) {
+          const labOrder = await tx.labOrder.create({
             data: {
-              labOrder: { connect: { id: labOrder.id } },
-              service: { connect: { id: svc.id } },
+              caseStep: { connect: { id: step.id } },
+              patient: { connect: { id: patientCase.patientId } },
+              laboratory: { connect: { id: labId } },
+            },
+          });
+
+          for (const svc of svcs) {
+            await tx.labOrderItem.create({
+              data: {
+                labOrder: { connect: { id: labOrder.id } },
+                service: { connect: { id: svc.id } },
+              },
+            });
+          }
+
+          const invoiceItems = svcs.map((svc) => {
+            const unitPrice = new Prisma.Decimal(svc.price ?? 0);
+            return {
+              description: svc.name,
+              quantity: 1,
+              unitPrice,
+              totalPrice: unitPrice,
+              sourceType: InvoiceItemSourceType.LAB_SERVICE,
+              sourceId: svc.id,
+            };
+          });
+          const totalAmount = invoiceItems.reduce((sum, item) => sum.add(item.unitPrice), new Prisma.Decimal(0));
+
+          await tx.invoice.create({
+            data: {
+              patientId: patientCase.patientId,
+              sourceType: InvoiceSourceType.LAB_ORDER,
+              sourceId: labOrder.id,
+              totalAmount,
+              status: InvoiceStatus.ISSUED,
+              createdById: user.userId,
+              items: { create: invoiceItems },
             },
           });
         }
-
-        const invoiceItems = services.map((svc) => {
-          const unitPrice = new Prisma.Decimal(svc.price ?? 0);
-          return {
-            description: svc.name,
-            quantity: 1,
-            unitPrice,
-            totalPrice: unitPrice,
-            sourceType: InvoiceItemSourceType.LAB_SERVICE,
-            sourceId: svc.id,
-          };
-        });
-        const totalAmount = invoiceItems.reduce((sum, item) => sum.add(item.unitPrice), new Prisma.Decimal(0));
-
-        await tx.invoice.create({
-          data: {
-            patientId: patientCase.patientId,
-            sourceType: InvoiceSourceType.LAB_ORDER,
-            sourceId: labOrder.id,
-            totalAmount,
-            status: InvoiceStatus.ISSUED,
-            createdById: user.userId,
-            items: { create: invoiceItems },
-          },
-        });
 
         return tx.caseStep.findUnique({ where: { id: step.id }, include: STEP_INCLUDE });
       });

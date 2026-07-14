@@ -16,6 +16,8 @@ model Department {
   // New scheduling relations
   workSchedules  WorkSchedule[]
   shiftTemplates ShiftTemplate[]
+  operationTypes OperationTypeDepartment[]
+  operations     Operation[]
 
   @@map("departments")
 }

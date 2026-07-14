@@ -19,7 +19,7 @@ export const STEP_INCLUDE = {
       items: { include: { medicine: true }, orderBy: { medicine: { name: "asc" } } },
     },
   },
-  labOrder: {
+  labOrders: {
     include: {
       laboratory: true,
       items: {
@@ -192,14 +192,16 @@ export class CasesRepository {
         where: { id: stepId },
         include: {
           appointment: { select: { id: true } },
-          labOrder: { select: { id: true } },
+          labOrders: { select: { id: true } },
           diagnosticOrder: { select: { id: true } },
           prescription: { select: { id: true } },
         },
       });
       if (!step) return null;
-      if (step.labOrder) {
-        await tx.labOrder.delete({ where: { id: step.labOrder.id } });
+      if (step.labOrders && step.labOrders.length) {
+        for (const lo of step.labOrders) {
+          await tx.labOrder.delete({ where: { id: lo.id } });
+        }
       }
       if (step.diagnosticOrder) {
         await tx.diagnosticOrder.delete({ where: { id: step.diagnosticOrder.id } });
@@ -220,14 +222,16 @@ export class CasesRepository {
         where: { caseId },
         include: {
           appointment: { select: { id: true } },
-          labOrder: { select: { id: true } },
+          labOrders: { select: { id: true } },
           diagnosticOrder: { select: { id: true } },
           prescription: { select: { id: true } },
         },
       });
       for (const step of steps) {
-        if (step.labOrder) {
-          await tx.labOrder.delete({ where: { id: step.labOrder.id } });
+        if (step.labOrders && step.labOrders.length) {
+          for (const lo of step.labOrders) {
+            await tx.labOrder.delete({ where: { id: lo.id } });
+          }
         }
         if (step.diagnosticOrder) {
           await tx.diagnosticOrder.delete({ where: { id: step.diagnosticOrder.id } });

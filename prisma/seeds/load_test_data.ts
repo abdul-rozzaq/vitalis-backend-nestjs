@@ -10,7 +10,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import * as bcrypt from "bcryptjs";
 import "dotenv/config";
 import { PrismaClient } from "../../src/generated/prisma/client";
-import { UMUMIY_QON_TAHLILI_ROWS, BIOKIMYOVIY_TAHLIL_ROWS } from "./data/lab-default-rows";
+import { UMUMIY_QON_TAHLILI_ROWS, BIOKIMYOVIY_TAHLIL_ROWS, KOAGULOGRAMMA_ROWS } from "./data/lab-default-rows";
 
 const connectionString = process.env.DATABASE_URL!;
 
@@ -83,6 +83,7 @@ const LABORATORIES = [
     services: [
       { name: "Umumiy qon tahlili",      price: 25000, defaultRows: UMUMIY_QON_TAHLILI_ROWS },
       { name: "Biokimyoviy qon tahlili", price: 45000, defaultRows: BIOKIMYOVIY_TAHLIL_ROWS },
+      { name: "Koagulogramma tahlili",   price: 40000, defaultRows: KOAGULOGRAMMA_ROWS },
       { name: "Qon guruhi aniqlash",     price: 20000 },
       { name: "Glyukoza darajasi",       price: 18000 },
       { name: "Umumiy siydik tahlili",   price: 15000 },
@@ -363,6 +364,39 @@ async function main() {
     createdOpTypes.push(existing);
   }
   console.log(`   ✓ ${createdOpTypes.length} ta operatsiya turi`);
+
+  // ── 7b. Operation Type Departments + Doctors ───────────────────────────────
+  console.log("🏥 Operatsiya turlariga bo'lim va doktorlar biriktirilmoqda...");
+  const xirurgiyaDep = createdDeps.find((d) => d.name === "Xirurgiya") ?? createdDeps[0];
+  let opTypeDepsLinked = 0;
+  let opTypeDoctorsLinked = 0;
+
+  for (const opType of createdOpTypes) {
+    const existingDep = await prisma.operationTypeDepartment.findFirst({
+      where: { operationTypeId: opType.id, departmentId: xirurgiyaDep.id },
+    });
+    if (!existingDep) {
+      await prisma.operationTypeDepartment.create({
+        data: { operationTypeId: opType.id, departmentId: xirurgiyaDep.id },
+      });
+      opTypeDepsLinked++;
+    }
+
+    // Jarrohlik operatsiyalariga yetakchi jarroh sifatida birinchi doktorni biriktiramiz
+    const leadDoctor = doctors[0];
+    if (leadDoctor) {
+      const existingDoc = await prisma.operationTypeDoctor.findFirst({
+        where: { operationTypeId: opType.id, doctorId: leadDoctor.id },
+      });
+      if (!existingDoc) {
+        await prisma.operationTypeDoctor.create({
+          data: { operationTypeId: opType.id, doctorId: leadDoctor.id },
+        });
+        opTypeDoctorsLinked++;
+      }
+    }
+  }
+  console.log(`   ✓ ${opTypeDepsLinked} ta bo'lim, ${opTypeDoctorsLinked} ta doktor operatsiya turlariga biriktirildi`);
 
   // ── 8. Assignments (Doctor + Hamshira) ─────────────────────────────────────
   console.log("📋 Tayinlashlar (assignments)...");

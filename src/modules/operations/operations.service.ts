@@ -11,6 +11,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InvoiceService } from '../invoice/invoice.service';
+import {
+  generateOperationContractDocx,
+  OperationContractRow,
+} from './generators/operation-contract-docx';
 import { CreateOperationDto, UpdateOperationDto } from './operation.dto';
 import { OperationsRepository } from './operations.repository';
 
@@ -179,5 +183,53 @@ export class OperationsService {
       );
     }
     return this.repo.delete(id);
+  }
+
+  async generateContract(id: string) {
+    const op = await this.findOne(id);
+
+    const leadSurgeon =
+      op.surgeons.find((s) => s.role === 'LEAD') ?? op.surgeons[0];
+
+    const rows: OperationContractRow[] = [];
+
+    if (Number(op.basePrice) > 0) {
+      rows.push({
+        name: op.operationType.name,
+        quantity: 1,
+        unitPrice: Number(op.basePrice),
+        totalPrice: Number(op.basePrice),
+      });
+    }
+
+    for (const item of op.items) {
+      rows.push({
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: Number(item.unitPrice),
+        totalPrice: Number(item.totalPrice),
+      });
+    }
+
+    const now = new Date();
+
+    const buffer = await generateOperationContractDocx({
+      contractNumber: op.contractNumber ?? op.id.slice(0, 8).toUpperCase(),
+      contractTime: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+      startDate: op.scheduledAt,
+      endDate: op.completedAt,
+      patientFullName: `${op.patient.first_name} ${op.patient.last_name}`,
+      patientBirthDate: op.patient.birth_date,
+      patientAddress: op.patient.address,
+      departmentName: op.department?.name,
+      diagnosis: op.caseStep?.case?.chiefComplaint,
+      doctorName: leadSurgeon
+        ? `${leadSurgeon.surgeon.first_name} ${leadSurgeon.surgeon.last_name}`
+        : undefined,
+      rows,
+      totalPrice: Number(op.totalPrice),
+    });
+
+    return { buffer, operation: op };
   }
 }

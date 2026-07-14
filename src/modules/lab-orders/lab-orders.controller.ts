@@ -4,7 +4,13 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
-import { ApplyLabResultTemplateDto, AddLabOrderItemFileDto, UpdateLabOrderItemDto, UpsertLabResultTableDto } from "./lab-orders.dto";
+import {
+  ApplyLabResultTemplateDto,
+  AddLabOrderItemFileDto,
+  BulkSaveLabResultsDto,
+  UpdateLabOrderItemDto,
+  UpsertLabResultTableDto,
+} from "./lab-orders.dto";
 import { LabOrdersService } from "./lab-orders.service";
 
 @Roles(RoleName.ADMIN, RoleName.DOCTOR, RoleName.LABARANT)
@@ -25,6 +31,39 @@ export class LabOrdersController {
   @Patch(":id/items/:itemId")
   updateItem(@Param("id") id: string, @Param("itemId") itemId: string, @Body() dto: UpdateLabOrderItemDto) {
     return this.service.updateItem(id, itemId, dto);
+  }
+
+  // "Umumiy" natija kiritish — bitta buyurtmadagi bir nechta xizmat natijasini
+  // bitta so'rovda saqlaydi (laborant hammasini bitta ekranda to'ldiradi).
+  @Put(":id/results")
+  saveResultTables(@Param("id") id: string, @Body() dto: BulkSaveLabResultsDto, @CurrentUser() user: JwtPayload) {
+    return this.service.saveResultTables(id, dto, user);
+  }
+
+  // "Umumiy" hujjat — buyurtmadagi barcha xizmatlarning natijasi bitta PDF/DOCX faylida.
+  @Get(":id/download/:format")
+  async downloadOrderDocument(
+    @Param("id") id: string,
+    @Param("format") format: string,
+    @CurrentUser() user: JwtPayload,
+    @Res() res: Response,
+  ) {
+    if (format !== "pdf" && format !== "docx") {
+      throw new BadRequestException("Format faqat 'pdf' yoki 'docx' bo'lishi mumkin");
+    }
+
+    const buffer = await this.service.generateOrderDocument(id, format, user);
+
+    res.set({
+      "Content-Type":
+        format === "pdf"
+          ? "application/pdf"
+          : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "Content-Disposition": `attachment; filename=umumiy-natija-${id}.${format}`,
+      "Content-Length": buffer.length,
+    });
+
+    res.send(buffer);
   }
 
   @Put(":id/items/:itemId/result-table")
