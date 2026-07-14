@@ -115,3 +115,8 @@ export class AddOperationTypeDoctorDto {
   @IsUUID()
   doctorId: string;
 }
+
+export class AddOperationTypeDepartmentDto {
+  @IsUUID()
+  departmentId: string;
+}

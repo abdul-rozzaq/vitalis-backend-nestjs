@@ -27,7 +27,7 @@ model CaseStep {
   assignment      Assignment?      @relation(fields: [assignmentId], references: [id])
   case            PatientCase      @relation(fields: [caseId], references: [id], onDelete: Cascade)
   diagnosticOrder DiagnosticOrder?
-  labOrder        LabOrder?
+  labOrders       LabOrder[]
   operation       Operation?
   prescription    Prescription?
 

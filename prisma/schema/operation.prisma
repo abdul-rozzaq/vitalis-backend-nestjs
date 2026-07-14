@@ -1,14 +1,15 @@
 model OperationType {
-  id          String                @id @default(uuid())
-  name        String                @db.VarChar(128)
+  id          String                    @id @default(uuid())
+  name        String                    @db.VarChar(128)
   description String?
-  basePrice   Decimal               @default(0) @db.Decimal(15, 2)
-  isActive    Boolean               @default(true)
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
+  basePrice   Decimal                   @default(0) @db.Decimal(15, 2)
+  isActive    Boolean                   @default(true)
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
   items       OperationTypeItem[]
   operations  Operation[]
   doctors     OperationTypeDoctor[]
+  departments OperationTypeDepartment[]
 
   @@map("operation_types")
 }
@@ -33,11 +34,13 @@ model Operation {
   patientId       String
   operationTypeId String
   roomId          String?
+  departmentId    String?
   caseStepId      String?            @unique
   scheduledAt     DateTime
   startedAt       DateTime?
   completedAt     DateTime?
   note            String?
+  contractNumber  String?            @db.VarChar(64)
   basePrice       Decimal            @default(0) @db.Decimal(15, 2)  
   totalPrice      Decimal            @default(0) @db.Decimal(15, 2)
   createdAt       DateTime           @default(now())
@@ -48,6 +51,7 @@ model Operation {
   operationType   OperationType      @relation(fields: [operationTypeId], references: [id])
   patient         Patient            @relation(fields: [patientId], references: [id])
   room            Room?              @relation(fields: [roomId], references: [id])
+  department      Department?        @relation(fields: [departmentId], references: [id])
 
   @@map("operations")
 }
@@ -105,4 +109,16 @@ model OperationTypeDoctor {
 
   @@unique([operationTypeId, doctorId])
   @@map("operation_type_doctors")
+}
+
+model OperationTypeDepartment {
+  id              String        @id @default(uuid())
+  operationTypeId String
+  departmentId    String
+  createdAt       DateTime      @default(now())
+  operationType   OperationType @relation(fields: [operationTypeId], references: [id], onDelete: Cascade)
+  department      Department    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([operationTypeId, departmentId])
+  @@map("operation_type_departments")
 }

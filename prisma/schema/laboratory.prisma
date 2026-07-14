@@ -41,7 +41,7 @@ model LaboratoryAssignment {
 model LabOrder {
   id            String         @id @default(uuid())
   status        LabOrderStatus @default(PENDING)
-  caseStepId    String         @unique
+  caseStepId    String
   patientId     String
   laboratoryId  String
   orderNumber   String?

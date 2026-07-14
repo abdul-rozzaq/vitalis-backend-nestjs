@@ -12,10 +12,18 @@ export class OperationsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   private includeAll = {
-    patient: { select: { id: true, first_name: true, last_name: true } },
+    patient: { select: { id: true, first_name: true, last_name: true, birth_date: true, address: true } },
     operationType: { select: { id: true, name: true, basePrice: true } },
     room: { select: { id: true, name: true } },
-    caseStep: { select: { id: true, caseId: true, status: true } },
+    department: { select: { id: true, name: true } },
+    caseStep: {
+      select: {
+        id: true,
+        caseId: true,
+        status: true,
+        case: { select: { id: true, chiefComplaint: true } },
+      },
+    },
     surgeons: {
       include: {
         surgeon: {
@@ -74,9 +82,11 @@ async create(dto: CreateOperationDto) {
         patientId: dto.patientId,
         operationTypeId: dto.operationTypeId,
         roomId: dto.roomId,
+        departmentId: dto.departmentId,
         caseStepId: caseStep.id,
         scheduledAt: new Date(dto.scheduledAt),
         note: dto.note,
+        contractNumber: dto.contractNumber,
         basePrice,
         totalPrice,
         surgeons: {

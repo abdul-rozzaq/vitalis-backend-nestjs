@@ -4,9 +4,15 @@ import { join } from "path";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
 import { PrismaService } from "../../prisma/prisma.service";
-import { generateDocx } from "./generators/docx-generator";
-import { generatePdf } from "./generators/pdf-generator";
-import { ApplyLabResultTemplateDto, AddLabOrderItemFileDto, UpdateLabOrderItemDto, UpsertLabResultTableDto } from "./lab-orders.dto";
+import { generateDocx, generateCombinedDocx } from "./generators/docx-generator";
+import { generatePdf, generateCombinedPdf } from "./generators/pdf-generator";
+import {
+  ApplyLabResultTemplateDto,
+  AddLabOrderItemFileDto,
+  BulkSaveLabResultsDto,
+  UpdateLabOrderItemDto,
+  UpsertLabResultTableDto,
+} from "./lab-orders.dto";
 import { LabOrdersRepository } from "./lab-orders.repository";
 
 export type DocumentFormat = "pdf" | "docx";
@@ -108,6 +114,41 @@ export class LabOrdersService {
   }
 
   /**
+   * "Umumiy" natija saqlash — bitta buyurtmadagi bir nechta itemning natija
+   * jadvalini bitta so'rovda saqlaydi (laborant butun buyurtmani bitta
+   * ekranda to'ldiradi). Har bir item uchun xuddi saveResultTable'dagi kabi
+   * holat mantiqi qo'llanadi, lekin buyurtma holati oxirida bir marta
+   * qayta hisoblanadi.
+   */
+  async saveResultTables(orderId: string, dto: BulkSaveLabResultsDto, user: JwtPayload) {
+    const order = await this.repo.findById(orderId);
+    if (!order) throw new NotFoundException("Lab order not found");
+
+    const tables = [];
+    for (const entry of dto.items) {
+      const item = order.items.find((i) => i.id === entry.itemId);
+      if (!item) throw new NotFoundException(`Lab order item not found: ${entry.itemId}`);
+
+      const table = await this.repo.upsertResultTable(entry.itemId, entry.rows);
+      tables.push(table);
+
+      const itemUpdate: { status?: "READY" | "IN_PROGRESS"; performedById: string } = { performedById: user.userId };
+      if (dto.submit) {
+        if (item.status === "PENDING" || item.status === "IN_PROGRESS") {
+          itemUpdate.status = "READY";
+        }
+      } else if (item.status === "PENDING") {
+        itemUpdate.status = "IN_PROGRESS";
+      }
+      await this.repo.updateItem(entry.itemId, itemUpdate);
+    }
+
+    await this.repo.recalcOrderStatus(orderId);
+    return tables;
+  }
+
+
+  /**
    * Laborant natija jadvalini to'ldirayotganda mustaqil shablonlar ro'yxatidan
    * (LabResultTemplate — hech qanday xizmatga tayinlanmagan) birini tanlaydi.
    * Shu metod tanlangan shablonning qatorlarini item'ning natija jadvaliga
@@ -202,6 +243,70 @@ export class LabOrdersService {
     return format === "pdf" ? generatePdf(data) : generateDocx(data);
   }
 
+
+  /**
+   * "Umumiy" hujjat — buyurtmadagi barcha (natijasi kiritilgan) xizmatlarning
+   * natijasini bitta PDF/DOCX faylida chiqaradi. Bemor ma'lumotlari va
+   * laboratoriya nomi (masalan "КОАГУЛОГРАММА") bitta marta yuqorida
+   * ko'rsatiladi, har bir xizmat esa o'z sarlavhasi va jadvali bilan
+   * ketma-ket joylanadi.
+   */
+  async generateOrderDocument(orderId: string, format: DocumentFormat, user: JwtPayload) {
+    if (format !== "pdf" && format !== "docx") {
+      throw new BadRequestException("Format faqat 'pdf' yoki 'docx' bo'lishi mumkin");
+    }
+
+    const order = await this.repo.findById(orderId);
+    if (!order) throw new NotFoundException("Buyurtma topilmadi");
+
+    if (user.role !== RoleName.ADMIN) {
+      const hasAccess = await this.prisma.laboratoryAssignment.findFirst({
+        where: { userId: user.userId, laboratoryId: order.laboratory.id, isActive: true },
+      });
+      if (!hasAccess) throw new ForbiddenException("Bu buyurtmaga ruxsatingiz yo'q");
+    }
+
+    const itemsWithResults = order.items.filter((i) => i.resultTable);
+    if (!itemsWithResults.length) throw new NotFoundException("Natija topilmadi");
+
+    // Har xil xizmatlarni har xil laborant bajargan bo'lishi mumkin —
+    // takrorlanmas F.I.Sh ro'yxatini yig'amiz.
+    const seenPerformerIds = new Set<string>();
+    const performerNames: string[] = [];
+    for (const item of itemsWithResults) {
+      if (item.performedBy && !seenPerformerIds.has(item.performedBy.id)) {
+        seenPerformerIds.add(item.performedBy.id);
+        performerNames.push(`${item.performedBy.first_name} ${item.performedBy.last_name}`);
+      }
+    }
+    if (!performerNames.length) {
+      const me = await this.prisma.user.findUnique({
+        where: { id: user.userId },
+        select: { first_name: true, last_name: true },
+      });
+      if (me) performerNames.push(`${me.first_name} ${me.last_name}`);
+    }
+
+    const logoBuffer = await this.fetchLogoBuffer();
+
+    const data = {
+      patientName: `${order.patient.first_name} ${order.patient.last_name}`,
+      patientBirthYear: order.patient.birth_date ? new Date(order.patient.birth_date).getFullYear() : "—",
+      orderNumber: order.orderNumber ?? order.id.slice(-4).toUpperCase(),
+      sampleDate: order.sampleTakenAt
+        ? new Date(order.sampleTakenAt).toLocaleDateString("uz-UZ")
+        : new Date(order.createdAt).toLocaleDateString("uz-UZ"),
+      documentTitle: order.laboratory.name,
+      doctorName: performerNames.join(", ") || "—",
+      logoBuffer,
+      sections: itemsWithResults.map((item) => ({
+        title: item.service.name,
+        rows: item.resultTable!.rows,
+      })),
+    };
+
+    return format === "pdf" ? generateCombinedPdf(data) : generateCombinedDocx(data);
+  }
 
   private readonly logoPath = join(__dirname, "assets", "logo.png");
 
