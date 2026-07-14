@@ -1,0 +1,40 @@
+model Procedure {
+  id           String           @id @default(uuid())
+  name         String           @db.VarChar(128)
+  description  String?
+  price        Decimal?         @db.Decimal(15, 2)
+  departmentId String
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  department   Department       @relation(fields: [departmentId], references: [id])
+  orders       ProcedureOrder[]
+
+  @@map("procedures")
+}
+
+model ProcedureOrder {
+  id           String               @id @default(uuid())
+  status       ProcedureOrderStatus @default(PENDING)
+  caseStepId   String               @unique
+  patientId    String
+  procedureId  String
+  doctorId     String?
+  price        Decimal?             @db.Decimal(15, 2)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  caseStep     CaseStep             @relation(fields: [caseStepId], references: [id], onDelete: Cascade)
+  patient      Patient              @relation(fields: [patientId], references: [id])
+  procedure    Procedure            @relation(fields: [procedureId], references: [id])
+  doctor       User?                @relation(fields: [doctorId], references: [id])
+
+  @@map("procedure_orders")
+}
+
+enum ProcedureOrderStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+
+  @@map("procedure_order_statuses")
+}

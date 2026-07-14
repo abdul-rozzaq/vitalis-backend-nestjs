@@ -43,6 +43,12 @@ export const STEP_INCLUDE = {
       },
     },
   },
+  procedureOrder: {
+    include: {
+      procedure: true,
+      doctor: true,
+    },
+  },
 } as const;
 
 const CASE_INCLUDE = {
@@ -136,14 +142,32 @@ export class CasesRepository {
   }
 
   async updateStep(stepId: string, data: { status?: CaseStepStatus; note?: string; completedAt?: Date }) {
-    return this.prisma.caseStep.update({
-      where: { id: stepId },
-      data: {
-        ...(data.status && { status: data.status }),
-        ...(data.note !== undefined && { note: data.note }),
-        ...(data.completedAt && { completedAt: data.completedAt }),
-      },
-      include: STEP_INCLUDE,
+    return this.prisma.$transaction(async (tx) => {
+      if (data.status) {
+        const step = await tx.caseStep.findUnique({
+          where: { id: stepId },
+          include: { procedureOrder: true },
+        });
+        if (step?.procedureOrder) {
+          let procedureStatus: any = data.status;
+          if (data.status === CaseStepStatus.DONE) procedureStatus = "COMPLETED";
+
+          await tx.procedureOrder.update({
+            where: { id: step.procedureOrder.id },
+            data: { status: procedureStatus },
+          });
+        }
+      }
+
+      return tx.caseStep.update({
+        where: { id: stepId },
+        data: {
+          ...(data.status && { status: data.status }),
+          ...(data.note !== undefined && { note: data.note }),
+          ...(data.completedAt && { completedAt: data.completedAt }),
+        },
+        include: STEP_INCLUDE,
+      });
     });
   }
 

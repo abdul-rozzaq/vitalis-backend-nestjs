@@ -11,6 +11,7 @@ model Department {
   children    Department[] @relation("DepartmentTree")
   rooms       Room[]
   shifts      Shift[]
+  procedures  Procedure[]
 
   // New scheduling relations
   workSchedules  WorkSchedule[]

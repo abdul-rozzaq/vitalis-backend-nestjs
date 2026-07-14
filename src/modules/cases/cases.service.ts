@@ -222,55 +222,67 @@ export class CasesService {
     }
 
     if (dto.type === CaseStepType.PROCEDURE) {
-      const step = await this.repo.createStep(caseId, {
-        type: CaseStepType.PROCEDURE,
-        status: CaseStepStatus.PENDING,
-        assignmentId: dto.assignmentId,
-        note: dto.note,
+      if (!dto.procedureId) throw new AppException("procedureId required for PROCEDURE step", 400);
+
+      const procedure = await this.prisma.procedure.findUnique({
+        where: { id: dto.procedureId },
       });
+      if (!procedure) throw new AppException("Procedure not found", 404);
 
-      let price = new Prisma.Decimal(0);
-      let description = "Protsedura";
-      
-      if (dto.assignmentId) {
-        const assignment = await this.prisma.assignment.findUnique({
-          where: { id: dto.assignmentId },
-          include: { department: true },
-        });
-        if (assignment) {
-          price = new Prisma.Decimal(dto.amount ?? assignment.department.price ?? 0);
-          description = `${assignment.department.name} protsedura`;
-        }
-      }
-      // Agar doctor narxni o'zgartirib (dto.amount) yuborgan bo'lsa, o'sha narx ustun bo'ladi.
-      if (dto.amount !== undefined && dto.amount !== null) {
-        price = new Prisma.Decimal(dto.amount);
-      }
-
-      await this.prisma.invoice.create({
-        data: {
-          patientId: patientCase.patientId,
-          sourceType: InvoiceSourceType.MANUAL,
-          sourceId: step.id,
-          totalAmount: price,
-          status: InvoiceStatus.ISSUED,
-          createdById: user.userId,
-          items: {
-            create: [
-              {
-                description,
-                quantity: 1,
-                unitPrice: price,
-                totalPrice: price,
-                sourceType: InvoiceItemSourceType.MANUAL,
-                sourceId: step.id,
-              },
-            ],
+      return this.prisma.$transaction(async (tx) => {
+        const step = await tx.caseStep.create({
+          data: {
+            caseId,
+            type: CaseStepType.PROCEDURE,
+            status: CaseStepStatus.PENDING,
+            assignmentId: dto.assignmentId,
+            ...(dto.note ? { note: dto.note } : {}),
           },
-        },
-      });
+        });
 
-      return step;
+        const priceNum = dto.amount !== undefined && dto.amount !== null ? dto.amount : Number(procedure.price || 0);
+        const price = new Prisma.Decimal(priceNum);
+        let doctorId = user.userId;
+        if (dto.assignmentId) {
+          const assignment = await tx.assignment.findUnique({ where: { id: dto.assignmentId } });
+          if (assignment) doctorId = assignment.userId;
+        }
+
+        const procedureOrder = await tx.procedureOrder.create({
+          data: {
+            caseStep: { connect: { id: step.id } },
+            patient: { connect: { id: patientCase.patientId } },
+            procedure: { connect: { id: procedure.id } },
+            doctor: { connect: { id: doctorId } },
+            price: price,
+          },
+        });
+
+        await tx.invoice.create({
+          data: {
+            patientId: patientCase.patientId,
+            sourceType: InvoiceSourceType.PROCEDURE_ORDER,
+            sourceId: procedureOrder.id,
+            totalAmount: price,
+            status: InvoiceStatus.ISSUED,
+            createdById: user.userId,
+            items: {
+              create: [
+                {
+                  description: procedure.name,
+                  quantity: 1,
+                  unitPrice: price,
+                  totalPrice: price,
+                  sourceType: InvoiceItemSourceType.PROCEDURE_SERVICE,
+                  sourceId: procedure.id,
+                },
+              ],
+            },
+          },
+        });
+
+        return tx.caseStep.findUnique({ where: { id: step.id }, include: STEP_INCLUDE });
+      });
     }
 
     if (dto.type === CaseStepType.DISCHARGE) {

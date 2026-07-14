@@ -18,6 +18,7 @@ model User {
   invoicesCreated      Invoice[]              @relation("InvoiceCreatedBy")
   labAssignments       LaboratoryAssignment[]
   performedLabItems    LabOrderItem[]         @relation("LabOrderItemPerformedBy")
+  procedureOrders      ProcedureOrder[]
   operationSurgeons    OperationSurgeon[]     @relation("OperationSurgeons")
   operationTypeDoctors OperationTypeDoctor[]  @relation("OperationTypeDoctors")
   shiftStaff           ShiftStaff[]           @relation("ShiftStaffAssignments")

@@ -53,6 +53,15 @@ export class AddCaseStepDto {
   @IsArray()
   @IsUUID("4", { each: true })
   diagnosticServiceIds?: string[];
+
+  // Procedure step specific
+  @IsOptional()
+  @IsUUID()
+  procedureId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  doctorId?: string;
 }
 
 export class UpdateCaseStepDto {

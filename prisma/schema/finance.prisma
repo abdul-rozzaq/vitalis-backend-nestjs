@@ -130,6 +130,7 @@ enum BalanceTxSource {
   INVOICE_PAYMENT
   REFUND
   ADJUSTMENT
+  PROCEDURE_SERVICE
 
   @@map("balance_tx_sources")
 }
@@ -170,6 +171,7 @@ enum InvoiceSourceType {
   MANUAL
   OPERATION
   DIAGNOSTIC_ORDER
+  PROCEDURE_ORDER
 
   @@map("invoice_source_types")
 }
@@ -181,6 +183,7 @@ enum InvoiceItemSourceType {
   MANUAL
   OPERATION
   DIAGNOSTIC_SERVICE
+  PROCEDURE_SERVICE
 
   @@map("invoice_item_source_types")
 }

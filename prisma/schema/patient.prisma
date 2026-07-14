@@ -21,6 +21,7 @@ model Patient {
   labOrders        LabOrder[]
   medicalCards     MedicalCard003[]
   operations       Operation[]
+  procedureOrders  ProcedureOrder[]
   balance          PatientBalance?
   bonusBalance     PatientBonusBalance?
   cases            PatientCase[]
