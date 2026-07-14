@@ -1,20 +1,19 @@
 model Department {
-  id          String       @id @default(uuid())
-  name        String       @db.VarChar(64)
-  description String?
+  id                  String          @id @default(uuid())
+  name                String          @db.VarChar(64)
+  description         String?
   price               Float?
-  patientDailyPrice   Decimal? @db.Decimal(15, 2) @map("patient_daily_price")
-  companionDailyPrice Decimal? @db.Decimal(15, 2) @map("companion_daily_price")
-  parentId    String?
-  assignments Assignment[]
-  parent      Department?  @relation("DepartmentTree", fields: [parentId], references: [id])
-  children    Department[] @relation("DepartmentTree")
-  rooms       Room[]
-  shifts      Shift[]
-
-  // New scheduling relations
-  workSchedules  WorkSchedule[]
-  shiftTemplates ShiftTemplate[]
+  parentId            String?
+  companionDailyPrice Decimal?        @map("companion_daily_price") @db.Decimal(15, 2)
+  patientDailyPrice   Decimal?        @map("patient_daily_price") @db.Decimal(15, 2)
+  assignments         Assignment[]
+  operations          Operation[]
+  parent              Department?     @relation("DepartmentTree", fields: [parentId], references: [id])
+  children            Department[]    @relation("DepartmentTree")
+  rooms               Room[]
+  shiftTemplates      ShiftTemplate[]
+  shifts              Shift[]
+  workSchedules       WorkSchedule[]
 
   @@map("departments")
 }

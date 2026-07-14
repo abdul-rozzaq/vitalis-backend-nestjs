@@ -13,6 +13,7 @@ import {
 import { InvoiceService } from '../invoice/invoice.service';
 import { CreateOperationDto, UpdateOperationDto } from './operation.dto';
 import { OperationsRepository } from './operations.repository';
+import { generateOperationContractDocx } from './generators/operation-contract-docx';
 
 @Injectable()
 export class OperationsService {
@@ -179,5 +180,50 @@ export class OperationsService {
       );
     }
     return this.repo.delete(id);
+  }
+
+  // Operatsiya uchun "Шартнома" (contract) hujjatini DOCX formatida generatsiya qiladi.
+  async generateContract(id: string): Promise<Buffer> {
+    const op = await this.repo.findForContract(id);
+    if (!op) throw new NotFoundException(`Operation ${id} topilmadi`);
+
+    const leadSurgeon =
+      op.surgeons.find((s) => s.role === 'LEAD')?.surgeon ??
+      op.surgeons[0]?.surgeon;
+
+    const rows = [
+      {
+        name: op.operationType.name,
+        quantity: 1,
+        unitPrice: Number(op.basePrice),
+        totalPrice: Number(op.basePrice),
+      },
+      ...op.items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        unitPrice: Number(item.unitPrice),
+        totalPrice: Number(item.totalPrice),
+      })),
+    ];
+
+    return generateOperationContractDocx({
+      contractNumber: op.contractNumber ?? op.id.slice(0, 8).toUpperCase(),
+      contractTime: new Date(op.scheduledAt).toLocaleTimeString('uz-UZ', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      startDate: op.scheduledAt,
+      endDate: op.completedAt,
+      patientFullName: `${op.patient.first_name} ${op.patient.last_name}`,
+      patientBirthDate: op.patient.birth_date,
+      patientAddress: op.patient.address,
+      departmentName: op.department?.name,
+      diagnosis: op.operationType.name,
+      doctorName: leadSurgeon
+        ? `${leadSurgeon.first_name} ${leadSurgeon.last_name}`
+        : undefined,
+      rows,
+      totalPrice: Number(op.totalPrice),
+    });
   }
 }

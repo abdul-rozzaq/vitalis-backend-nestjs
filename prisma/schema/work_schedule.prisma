@@ -1,7 +1,7 @@
 model WorkSchedule {
   id           String                @id @default(uuid())
   departmentId String
-  name         String // e.g., "ICU July 2026 Schedule"
+  name         String
   startDate    DateTime
   endDate      DateTime
   status       SchedulePublishStatus @default(DRAFT)
@@ -9,26 +9,24 @@ model WorkSchedule {
   createdById  String
   createdAt    DateTime              @default(now())
   updatedAt    DateTime              @updatedAt
-
-  department Department            @relation(fields: [departmentId], references: [id])
-  createdBy  User                  @relation(fields: [createdById], references: [id])
-  shifts     Shift[]
-  versions   WorkScheduleVersion[]
+  shifts       Shift[]
+  versions     WorkScheduleVersion[]
+  createdBy    User                  @relation(fields: [createdById], references: [id])
+  department   Department            @relation(fields: [departmentId], references: [id])
 
   @@map("work_schedules")
 }
 
 model WorkScheduleVersion {
-  id             String    @id @default(uuid())
+  id             String       @id @default(uuid())
   workScheduleId String
   version        Int
   changeSummary  String?
   publishedAt    DateTime?
   publishedById  String?
-  createdAt      DateTime  @default(now())
-
-  workSchedule WorkSchedule @relation(fields: [workScheduleId], references: [id], onDelete: Cascade)
-  publishedBy  User?        @relation(fields: [publishedById], references: [id])
+  createdAt      DateTime     @default(now())
+  publishedBy    User?        @relation(fields: [publishedById], references: [id])
+  workSchedule   WorkSchedule @relation(fields: [workScheduleId], references: [id], onDelete: Cascade)
 
   @@unique([workScheduleId, version])
   @@map("work_schedule_versions")

@@ -15,6 +15,7 @@ export class OperationsRepository {
     patient: { select: { id: true, first_name: true, last_name: true } },
     operationType: { select: { id: true, name: true, basePrice: true } },
     room: { select: { id: true, name: true } },
+    department: { select: { id: true, name: true } },
     caseStep: { select: { id: true, caseId: true, status: true } },
     surgeons: {
       include: {
@@ -42,6 +43,35 @@ export class OperationsRepository {
     return this.prisma.operation.findUnique({
       where: { id },
       include: this.includeAll,
+    });
+  }
+
+  // Shartnoma (contract) hujjatini generatsiya qilish uchun bemorning to'liq
+  // ma'lumotlari (tug'ilgan sana, manzil) va bo'lim nomi kerak bo'ladi.
+  findForContract(id: string) {
+    return this.prisma.operation.findUnique({
+      where: { id },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            birth_date: true,
+            address: true,
+          },
+        },
+        operationType: { select: { id: true, name: true, basePrice: true } },
+        department: { select: { id: true, name: true } },
+        surgeons: {
+          include: {
+            surgeon: {
+              select: { id: true, first_name: true, last_name: true },
+            },
+          },
+        },
+        items: true,
+      },
     });
   }
 
@@ -74,6 +104,8 @@ async create(dto: CreateOperationDto) {
         patientId: dto.patientId,
         operationTypeId: dto.operationTypeId,
         roomId: dto.roomId,
+        departmentId: dto.departmentId,
+        contractNumber: dto.contractNumber,
         caseStepId: caseStep.id,
         scheduledAt: new Date(dto.scheduledAt),
         note: dto.note,

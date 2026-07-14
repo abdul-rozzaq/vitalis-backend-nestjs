@@ -1,22 +1,22 @@
 model Wards {
-  id              String     @id @default(uuid())
-  patientId       String
-  roomId          String
-  checkIn         DateTime   @default(now())
-  expectedOut     DateTime?
-  actualOut       DateTime?
-  daysStayed      Int?       @default(0)
-  companionsCount Int        @default(0)
-  note            String?
-  status          WardStatus @default(OCCUPIED)
+  id                   String     @id @default(uuid())
+  patientId            String
+  roomId               String
+  checkIn              DateTime   @default(now())
+  expectedOut          DateTime?
+  actualOut            DateTime?
+  daysStayed           Int?       @default(0)
+  companionsCount      Int        @default(0)
+  note                 String?
+  status               WardStatus @default(OCCUPIED)
   dailyRate            Decimal?   @db.Decimal(15, 2)
-  patientPricePerDay   Decimal?   @db.Decimal(15, 2) @map("patient_price_per_day")
-  companionPricePerDay Decimal?   @db.Decimal(15, 2) @map("companion_price_per_day")
-  totalCharged    Decimal    @default(0) @db.Decimal(15, 2)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  patient         Patient    @relation(fields: [patientId], references: [id])
-  room            Room       @relation(fields: [roomId], references: [id])
+  totalCharged         Decimal    @default(0) @db.Decimal(15, 2)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  companionPricePerDay Decimal?   @map("companion_price_per_day") @db.Decimal(15, 2)
+  patientPricePerDay   Decimal?   @map("patient_price_per_day") @db.Decimal(15, 2)
+  patient              Patient    @relation(fields: [patientId], references: [id])
+  room                 Room       @relation(fields: [roomId], references: [id])
 
   @@map("wards")
 }

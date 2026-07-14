@@ -16,9 +16,9 @@ model LaboratoryService {
   name          String         @db.VarChar(64)
   price         Float?
   laboratoryId  String
-  defaultRows   Json?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  defaultRows   Json?
   labOrderItems LabOrderItem[]
   laboratory    Laboratory     @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
 
@@ -44,10 +44,10 @@ model LabOrder {
   caseStepId    String
   patientId     String
   laboratoryId  String
-  orderNumber   String?
-  sampleTakenAt DateTime?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  orderNumber   String?
+  sampleTakenAt DateTime?
   items         LabOrderItem[]
   caseStep      CaseStep       @relation(fields: [caseStepId], references: [id], onDelete: Cascade)
   laboratory    Laboratory     @relation(fields: [laboratoryId], references: [id], onDelete: Cascade)
@@ -61,7 +61,6 @@ model LabOrderItem {
   status        LabItemStatus      @default(PENDING)
   labOrderId    String
   serviceId     String
-  performedById String?
   fileUrl       String?
   fileName      String?
   note          String?
@@ -72,10 +71,11 @@ model LabOrderItem {
   cancelledAt   DateTime?
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
+  performedById String?
   files         LabOrderItemFile[]
   labOrder      LabOrder           @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
-  service       LaboratoryService  @relation(fields: [serviceId], references: [id])
   performedBy   User?              @relation("LabOrderItemPerformedBy", fields: [performedById], references: [id])
+  service       LaboratoryService  @relation(fields: [serviceId], references: [id])
   resultTable   LabResultTable?
 
   @@map("lab_order_items")
@@ -86,8 +86,8 @@ model LabResultTable {
   labOrderItemId String         @unique
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-  labOrderItem   LabOrderItem   @relation(fields: [labOrderItemId], references: [id], onDelete: Cascade)
   rows           LabResultRow[]
+  labOrderItem   LabOrderItem   @relation(fields: [labOrderItemId], references: [id], onDelete: Cascade)
 
   @@map("lab_result_tables")
 }
@@ -95,7 +95,6 @@ model LabResultTable {
 model LabResultRow {
   id        String         @id @default(uuid())
   tableId   String
-  code      String?
   indicator String
   result    String
   norm      String?
@@ -103,6 +102,7 @@ model LabResultRow {
   sortOrder Int            @default(0)
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
+  code      String?
   table     LabResultTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
   @@map("lab_result_rows")

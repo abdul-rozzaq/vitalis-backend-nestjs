@@ -17,10 +17,10 @@ model BalanceTransaction {
   balanceAfter   Decimal         @db.Decimal(15, 2)
   source         BalanceTxSource
   sourceId       String?
-  paymentMethod  PaymentMethod?
   note           String?
   createdAt      DateTime        @default(now())
   createdById    String
+  paymentMethod  PaymentMethod?
   createdBy      User            @relation(fields: [createdById], references: [id])
   patientBalance PatientBalance  @relation(fields: [patientId], references: [patientId])
 

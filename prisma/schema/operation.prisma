@@ -6,9 +6,9 @@ model OperationType {
   isActive    Boolean               @default(true)
   createdAt   DateTime              @default(now())
   updatedAt   DateTime              @updatedAt
+  doctors     OperationTypeDoctor[]
   items       OperationTypeItem[]
   operations  Operation[]
-  doctors     OperationTypeDoctor[]
 
   @@map("operation_types")
 }
@@ -33,24 +33,28 @@ model Operation {
   patientId       String
   operationTypeId String
   roomId          String?
+  departmentId    String?
+  contractNumber  String?
   caseStepId      String?            @unique
   scheduledAt     DateTime
   startedAt       DateTime?
   completedAt     DateTime?
   note            String?
-  basePrice       Decimal            @default(0) @db.Decimal(15, 2)  
   totalPrice      Decimal            @default(0) @db.Decimal(15, 2)
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
+  basePrice       Decimal            @default(0) @db.Decimal(15, 2)
   items           OperationItem[]
   surgeons        OperationSurgeon[]
   caseStep        CaseStep?          @relation(fields: [caseStepId], references: [id])
   operationType   OperationType      @relation(fields: [operationTypeId], references: [id])
   patient         Patient            @relation(fields: [patientId], references: [id])
   room            Room?              @relation(fields: [roomId], references: [id])
+  department      Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
   @@map("operations")
 }
+
 model OperationSurgeon {
   id          String      @id @default(uuid())
   operationId String
@@ -79,6 +83,18 @@ model OperationItem {
   @@map("operation_items")
 }
 
+model OperationTypeDoctor {
+  id              String        @id @default(uuid())
+  operationTypeId String
+  doctorId        String
+  createdAt       DateTime      @default(now())
+  doctor          User          @relation("OperationTypeDoctors", fields: [doctorId], references: [id], onDelete: Cascade)
+  operationType   OperationType @relation(fields: [operationTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([operationTypeId, doctorId])
+  @@map("operation_type_doctors")
+}
+
 enum OperationStatus {
   SCHEDULED
   IN_PROGRESS
@@ -93,16 +109,4 @@ enum SurgeonRole {
   ASSISTANT
 
   @@map("surgeon_roles")
-}
-
-model OperationTypeDoctor {
-  id              String        @id @default(uuid())
-  operationTypeId String
-  doctorId        String
-  createdAt       DateTime      @default(now())
-  operationType   OperationType @relation(fields: [operationTypeId], references: [id], onDelete: Cascade)
-  doctor          User          @relation("OperationTypeDoctors", fields: [doctorId], references: [id], onDelete: Cascade)
-
-  @@unique([operationTypeId, doctorId])
-  @@map("operation_type_doctors")
 }

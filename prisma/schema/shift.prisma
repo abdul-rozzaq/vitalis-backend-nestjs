@@ -1,20 +1,20 @@
 model Shift {
   id              String             @id @default(uuid())
   departmentId    String
-  workScheduleId  String?
-  startAt         DateTime // to'liq timestamp (smena boshlanishi)
-  endAt           DateTime // to'liq timestamp (tugash — ertasi kun bo'lishi mumkin)
+  startAt         DateTime
+  endAt           DateTime
   requiredDoctors Int                @default(1)
   requiredNurses  Int                @default(1)
   note            String?            @db.VarChar(500)
   status          ShiftStatus        @default(SCHEDULED)
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
+  workScheduleId  String?
+  assignments     ShiftAssignment[]
+  requirements    ShiftRequirement[]
+  staff           ShiftStaff[]
   department      Department         @relation(fields: [departmentId], references: [id])
   workSchedule    WorkSchedule?      @relation(fields: [workScheduleId], references: [id], onDelete: Cascade)
-  staff           ShiftStaff[] // Deprecated: use assignments
-  requirements    ShiftRequirement[]
-  assignments     ShiftAssignment[]
   rounds          WardRound[]
 
   @@index([departmentId, startAt, endAt])
@@ -22,28 +22,26 @@ model Shift {
 }
 
 model ShiftRequirement {
-  id            String @id @default(uuid())
+  id            String    @id @default(uuid())
   shiftId       String
   roleId        String
-  requiredCount Int    @default(1)
-
-  shift Shift     @relation(fields: [shiftId], references: [id], onDelete: Cascade)
-  role  StaffRole @relation(fields: [roleId], references: [id])
+  requiredCount Int       @default(1)
+  role          StaffRole @relation(fields: [roleId], references: [id])
+  shift         Shift     @relation(fields: [shiftId], references: [id], onDelete: Cascade)
 
   @@unique([shiftId, roleId])
   @@map("shift_requirements")
 }
 
 model ShiftAssignment {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   shiftId   String
   userId    String
   roleId    String
-  createdAt DateTime @default(now())
-
-  shift Shift     @relation(fields: [shiftId], references: [id], onDelete: Cascade)
-  user  User      @relation(fields: [userId], references: [id])
-  role  StaffRole @relation(fields: [roleId], references: [id])
+  createdAt DateTime  @default(now())
+  role      StaffRole @relation(fields: [roleId], references: [id])
+  shift     Shift     @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
 
   @@unique([shiftId, userId])
   @@index([userId])
@@ -65,11 +63,11 @@ model ShiftStaff {
 
 model WardRound {
   id           String             @id @default(uuid())
-  shiftId      String
   scheduledAt  DateTime
   completedAt  DateTime?
   notes        String?
   createdAt    DateTime           @default(now())
+  shiftId      String
   patientNotes WardRoundPatient[]
   shift        Shift              @relation(fields: [shiftId], references: [id], onDelete: Cascade)
 
