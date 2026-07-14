@@ -79,6 +79,152 @@ function textCell(
   });
 }
 
+interface CombinedSection {
+  title: string;
+  rows: ReportRow[];
+}
+
+interface CombinedReportData {
+  patientName: string;
+  patientBirthYear: string | number;
+  orderNumber: string | number;
+  sampleDate: string;
+  documentTitle: string;
+  doctorName: string;
+  logoBuffer?: Buffer | null;
+  sections: CombinedSection[];
+}
+
+function buildResultsTable(rows: ReportRow[]) {
+  const resultColWidths = [1200, 2600, 1850, 1850, 1850];
+
+  return new Table({
+    width: { size: TABLE_WIDTH, type: WidthType.DXA },
+    columnWidths: resultColWidths,
+    rows: [
+      new TableRow({
+        children: [
+          textCell("Код", { bold: true, width: resultColWidths[0], shade: "D9D9D9", align: AlignmentType.CENTER }),
+          textCell("Кўрсаткичлар", { bold: true, width: resultColWidths[1], shade: "D9D9D9" }),
+          textCell("Натижа", { bold: true, width: resultColWidths[2], shade: "D9D9D9", align: AlignmentType.CENTER }),
+          textCell("Меъйёри", { bold: true, width: resultColWidths[3], shade: "D9D9D9", align: AlignmentType.CENTER }),
+          textCell("Ўлчов бирлиги", { bold: true, width: resultColWidths[4], shade: "D9D9D9", align: AlignmentType.CENTER }),
+        ],
+      }),
+      ...rows.map(
+        (row) =>
+          new TableRow({
+            children: [
+              textCell(row.code ?? "", { width: resultColWidths[0], align: AlignmentType.CENTER }),
+              textCell(row.indicator, { width: resultColWidths[1] }),
+              textCell(row.result, { width: resultColWidths[2], align: AlignmentType.CENTER }),
+              textCell(row.norm ?? "-", { width: resultColWidths[3], align: AlignmentType.CENTER }),
+              textCell(normalizeUnitText(row.unit) ?? "", { width: resultColWidths[4], align: AlignmentType.CENTER }),
+            ],
+          }),
+      ),
+    ],
+  });
+}
+
+// "Umumiy" hujjat — bitta buyurtmadagi barcha xizmatlarning natijasi bitta
+// DOCX faylida: bemor ma'lumotlari bir marta yuqorida, har bir xizmat esa
+// o'z sarlavhasi va jadvali bilan ketma-ket joylanadi.
+export const generateCombinedDocx = async (data: CombinedReportData): Promise<Buffer> => {
+  const infoColWidths = [3200, 4150, 2000];
+
+  const infoTable = new Table({
+    width: { size: TABLE_WIDTH, type: WidthType.DXA },
+    columnWidths: infoColWidths,
+    rows: [
+      new TableRow({
+        children: [
+          textCell("Ф.И.Ш", { bold: true, width: infoColWidths[0] }),
+          textCell(data.patientName, { bold: true, width: infoColWidths[1] }),
+          textCell(`№ ${data.orderNumber}`, { bold: true, width: infoColWidths[2] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          textCell("Туғилган йили", { bold: true, width: infoColWidths[0] }),
+          textCell(String(data.patientBirthYear), { width: infoColWidths[1] }),
+          textCell("", { width: infoColWidths[2] }),
+        ],
+      }),
+      new TableRow({
+        children: [
+          textCell("Биоматериал топширган куни", { bold: true, width: infoColWidths[0] }),
+          textCell(data.sampleDate, { width: infoColWidths[1] }),
+          textCell("", { width: infoColWidths[2] }),
+        ],
+      }),
+    ],
+  });
+
+  const logoBuffer = data.logoBuffer ?? loadDefaultLogo();
+
+  const headerChildren: Paragraph[] = [];
+
+  if (logoBuffer) {
+    headerChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [
+          new ImageRun({
+            data: logoBuffer,
+            type: "png",
+            transformation: { width: 624, height: 216 },
+          }),
+        ],
+      }),
+    );
+  } else {
+    headerChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: "EUR-MED HOSPITAL", bold: true, size: 32 })],
+      }),
+    );
+  }
+
+  const doc = new Document({
+    sections: [
+      {
+        properties: {
+          page: { size: { width: 11907, height: 16840 } },
+        },
+        children: [
+          ...headerChildren,
+          new Paragraph({ text: "" }),
+          infoTable,
+          new Paragraph({ text: "" }),
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun({ text: data.documentTitle.toUpperCase(), bold: true, size: 26, color: "2E74B5" })],
+          }),
+          ...data.sections.flatMap((section) => [
+            new Paragraph({ text: "" }),
+            new Paragraph({
+              children: [new TextRun({ text: section.title, bold: true, size: 22 })],
+            }),
+            new Paragraph({ text: "" }),
+            buildResultsTable(section.rows),
+          ]),
+          new Paragraph({ text: "" }),
+          new Paragraph({
+            children: [
+              new TextRun({ text: "Врач лаборант: ", bold: true }),
+              new TextRun({ text: data.doctorName }),
+            ],
+          }),
+        ],
+      },
+    ],
+  });
+
+  return Packer.toBuffer(doc);
+};
+
 export const generateDocx = async (data: ReportData): Promise<Buffer> => {
   const infoColWidths = [3200, 4150, 2000];
 

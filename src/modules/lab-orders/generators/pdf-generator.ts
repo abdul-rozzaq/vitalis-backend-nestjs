@@ -21,6 +21,145 @@ interface ReportData {
   rows: ReportRow[];
 }
 
+interface CombinedSection {
+  title: string;
+  rows: ReportRow[];
+}
+
+interface CombinedReportData {
+  patientName: string;
+  patientBirthYear: string | number;
+  orderNumber: string | number;
+  sampleDate: string;
+  documentTitle: string;
+  doctorName: string;
+  logoBuffer?: Buffer | null;
+  sections: CombinedSection[];
+}
+
+// "Umumiy" hujjat — bitta buyurtmadagi barcha xizmatlarning natijasi bitta
+// PDF faylida: bemor ma'lumotlari va sarlavha bir marta yuqorida, har bir
+// xizmat esa o'z kichik sarlavhasi va jadvali bilan ketma-ket joylanadi.
+export const generateCombinedPdf = (data: CombinedReportData): Promise<Buffer> => {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: "A4" });
+    const buffers: Buffer[] = [];
+
+    doc.on("data", buffers.push.bind(buffers));
+    doc.on("end", () => resolve(Buffer.concat(buffers)));
+    doc.on("error", reject);
+    const regularFontPath = path.join(__dirname, "../../../assets/fonts/DejaVuSans.ttf");
+    const boldFontPath = path.join(__dirname, "../../../assets/fonts/DejaVuSans-Bold.ttf");
+
+    doc.registerFont("RegularFont", regularFontPath);
+    doc.registerFont("BoldFont", boldFontPath);
+
+    const regularFont = "RegularFont";
+    const boldFont = "BoldFont";
+
+    // --- LOGOTIP ---
+    if (data.logoBuffer) {
+      try {
+        doc.image(data.logoBuffer, 50, 45, { width: 150 });
+        doc.moveDown(3);
+      } catch {
+        doc.font(boldFont).fontSize(16).text("EUR-MED HOSPITAL", { align: "center" });
+      }
+    } else {
+      doc.font(boldFont).fontSize(16).text("EUR-MED HOSPITAL", { align: "center" });
+    }
+
+    doc.moveDown();
+    doc.fontSize(11);
+
+    // --- BEMOR MA'LUMOTLARI (bir marta) ---
+    doc.font(boldFont).text("Ф.И.Ш: ", { continued: true }).font(regularFont).text(data.patientName);
+    doc.font(boldFont).text("№: ", { continued: true }).font(regularFont).text(String(data.orderNumber));
+    doc.font(boldFont).text("Туғилган йили: ", { continued: true }).font(regularFont).text(String(data.patientBirthYear));
+    doc.font(boldFont).text("Биоматериал топширган куни: ", { continued: true }).font(regularFont).text(data.sampleDate);
+
+    doc.moveDown(2);
+    doc.font(boldFont).fontSize(13).text(data.documentTitle.toUpperCase(), { align: "center" });
+    doc.moveDown(1);
+
+    const startX = 50;
+    const colWidths = [45, 160, 80, 110, 100];
+    const colX = [
+      startX,
+      startX + colWidths[0],
+      startX + colWidths[0] + colWidths[1],
+      startX + colWidths[0] + colWidths[1] + colWidths[2],
+      startX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3],
+    ];
+
+    const drawTableRow = (y: number, texts: string[], isHeader: boolean = false) => {
+      doc.font(isHeader ? boldFont : regularFont).fontSize(10);
+
+      let maxHeight = 0;
+      texts.forEach((text, i) => {
+        const h = doc.heightOfString(text || "", { width: colWidths[i] - 10 });
+        if (h > maxHeight) maxHeight = h;
+      });
+      const rowHeight = maxHeight + 10;
+
+      if (y + rowHeight > doc.page.height - doc.page.margins.bottom) {
+        doc.addPage();
+        y = doc.page.margins.top;
+      }
+
+      texts.forEach((text, i) => {
+        if (isHeader) {
+          doc.rect(colX[i], y, colWidths[i], rowHeight).fillAndStroke("#f0f0f0", "#000000");
+          doc.fillColor("#000000");
+        } else {
+          doc.rect(colX[i], y, colWidths[i], rowHeight).stroke();
+        }
+
+        doc.text(text || "", colX[i] + 5, y + 5, {
+          width: colWidths[i] - 10,
+          align: isHeader ? "center" : "left",
+        });
+      });
+
+      return y + rowHeight;
+    };
+
+    let currentY = doc.y;
+    const headers = ["Код", "Кўрсаткичлар", "Натижа", "Меъйёри", "Ўлчов бирлиги"];
+
+    data.sections.forEach((section, index) => {
+      if (index > 0) currentY += 18;
+
+      // Kichik sarlavha varaq oxirida qolib ketmasligi uchun tekshirish
+      if (currentY + 24 > doc.page.height - doc.page.margins.bottom) {
+        doc.addPage();
+        currentY = doc.page.margins.top;
+      }
+
+      doc.font(boldFont).fontSize(11).fillColor("#000000").text(section.title, startX, currentY, { width: 495 });
+      currentY = doc.y + 6;
+
+      currentY = drawTableRow(currentY, headers, true);
+      section.rows.forEach((row) => {
+        const rowData = [row.code ?? "", row.indicator, row.result, row.norm ?? "-", normalizeUnitText(row.unit) ?? ""];
+        currentY = drawTableRow(currentY, rowData, false);
+      });
+    });
+
+    doc.y = currentY + 30;
+
+    // --- IMZO QISMI ---
+    doc
+      .font(boldFont)
+      .fontSize(11)
+      .text("Врач лаборант: ", 50, doc.y, { continued: true })
+      .font(regularFont)
+      .text(data.doctorName);
+
+    doc.end();
+  });
+};
+
 export const generatePdf = (data: ReportData): Promise<Buffer> => {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: "A4" });

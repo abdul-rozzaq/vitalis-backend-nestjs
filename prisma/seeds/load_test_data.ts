@@ -10,7 +10,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import * as bcrypt from "bcryptjs";
 import "dotenv/config";
 import { PrismaClient } from "../../src/generated/prisma/client";
-import { UMUMIY_QON_TAHLILI_ROWS, BIOKIMYOVIY_TAHLIL_ROWS } from "./data/lab-default-rows";
+import { UMUMIY_QON_TAHLILI_ROWS, BIOKIMYOVIY_TAHLIL_ROWS, KOAGULOGRAMMA_ROWS } from "./data/lab-default-rows";
 
 const connectionString = process.env.DATABASE_URL!;
 
@@ -83,6 +83,7 @@ const LABORATORIES = [
     services: [
       { name: "Umumiy qon tahlili",      price: 25000, defaultRows: UMUMIY_QON_TAHLILI_ROWS },
       { name: "Biokimyoviy qon tahlili", price: 45000, defaultRows: BIOKIMYOVIY_TAHLIL_ROWS },
+      { name: "Koagulogramma tahlili",   price: 40000, defaultRows: KOAGULOGRAMMA_ROWS },
       { name: "Qon guruhi aniqlash",     price: 20000 },
       { name: "Glyukoza darajasi",       price: 18000 },
       { name: "Umumiy siydik tahlili",   price: 15000 },
