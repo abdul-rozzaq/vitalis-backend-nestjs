@@ -28,6 +28,10 @@ const NO_BORDERS = {
   right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
 };
 
+const BLANK_UNDERLINE_BORDER = {
+  bottom: { style: BorderStyle.SINGLE, size: 4, color: '000000' },
+};
+
 export interface OperationContractRow {
   name: string;
   unit?: string | null;
@@ -49,7 +53,6 @@ export interface OperationContractData {
   doctorName?: string | null;
   rows: OperationContractRow[];
   totalPrice: number;
-  // Jadvalda bemor qo'lda to'ldirishi/imzo qo'yishi uchun bo'sh qatorlar soni
   minRowCount?: number;
 }
 
@@ -70,6 +73,14 @@ function labelLine(label: string, value: string, opts?: { bold?: boolean }): Par
       new TextRun({ text: `${label}: `, bold: true, size: 22 }),
       new TextRun({ text: value, bold: !!opts?.bold, size: 22 }),
     ],
+  });
+}
+
+function blankRuledLine(): Paragraph {
+  return new Paragraph({
+    spacing: { after: 150 },
+    border: BLANK_UNDERLINE_BORDER,
+    children: [new TextRun({ text: ' ', size: 22 })],
   });
 }
 
@@ -102,7 +113,6 @@ function bodyCell(text: string, width: number, align: (typeof AlignmentType)[key
 }
 
 function buildServicesTable(rows: OperationContractRow[], minRowCount: number) {
-  // № | Хизматлар номи | Улчов бирлиги | микдори | Нархи (сум) | Суммаси | Бемор имзоси
   const colWidths = [500, 2900, 1250, 1200, 1250, 1400, 850];
 
   const headerRow = new TableRow({
@@ -133,7 +143,6 @@ function buildServicesTable(rows: OperationContractRow[], minRowCount: number) {
       }),
   );
 
-  // Qog'oz shakldagidek, bemor qo'lda to'ldirishi mumkin bo'lgan bo'sh qatorlar
   const blankRowsNeeded = Math.max(0, minRowCount - dataRows.length);
   const blankRows = Array.from({ length: blankRowsNeeded }).map(
     (_, i) =>
@@ -221,16 +230,23 @@ export const generateOperationContractDocx = async (
           new Paragraph({
             spacing: { after: 200 },
             children: [
-              new TextRun({ text: `${fmtDate(data.startDate)} йилдан ` , size: 22 }),
+              new TextRun({ text: `${fmtDate(data.startDate)} йилдан `, size: 22 }),
               new TextRun({ text: `${fmtDate(data.endDate)} гача даволаш учун`, size: 22 }),
             ],
           }),
-          labelLine('Ф.И.О', data.patientFullName, { bold: true }),
-          labelLine('Туғилган сана', fmtDate(data.patientBirthDate)),
-          labelLine('Манзил', data.patientAddress ?? '—'),
-          labelLine("Бўлим", data.departmentName ?? '—'),
-          labelLine('Ташхис', data.diagnosis ?? '—'),
-          labelLine('Даволовчи шифокор', data.doctorName ?? '—'),
+          new Paragraph({
+            spacing: { after: 120 },
+            children: [
+              new TextRun({ text: 'Ф.И.О ', bold: true, size: 22 }),
+              new TextRun({ text: data.patientFullName, size: 22 }),
+              new TextRun({ text: '   туғилган сана ', bold: true, size: 22 }),
+              new TextRun({ text: fmtDate(data.patientBirthDate), size: 22 }),
+            ],
+          }),
+          labelLine('Манзил', data.patientAddress ?? ''),
+          labelLine('Ташхис', data.diagnosis ?? ''),
+          blankRuledLine(),
+          labelLine('Даволовчи шифокор', data.doctorName ?? ''),
           new Paragraph({
             spacing: { before: 100, after: 150 },
             children: [
@@ -245,11 +261,14 @@ export const generateOperationContractDocx = async (
           buildServicesTable(data.rows, data.minRowCount ?? 20),
           new Paragraph({ text: '', spacing: { before: 200 } }),
           new Paragraph({
+            spacing: { after: 200 },
             children: [
               new TextRun({ text: 'Жами: ', bold: true, size: 22 }),
               new TextRun({ text: `${fmtMoney(data.totalPrice)} сум`, bold: true, size: 22 }),
             ],
           }),
+          blankRuledLine(),
+          blankRuledLine(),
         ],
       },
     ],
