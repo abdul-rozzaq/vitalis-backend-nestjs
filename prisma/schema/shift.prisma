@@ -14,8 +14,9 @@ model Shift {
   workSchedule    WorkSchedule?      @relation(fields: [workScheduleId], references: [id], onDelete: Cascade)
   staff           ShiftStaff[] // Deprecated: use assignments
   requirements    ShiftRequirement[]
-  assignments     ShiftAssignment[]
-  rounds          WardRound[]
+  assignments       ShiftAssignment[]
+  rounds            WardRound[]
+  attendanceRecords AttendanceRecord[]
 
   @@index([departmentId, startAt, endAt])
   @@map("shifts")
