@@ -10,9 +10,7 @@ export class OperationTypesRepository {
   return this.prisma.operationType.findMany({
     where: {
       ...(onlyActive ? { isActive: true } : {}),
-      ...(departmentId
-        ? { departments: { some: { departmentId } } }
-        : {}),
+      ...(departmentId ? { departmentId } : {}),
     },
     include: {
       items: {
@@ -26,12 +24,8 @@ export class OperationTypesRepository {
           },
         },
       },
-      departments: {
-        include: {
-          department: {
-            select: { id: true, name: true },
-          },
-        },
+      department: {
+        select: { id: true, name: true },
       },
       _count: { select: { operations: true } },
     },
@@ -51,12 +45,8 @@ findOne(id: string) {
           },
         },
       },
-      departments: {
-        include: {
-          department: {
-            select: { id: true, name: true },
-          },
-        },
+      department: {
+        select: { id: true, name: true },
       },
       _count: { select: { operations: true } },
     },
@@ -64,27 +54,39 @@ findOne(id: string) {
 }
 
   create(dto: CreateOperationTypeDto) {
+    const { departmentId, items, ...rest } = dto;
     return this.prisma.operationType.create({
       data: {
-        name: dto.name,
-        description: dto.description,
+        ...rest,
         basePrice: dto.basePrice ?? 0,
         isActive: dto.isActive ?? true,
-        items: dto.items?.length
-          ? { create: dto.items.map((item) => ({ ...item })) }
+        department: departmentId
+          ? { connect: { id: departmentId } }
+          : undefined,
+        items: items?.length
+          ? { create: items.map((item) => ({ ...item })) }
           : undefined,
       },
-      include: { items: true },
+      include: { items: true, department: { select: { id: true, name: true } } },
     });
   }
 
   async update(id: string, dto: UpdateOperationTypeDto) {
-    const { items, ...typeData } = dto;
+    const { items, departmentId, ...typeData } = dto;
 
     return this.prisma.$transaction(async (tx) => {
       await tx.operationType.update({
         where: { id },
-        data: typeData,
+        data: {
+          ...typeData,
+          ...(departmentId !== undefined
+            ? {
+                department: departmentId
+                  ? { connect: { id: departmentId } }
+                  : { disconnect: true },
+              }
+            : {}),
+        },
       });
 
       if (items !== undefined) {
@@ -124,7 +126,10 @@ findOne(id: string) {
 
       return tx.operationType.findUnique({
         where: { id },
-        include: { items: { orderBy: { createdAt: 'asc' } } },
+        include: {
+          items: { orderBy: { createdAt: 'asc' } },
+          department: { select: { id: true, name: true } },
+        },
       });
     });
   }
@@ -151,23 +156,6 @@ findOne(id: string) {
 removeDoctor(operationTypeId: string, doctorId: string) {
   return this.prisma.operationTypeDoctor.delete({
     where: { operationTypeId_doctorId: { operationTypeId, doctorId } },
-  });
-}
-
-addDepartment(operationTypeId: string, departmentId: string) {
-  return this.prisma.operationTypeDepartment.create({
-    data: { operationTypeId, departmentId },
-    include: {
-      department: {
-        select: { id: true, name: true },
-      },
-    },
-  });
-}
-
-removeDepartment(operationTypeId: string, departmentId: string) {
-  return this.prisma.operationTypeDepartment.delete({
-    where: { operationTypeId_departmentId: { operationTypeId, departmentId } },
   });
 }
 }

@@ -53,6 +53,11 @@ export class CreateOperationTypeDto {
   @IsBoolean()
   isActive?: boolean;
 
+  /// Operatsiya turi biriktirilgan yagona bo'lim
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string;
+
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
@@ -104,6 +109,11 @@ export class UpdateOperationTypeDto {
   @IsBoolean()
   isActive?: boolean;
 
+  /// Operatsiya turi biriktirilgan yagona bo'lim
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string;
+
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
@@ -114,9 +124,4 @@ export class UpdateOperationTypeDto {
 export class AddOperationTypeDoctorDto {
   @IsUUID()
   doctorId: string;
-}
-
-export class AddOperationTypeDepartmentDto {
-  @IsUUID()
-  departmentId: string;
 }

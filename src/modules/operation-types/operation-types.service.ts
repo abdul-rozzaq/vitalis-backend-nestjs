@@ -55,14 +55,4 @@ async removeDoctor(id: string, doctorId: string) {
   await this.findOne(id);
   return this.repo.removeDoctor(id, doctorId);
 }
-
-async addDepartment(id: string, departmentId: string) {
-  await this.findOne(id);
-  return this.repo.addDepartment(id, departmentId);
-}
-
-async removeDepartment(id: string, departmentId: string) {
-  await this.findOne(id);
-  return this.repo.removeDepartment(id, departmentId);
-}
 }
