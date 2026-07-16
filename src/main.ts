@@ -4,11 +4,13 @@ import { NestExpressApplication } from "@nestjs/platform-express";
 import { ValidationPipe } from "@nestjs/common";
 import { join } from "path";
 import { AppModule } from "./app.module";
+import { HttpExceptionLoggingFilter } from "./common/middleware/request-logger.middleware";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: false, transform: true }));
+  app.useGlobalFilters(new HttpExceptionLoggingFilter());
 
   app.enableCors({ origin: true, credentials: true });
 

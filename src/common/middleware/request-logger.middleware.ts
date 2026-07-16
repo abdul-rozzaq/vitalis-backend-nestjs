@@ -45,3 +45,32 @@ export class RequestLoggerMiddleware implements NestMiddleware {
     return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
   }
 }
+
+import { ArgumentsHost, Catch, ExceptionFilter, HttpException } from "@nestjs/common";
+
+@Catch(HttpException)
+export class HttpExceptionLoggingFilter implements ExceptionFilter {
+  private readonly logger = new Logger("HTTP");
+
+  catch(exception: HttpException, host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+
+    const req = ctx.getRequest<Request>();
+    const res = ctx.getResponse<Response>();
+
+    const status = exception.getStatus();
+    const response = exception.getResponse();
+
+    if (status >= 400) {
+      this.logger.warn({
+        method: req.method,
+        url: req.originalUrl,
+        status,
+        requestBody: req.body,
+        responseBody: response,
+      });
+    }
+
+    res.status(status).json(response);
+  }
+}

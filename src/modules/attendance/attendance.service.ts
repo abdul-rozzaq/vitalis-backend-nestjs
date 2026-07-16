@@ -269,7 +269,7 @@ export class AttendanceService {
               // (manual override muhim)
             },
           });
-        } catch (err) {
+        } catch (err: any) {
           this.logger.error(
             `Failed to mark absent: userId=${userId} shiftId=${shift.id}: ${err.message}`,
           );

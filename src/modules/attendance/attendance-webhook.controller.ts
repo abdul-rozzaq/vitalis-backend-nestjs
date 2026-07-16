@@ -9,7 +9,7 @@ import {
   UseInterceptors,
   Body,
   Logger,
-  UnauthorizedException,
+  HttpCode,
 } from '@nestjs/common';
 import {
   AnyFilesInterceptor,
@@ -63,6 +63,7 @@ export class AttendanceWebhookController {
    *   - Picture.jpg (ixtiyoriy): yuzdagi surat
    */
   @Post('webhook')
+  @HttpCode(200)
   @UseInterceptors(AnyFilesInterceptor(attendanceMulterOptions))
   async receiveWebhook(
     @Query('secret') secret: string,
@@ -70,27 +71,33 @@ export class AttendanceWebhookController {
     @UploadedFiles() files: Express.Multer.File[],
     @Body() body: any,
   ) {
-    // 1. Secret tekshiruvi — timing-safe comparison
-    this.validateSecret(secret);
+    try {
+      // 1. Secret tekshiruvi — timing-safe comparison
+      this.validateSecret(secret);
 
-    // 2. IP whitelist tekshiruvi (agar sozlangan bo'lsa)
-    this.validateIp(clientIp);
+      // 2. IP whitelist tekshiruvi (agar sozlangan bo'lsa)
+      this.validateIp(clientIp);
 
-    // 3. event_log parse
-    const dto = this.parseEventLog(body, clientIp);
+      // 3. event_log parse
+      const dto = this.parseEventLog(body, clientIp);
 
-    // 4. Rasm yo'lini topish (Picture.jpg yoki birinchi fayl)
-    const pictureFile = (files ?? []).find(
-      (f) => f.fieldname === 'Picture' || f.mimetype.startsWith('image/'),
-    );
-    const picturePath = pictureFile
-      ? `/uploads/attendance/${pictureFile.filename}`
-      : null;
+      // 4. Rasm yo'lini topish (Picture.jpg yoki birinchi fayl)
+      const pictureFile = (files ?? []).find(
+        (f) => f.fieldname === 'Picture' || f.mimetype.startsWith('image/'),
+      );
+      
+      const picturePath = pictureFile
+        ? `/uploads/attendance/${pictureFile.filename}`
+        : null;
 
-    // 5. Service'ga topshirish
-    await this.service.processEvent(dto, picturePath);
+      // 5. Service'ga topshirish
+      await this.service.processEvent(dto, picturePath);
 
-    return { ok: true };
+      return { ok: true };
+    } catch (error: any) {
+      this.logger.warn(`Webhook error ignored (returning 200 to stop loop): ${error.message}`);
+      return { ok: false, error: error.message };
+    }
   }
 
   // ─── Validation helpers ─────────────────────────────────────────────────────
@@ -98,7 +105,7 @@ export class AttendanceWebhookController {
   private validateSecret(incoming: string | undefined): void {
     const expected = process.env.ATTENDANCE_WEBHOOK_SECRET ?? '';
     if (!incoming) {
-      throw new UnauthorizedException('Missing secret query param');
+      throw new Error('Missing secret query param');
     }
 
     // timingSafeEqual ikki Buffer teng uzunlikda bo'lishini talab qiladi.
@@ -110,8 +117,7 @@ export class AttendanceWebhookController {
     Buffer.from(expected).copy(b);
 
     if (!timingSafeEqual(a, b)) {
-      this.logger.warn(`Webhook rejected: invalid secret from ip=${process.env.HIKVISION_ALLOWED_IPS}`);
-      throw new UnauthorizedException('Invalid secret');
+      throw new Error('Invalid secret');
     }
   }
 
@@ -123,8 +129,7 @@ export class AttendanceWebhookController {
     // NestJS @Ip() ba'zida "::ffff:x.x.x.x" IPv4-mapped IPv6 formatida kelishi mumkin
     const normalized = ip.replace(/^::ffff:/, '');
     if (!allowed.includes(normalized) && !allowed.includes(ip)) {
-      this.logger.warn(`Webhook rejected: IP not whitelisted: ${ip}`);
-      throw new ForbiddenException(`IP not whitelisted: ${ip}`);
+      throw new Error(`IP not whitelisted: ${ip}`);
     }
   }
 
@@ -135,30 +140,30 @@ export class AttendanceWebhookController {
       try {
         log = JSON.parse(log);
       } catch {
-        throw new BadRequestException('event_log JSON parse xatosi');
+        throw new Error('event_log JSON parse xatosi');
       }
     }
-    if (!log) throw new BadRequestException('event_log maydoni topilmadi');
+    if (!log) throw new Error('event_log maydoni topilmadi');
 
     const ace = log.AccessControllerEvent;
-    if (!ace) throw new BadRequestException('AccessControllerEvent topilmadi');
+    if (!ace) throw new Error('AccessControllerEvent topilmadi');
 
     const rawStatus: string = ace.attendanceStatus;
     if (rawStatus !== 'checkIn' && rawStatus !== 'checkOut') {
-      throw new BadRequestException(
+      throw new Error(
         `Noto'g'ri attendanceStatus: ${rawStatus}. Faqat checkIn/checkOut qabul qilinadi.`,
       );
     }
 
     const employeeNoStr: string = String(ace.employeeNoString ?? '').trim();
     if (!employeeNoStr) {
-      throw new BadRequestException('employeeNoString bo\'sh');
+      throw new Error('employeeNoString bo\'sh');
     }
 
     // Qurilmadan kelgan ISO timestamp (+05:00 bilan)
     const eventAt = new Date(log.dateTime ?? log.DateTime);
     if (isNaN(eventAt.getTime())) {
-      throw new BadRequestException(`Noto'g'ri dateTime: ${log.dateTime}`);
+      throw new Error(`Noto'g'ri dateTime: ${log.dateTime}`);
     }
 
     // Qurilma IP — event_log.ipAddress ustun, yo'q bo'lsa request IP
