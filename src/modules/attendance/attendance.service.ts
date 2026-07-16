@@ -382,8 +382,8 @@ export class AttendanceService {
     if (query.status) where.status = query.status;
     if (query.from || query.to) {
       where.eventAt = {};
-      if (query.from) where.eventAt.gte = new Date(query.from);
-      if (query.to) where.eventAt.lte = new Date(query.to);
+      if (query.from) where.eventAt.gte = new Date(`${query.from}T00:00:00+05:00`);
+      if (query.to) where.eventAt.lte = new Date(`${query.to}T23:59:59+05:00`);
     }
     return this.prisma.attendanceEvent.findMany({
       where,
