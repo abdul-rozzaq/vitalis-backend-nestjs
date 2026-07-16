@@ -36,6 +36,11 @@ export class CreateUserDto {
   @IsString()
   @MaxLength(500)
   photo?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  employeeNo?: string | null;
 }
 
 export class UpdateUserDto {
@@ -76,4 +81,9 @@ export class UpdateUserDto {
   @IsString()
   @MaxLength(500)
   photo?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  employeeNo?: string | null;
 }
