@@ -145,8 +145,10 @@ dist
 
 
 init.sh
-
-
 generated
-
 uploads
+
+
+backups/*
+
+!backups/.gitkeep
