@@ -1,0 +1,62 @@
+/// Qurilmadan kelgan xom hodisa — har bir skan uchun bir yozuv
+model AttendanceEvent {
+  id            String               @id @default(uuid())
+  deviceIp      String               @db.VarChar(45)
+  employeeNoStr String               @db.VarChar(50)
+  eventAt       DateTime             // Qurilma yuborgan ISO dateTime (Asia/Tashkent ofseti bilan)
+  rawStatus     String               @db.VarChar(20) // "checkIn" | "checkOut"
+  picturePath   String?              @db.VarChar(500)
+  status        AttendanceEventStatus @default(PENDING)
+  userId        String?
+  recordId      String?              // @unique YO'Q — bir record'ga ko'p event bog'lanishi mumkin
+  createdAt     DateTime             @default(now())
+
+  user   User?             @relation(fields: [userId],   references: [id])
+  record AttendanceRecord? @relation(fields: [recordId], references: [id])
+
+  @@unique([deviceIp, employeeNoStr, eventAt]) // Idempotency: bir xil event ikki marta yozilmasin
+  @@index([userId, eventAt])
+  @@map("attendance_events")
+}
+
+/// Bir xodimning bir shiftdagi yig'ilgan davomat xulosasi
+model AttendanceRecord {
+  id                String                @id @default(uuid())
+  userId            String
+  shiftId           String
+  checkInAt         DateTime?
+  checkOutAt        DateTime?
+  lateMinutes       Int                   @default(0)
+  earlyLeaveMinutes Int                   @default(0)
+  status            AttendanceRecordStatus @default(PRESENT)
+  note              String?               @db.VarChar(500)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  user   User            @relation(fields: [userId],  references: [id])
+  shift  Shift           @relation(fields: [shiftId], references: [id])
+  events AttendanceEvent[] // checkIn, checkOut va qayta skanlar — barchasi shu record'ga bog'liq
+
+  @@unique([userId, shiftId])
+  @@index([userId, shiftId])
+  @@map("attendance_records")
+}
+
+enum AttendanceEventStatus {
+  PENDING
+  MATCHED
+  UNKNOWN_EMPLOYEE
+  NO_SHIFT
+
+  @@map("attendance_event_statuses")
+}
+
+enum AttendanceRecordStatus {
+  PRESENT
+  LATE
+  EARLY_LEAVE
+  LATE_AND_EARLY_LEAVE
+  ABSENT
+
+  @@map("attendance_record_statuses")
+}
