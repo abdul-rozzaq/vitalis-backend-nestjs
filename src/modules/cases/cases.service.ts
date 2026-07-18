@@ -2,9 +2,8 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { AppException } from "../../common/exceptions/app.exception";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
-import { CaseStepStatus, CaseStepType } from "../../generated/prisma/client";
+import { CaseStepStatus, CaseStepType, Prisma } from "../../generated/prisma/client";
 import { InvoiceItemSourceType, InvoiceSourceType, InvoiceStatus } from "../../generated/prisma/enums";
-import { Prisma } from "../../generated/prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AddCaseStepDto, CreateCaseDto, UpdateCaseStepDto } from "./cases.dto";
 import { CasesRepository, STEP_INCLUDE } from "./cases.repository";
@@ -122,7 +121,15 @@ export class CasesService {
           },
         });
 
-        // For each laboratory group, create one LabOrder and its items + invoice
+        const allInvoiceItems: {
+          description: string;
+          quantity: number;
+          unitPrice: Prisma.Decimal;
+          totalPrice: Prisma.Decimal;
+          sourceType: InvoiceItemSourceType;
+          sourceId: string;
+        }[] = [];
+
         for (const [labId, svcs] of groups.entries()) {
           const labOrder = await tx.labOrder.create({
             data: {
@@ -141,31 +148,32 @@ export class CasesService {
             });
           }
 
-          const invoiceItems = svcs.map((svc) => {
+          for (const svc of svcs) {
             const unitPrice = new Prisma.Decimal(svc.price ?? 0);
-            return {
+            allInvoiceItems.push({
               description: svc.name,
               quantity: 1,
               unitPrice,
               totalPrice: unitPrice,
               sourceType: InvoiceItemSourceType.LAB_SERVICE,
               sourceId: svc.id,
-            };
-          });
-          const totalAmount = invoiceItems.reduce((sum, item) => sum.add(item.unitPrice), new Prisma.Decimal(0));
-
-          await tx.invoice.create({
-            data: {
-              patientId: patientCase.patientId,
-              sourceType: InvoiceSourceType.LAB_ORDER,
-              sourceId: labOrder.id,
-              totalAmount,
-              status: InvoiceStatus.ISSUED,
-              createdById: user.userId,
-              items: { create: invoiceItems },
-            },
-          });
+            });
+          }
         }
+
+        const totalAmount = allInvoiceItems.reduce((sum, item) => sum.add(item.unitPrice), new Prisma.Decimal(0));
+
+        await tx.invoice.create({
+          data: {
+            patientId: patientCase.patientId,
+            sourceType: InvoiceSourceType.LAB_ORDER,
+            sourceId: step.id,
+            totalAmount,
+            status: InvoiceStatus.ISSUED,
+            createdById: user.userId,
+            items: { create: allInvoiceItems },
+          },
+        });
 
         return tx.caseStep.findUnique({ where: { id: step.id }, include: STEP_INCLUDE });
       });
