@@ -79,6 +79,19 @@ export class OperationsService {
       });
     }
 
+    const labOrders = op.caseStep?.labOrders ?? [];
+    for (const labOrder of labOrders) {
+      for (const item of labOrder.items) {
+        invoiceItems.push({
+          description: item.service.name,
+          quantity: 1,
+          unitPrice: new Prisma.Decimal(item.service.price?.toString() ?? '0'),
+          sourceType: InvoiceItemSourceType.LAB_SERVICE,
+          sourceId: item.service.id,
+        });
+      }
+    }
+
     const invoice = await this.invoiceService.createInvoice({
       patientId: op.patientId,
       sourceType: InvoiceSourceType.OPERATION,

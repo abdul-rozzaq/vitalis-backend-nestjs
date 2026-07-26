@@ -93,6 +93,15 @@ export class CreateOperationDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOperationItemDto)
   items?: CreateOperationItemDto[];
+
+  // Operatsiya yaratilayotganda bemorni bir vaqtning o'zida laboratoriya
+  // tahlillariga ham yuborish uchun (masalan, operatsiya oldi tahlillari).
+  // Har bir xizmat o'z laboratoriyasiga qarab guruhlanib, tegishli LabOrder
+  // yaratiladi va shu operatsiyaning caseStep'iga bog'lanadi.
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  labServiceIds?: string[];
 }
 /* ================= UPDATE ================= */
 

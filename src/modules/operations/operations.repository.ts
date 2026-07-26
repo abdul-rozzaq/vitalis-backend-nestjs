@@ -4,7 +4,7 @@ import {
   OperationStatus,
 } from '@/generated/prisma/enums';
 import { PrismaService } from '@/prisma/prisma.service';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateOperationDto, UpdateOperationDto } from './operation.dto';
 
 @Injectable()
@@ -22,6 +22,23 @@ export class OperationsRepository {
         caseId: true,
         status: true,
         case: { select: { id: true, chiefComplaint: true } },
+        labOrders: {
+          include: {
+            laboratory: { select: { id: true, name: true } },
+            items: {
+              include: {
+                service: { select: { id: true, name: true, price: true } },
+                performedBy: {
+                  select: { id: true, first_name: true, last_name: true },
+                },
+                resultTable: {
+                  include: { rows: { orderBy: { sortOrder: 'asc' as const } } },
+                },
+                files: true,
+              },
+            },
+          },
+        },
       },
     },
     surgeons: {
@@ -76,6 +93,47 @@ async create(dto: CreateOperationDto) {
         note: dto.note,
       },
     });
+
+    // Bemorni operatsiya bilan bir vaqtda laboratoriya tahlillariga ham
+    // yuborish (masalan, operatsiya oldi tahlillari). Xizmatlar o'z
+    // laboratoriyasiga qarab guruhlanadi va har bir laboratoriya uchun
+    // alohida LabOrder yaratiladi, hammasi shu operatsiyaning caseStep'iga
+    // bog'lanadi — shu orqali operatsiya tafsilotlarida natijalar ko'rinadi.
+    if (dto.labServiceIds?.length) {
+      const services = await tx.laboratoryService.findMany({
+        where: { id: { in: dto.labServiceIds } },
+      });
+      if (services.length !== dto.labServiceIds.length) {
+        throw new BadRequestException(
+          'Bir yoki bir nechta laboratoriya xizmati topilmadi',
+        );
+      }
+
+      const groups = services.reduce((m, s) => {
+        if (!m.has(s.laboratoryId)) m.set(s.laboratoryId, [] as typeof services);
+        m.get(s.laboratoryId)!.push(s);
+        return m;
+      }, new Map<string, typeof services>());
+
+      for (const [laboratoryId, svcs] of groups.entries()) {
+        const labOrder = await tx.labOrder.create({
+          data: {
+            caseStep: { connect: { id: caseStep.id } },
+            patient: { connect: { id: dto.patientId } },
+            laboratory: { connect: { id: laboratoryId } },
+          },
+        });
+
+        for (const svc of svcs) {
+          await tx.labOrderItem.create({
+            data: {
+              labOrder: { connect: { id: labOrder.id } },
+              service: { connect: { id: svc.id } },
+            },
+          });
+        }
+      }
+    }
 
     const operation = await tx.operation.create({
       data: {
