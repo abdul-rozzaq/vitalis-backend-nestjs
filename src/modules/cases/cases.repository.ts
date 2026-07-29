@@ -26,6 +26,9 @@ export const STEP_INCLUDE = {
         include: {
           service: { select: { id: true, name: true, price: true } },
           files: { orderBy: { createdAt: "desc" } },
+          resultTable: {
+            include: { rows: { orderBy: { sortOrder: "asc" as const } } },
+          },
         },
         orderBy: { createdAt: "asc" as const },
       },
