@@ -1,27 +1,23 @@
+/// Bo'lim uchun qayta ishlatiladigan smena andozasi.
+/// Bir oylik jadval shu andozalardan generatsiya qilinadi.
 model ShiftTemplate {
-  id           String   @id @default(uuid())
-  departmentId String? // Optional: global vs department template
-  name         String // e.g., "Morning Shift (ICU)"
-  startTime    String // "08:00"
-  endTime      String // "16:00"
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(uuid())
+  departmentId    String
+  name            String   @db.VarChar(64) // "Ertalabki", "Tungi"
+  /// Klinika vaqti (Asia/Tashkent), "HH:mm"
+  startTime       String   @db.VarChar(5)
+  /// startTime dan kichik yoki teng bo'lsa — smena ertasi kunga o'tadi
+  endTime         String   @db.VarChar(5)
+  requiredDoctors Int      @default(1)
+  requiredNurses  Int      @default(1)
+  /// Hafta kunlari [1=Dushanba .. 7=Yakshanba]. Bo'sh massiv = har kuni.
+  daysOfWeek      Int[]
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  department   Department?                @relation(fields: [departmentId], references: [id])
-  requirements ShiftTemplateRequirement[]
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 
+  @@index([departmentId, isActive])
   @@map("shift_templates")
-}
-
-model ShiftTemplateRequirement {
-  id            String @id @default(uuid())
-  templateId    String
-  roleId        String
-  requiredCount Int    @default(1)
-
-  template ShiftTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  role     StaffRole     @relation(fields: [roleId], references: [id])
-
-  @@unique([templateId, roleId])
-  @@map("shift_template_requirements")
 }

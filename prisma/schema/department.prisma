@@ -13,8 +13,6 @@ model Department {
   shifts      Shift[]
   procedures  Procedure[]
 
-  // New scheduling relations
-  workSchedules  WorkSchedule[]
   shiftTemplates ShiftTemplate[]
   operationTypes OperationType[]
   operations     Operation[]

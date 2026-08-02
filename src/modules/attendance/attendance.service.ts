@@ -24,6 +24,12 @@ const GRACE_MIN = parseInt(process.env.ATTENDANCE_GRACE_PERIOD_MIN ?? '5', 10);
 /** Shift tugagandan keyingi buffer (ABSENT belgilash uchun) */
 const ABSENT_BUFFER_MIN = 30;
 
+/**
+ * Cron qancha orqaga qaraydi (2 kun). Cron har kecha ishlagani uchun 1 kun
+ * yetarli, 2 kun esa bir marta o'tkazib yuborilgan ishga zaxira beradi.
+ */
+const ABSENT_LOOKBACK_MIN = 2 * 24 * 60;
+
 // ─── Yordamchi funksiyalar ────────────────────────────────────────────────────
 
 function addMinutes(date: Date, min: number): Date {
@@ -130,7 +136,7 @@ export class AttendanceService {
     }
 
     // 4. Mos shift topish — deterministik: eng erta boshlanadigan shift
-    const shiftAssignment = await this.prisma.shiftAssignment.findFirst({
+    const shiftStaff = await this.prisma.shiftStaff.findFirst({
       where: {
         userId: user.id,
         shift: {
@@ -142,7 +148,7 @@ export class AttendanceService {
       orderBy: { shift: { startAt: 'asc' } }, // deterministik tanlash
     });
 
-    if (!shiftAssignment) {
+    if (!shiftStaff) {
       this.logger.warn(
         `No matching shift for userId=${user.id} at=${eventAt.toISOString()}`,
       );
@@ -153,7 +159,7 @@ export class AttendanceService {
       return;
     }
 
-    const shift = shiftAssignment.shift;
+    const shift = shiftStaff.shift;
 
     // 5. AttendanceRecord upsert + status hisoblash ($transaction ichida)
     await this.prisma.$transaction(async (tx) => {
@@ -240,18 +246,20 @@ export class AttendanceService {
     const now = new Date();
     const buffer = addMinutes(now, -ABSENT_BUFFER_MIN);
 
-    // Tugagan shiftslar (endAt + buffer o'tgan)
+    // Tugagan shiftslar (endAt + buffer o'tgan).
+    // Quyi chegara MUHIM: usiz cron har kecha butun tarixni qayta skanlaydi.
+    const lookbackStart = addMinutes(now, -ABSENT_LOOKBACK_MIN);
     const completedShifts = await this.prisma.shift.findMany({
-      where: { endAt: { lte: buffer } },
+      where: { endAt: { gte: lookbackStart, lte: buffer } },
       include: {
-        assignments: { select: { userId: true } },
+        staff: { select: { userId: true } },
         attendanceRecords: { select: { userId: true } },
       },
     });
 
     for (const shift of completedShifts) {
       const recordedUserIds = new Set(shift.attendanceRecords.map((r) => r.userId));
-      const missingUsers = shift.assignments.filter(
+      const missingUsers = shift.staff.filter(
         (a) => !recordedUserIds.has(a.userId),
       );
 
