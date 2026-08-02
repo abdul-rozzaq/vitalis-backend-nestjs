@@ -80,6 +80,35 @@ export class LabOrdersRepository {
     });
   }
 
+  createItem(labOrderId: string, serviceId: string, isPaid: boolean) {
+    return this.prisma.labOrderItem.create({
+      data: { labOrder: { connect: { id: labOrderId } }, service: { connect: { id: serviceId } }, isPaid },
+      include: {
+        service: { select: { id: true, name: true, price: true, defaultRows: true } },
+        files: { orderBy: { createdAt: "asc" as const } },
+      },
+    });
+  }
+
+  // Bitta so'rov bilan bir nechta item'ni bir vaqtda keyingi bosqichga
+  // o'tkazish uchun ("bitta tugma — hammasi birga ilgarilaydi").
+  advanceItems(items: { id: string; nextStatus: LabItemStatus }[], performedById: string) {
+    const now = new Date();
+    return this.prisma.$transaction(
+      items.map(({ id, nextStatus }) => {
+        const timeData = {
+          ...(nextStatus === LabItemStatus.IN_PROGRESS && { startedAt: now }),
+          ...(nextStatus === LabItemStatus.READY && { readyAt: now, completedAt: now }),
+          ...(nextStatus === LabItemStatus.DELIVERED && { deliveredAt: now }),
+        };
+        return this.prisma.labOrderItem.update({
+          where: { id },
+          data: { status: nextStatus, performedById, ...timeData },
+        });
+      }),
+    );
+  }
+
   addFile(itemId: string, url: string, name: string) {
     return this.prisma.labOrderItemFile.create({
       data: { url, name, labOrderItem: { connect: { id: itemId } } },

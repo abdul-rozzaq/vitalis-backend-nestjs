@@ -12,6 +12,18 @@ export class UpdateLabOrderItemDto {
   note?: string;
 }
 
+// Laborant natija kiritish sahifasida buyurtmaga qo'shimcha xizmat qo'shishi
+// uchun. isPaid=true bo'lsa — xizmat narxi mavjud hisobga (invoice) qo'shiladi,
+// false bo'lsa — bepul deb belgilanadi va hisobga qo'shilmaydi.
+export class AddLabOrderItemDto {
+  @IsString()
+  serviceId: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isPaid?: boolean;
+}
+
 export class AddLabOrderItemFileDto {
   @IsString()
   url: string;

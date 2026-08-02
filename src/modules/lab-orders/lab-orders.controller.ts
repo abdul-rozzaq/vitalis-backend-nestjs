@@ -5,6 +5,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
 import {
+  AddLabOrderItemDto,
   ApplyLabResultTemplateDto,
   AddLabOrderItemFileDto,
   BulkSaveLabResultsDto,
@@ -31,6 +32,19 @@ export class LabOrdersController {
   @Patch(":id/items/:itemId")
   updateItem(@Param("id") id: string, @Param("itemId") itemId: string, @Body() dto: UpdateLabOrderItemDto) {
     return this.service.updateItem(id, itemId, dto);
+  }
+
+  // Buyurtma darajasidagi yagona qo'lda bosiladigan amal — faqat "Tayyor"
+  // xizmatlarni "Bemorga topshirildi" deb belgilaydi.
+  @Post(":id/deliver")
+  deliverOrder(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    return this.service.deliverOrder(id, user);
+  }
+
+  // Natija kiritish sahifasidan buyurtmaga yangi xizmat qo'shish (to'lovli/bepul).
+  @Post(":id/items")
+  addItem(@Param("id") id: string, @Body() dto: AddLabOrderItemDto, @CurrentUser() user: JwtPayload) {
+    return this.service.addItem(id, dto, user);
   }
 
   // "Umumiy" natija kiritish — bitta buyurtmadagi bir nechta xizmat natijasini
