@@ -23,11 +23,6 @@ model User {
   operationSurgeons    OperationSurgeon[]     @relation("OperationSurgeons")
   operationTypeDoctors OperationTypeDoctor[]  @relation("OperationTypeDoctors")
   shiftStaff           ShiftStaff[]           @relation("ShiftStaffAssignments")
-  createdSchedules     WorkSchedule[]
-  publishedSchedules   WorkScheduleVersion[]
-  shiftAssignments     ShiftAssignment[]
-  availabilities       StaffAvailability[]
-  timeOffs             StaffTimeOff[]
   attendanceEvents     AttendanceEvent[]
   attendanceRecords    AttendanceRecord[]
 

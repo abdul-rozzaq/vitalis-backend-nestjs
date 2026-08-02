@@ -3,7 +3,14 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
-import { AssignStaffDto, CreateShiftDto, ShiftsQueryDto, UpdateShiftDto } from "./shifts.dto";
+import {
+  AssignStaffDto,
+  BulkAssignDto,
+  CreateShiftDto,
+  GenerateShiftsDto,
+  ShiftsQueryDto,
+  UpdateShiftDto,
+} from "./shifts.dto";
 import { ShiftsService } from "./shifts.service";
 
 @Controller("/shifts")
@@ -44,6 +51,20 @@ export class ShiftsController {
   @Post("/")
   create(@Body() dto: CreateShiftDto) {
     return this.service.create(dto);
+  }
+
+  /** Shablonlar asosida davr uchun smenalarni generatsiya qiladi. */
+  @Roles(RoleName.ADMIN, RoleName.DIREKTOR)
+  @Post("/generate")
+  generate(@Body() dto: GenerateShiftsDto) {
+    return this.service.generate(dto);
+  }
+
+  /** Bir nechta smenaga bir nechta xodimni bittada biriktiradi. */
+  @Roles(RoleName.ADMIN, RoleName.DIREKTOR)
+  @Post("/bulk-assign")
+  bulkAssign(@Body() dto: BulkAssignDto) {
+    return this.service.bulkAssign(dto);
   }
 
   @Roles(RoleName.ADMIN, RoleName.DIREKTOR)

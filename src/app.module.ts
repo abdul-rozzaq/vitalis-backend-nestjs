@@ -43,7 +43,6 @@ import { DiagnosticsModule } from "./modules/diagnostics/diagnostics.module";
 import { DiagnosticOrdersModule } from "./modules/diagnostic-orders/diagnostic-orders.module";
 import { DiagnosticAssignmentsModule } from "./modules/diagnostic-assignments/diagnostic-assignments.module";
 import { ScheduleModule } from "@nestjs/schedule";
-import { SchedulingModule } from "./modules/scheduling/scheduling.module";
 import { ProceduresModule } from "./modules/procedures/procedures.module";
 import { AttendanceModule } from "./modules/attendance/attendance.module";
 
@@ -95,7 +94,6 @@ import { AttendanceModule } from "./modules/attendance/attendance.module";
     DiagnosticsModule,
     DiagnosticOrdersModule,
     DiagnosticAssignmentsModule,
-    SchedulingModule,
     ProceduresModule,
     AttendanceModule,
   ],
