@@ -180,3 +180,18 @@ export class UpdateOperationDto {
   @Type(() => UpdateOperationItemDto)
   items?: UpdateOperationItemDto[];
 }
+
+/* ================= INVOICE ================= */
+
+// Operatsiya tafsilotlari sahifasida "Invois yaratish" bosilganda, xodim
+// operatsiyaning umumiy narxidan qanchasiga hozir invois yaratmoqchi ekanini
+// tanlashi mumkin (masalan, oldindan qisman to'lov uchun). Agar `amount`
+// yuborilmasa yoki umumiy narxga teng bo'lsa, invois avvalgidek to'liq
+// tarkibiy qismlar (xizmatlar, lab tahlillari) bilan yaratiladi.
+export class CreateOperationInvoiceDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.01)
+  amount?: number;
+}

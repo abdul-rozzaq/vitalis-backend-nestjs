@@ -11,7 +11,9 @@ import {
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { CreateOperationDto, UpdateOperationDto } from './operation.dto';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { JwtPayload } from '../../common/types/jwt-payload.type';
+import { CreateOperationDto, CreateOperationInvoiceDto, UpdateOperationDto } from './operation.dto';
 import { OperationsService } from './operations.service';
 
 @Controller('operations')
@@ -26,6 +28,20 @@ export class OperationsController {
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.findOne(id);
+  }
+
+  @Get(':id/invoice')
+  getInvoices(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.getInvoices(id);
+  }
+
+  @Post(':id/invoice')
+  createInvoice(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateOperationInvoiceDto = {},
+  ) {
+    return this.service.createInvoiceForOperation(id, user.userId, dto?.amount);
   }
 
   @Get(':id/contract')

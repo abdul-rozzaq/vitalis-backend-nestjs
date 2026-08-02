@@ -322,6 +322,107 @@ export class InvoiceService {
     });
   }
 
+  async getInvoiceBySource(sourceType: InvoiceSourceType, sourceId: string) {
+    return this.prisma.invoice.findFirst({
+      where: { sourceType, sourceId },
+      orderBy: { createdAt: 'desc' },
+      include: INVOICE_INCLUDE,
+    });
+  }
+
+  /**
+   * Bitta manba (masalan, bitta operatsiya) uchun bir nechta invois
+   * bo'lishi mumkin bo'lgan hollarda ishlatiladi — masalan, operatsiya
+   * narxi bir nechta invoisga bo'lib-bo'lib chiqarilganda.
+   */
+  async getInvoicesBySource(sourceType: InvoiceSourceType, sourceId: string) {
+    return this.prisma.invoice.findMany({
+      where: { sourceType, sourceId },
+      orderBy: { createdAt: 'asc' },
+      include: INVOICE_INCLUDE,
+    });
+  }
+
+  /**
+   * Operatsiya tahrirlanganda (masalan, boshlangandan keyin yangi xizmat
+   * qo'shilganda) shu operatsiyaga tegishli invoice'ni yangi holatga
+   * moslashtiradi. Faqat sourceType=OPERATION bo'lgan item'lar
+   * almashtiriladi, boshqa manbalar (masalan, laboratoriya) tegilmaydi.
+   */
+  async syncOperationInvoice(
+    operationId: string,
+    operationItems: Array<{
+      description: string;
+      quantity: number;
+      unitPrice: Prisma.Decimal;
+      sourceId: string;
+    }>,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const invoice = await tx.invoice.findFirst({
+        where: {
+          sourceType: InvoiceSourceType.OPERATION,
+          sourceId: operationId,
+        },
+        include: { items: true },
+      });
+
+      if (!invoice || invoice.status === InvoiceStatus.CANCELLED) {
+        return invoice;
+      }
+
+      const otherItems = invoice.items.filter(
+        (i) => i.sourceType !== InvoiceItemSourceType.OPERATION,
+      );
+      const otherTotal = otherItems.reduce(
+        (sum, i) => sum.add(i.totalPrice),
+        new Prisma.Decimal(0),
+      );
+
+      const operationTotal = operationItems.reduce(
+        (sum, i) => sum.add(i.unitPrice.mul(i.quantity)),
+        new Prisma.Decimal(0),
+      );
+
+      const newTotal = otherTotal.add(operationTotal);
+
+      await tx.invoiceItem.deleteMany({
+        where: {
+          invoiceId: invoice.id,
+          sourceType: InvoiceItemSourceType.OPERATION,
+        },
+      });
+
+      if (operationItems.length > 0) {
+        await tx.invoiceItem.createMany({
+          data: operationItems.map((item) => ({
+            invoiceId: invoice.id,
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.unitPrice.mul(item.quantity),
+            sourceType: InvoiceItemSourceType.OPERATION,
+            sourceId: item.sourceId,
+          })),
+        });
+      }
+
+      const paidTotal = invoice.paidCash.add(invoice.paidBonus);
+      const newStatus =
+        newTotal.greaterThan(0) && paidTotal.greaterThanOrEqualTo(newTotal)
+          ? InvoiceStatus.PAID
+          : paidTotal.greaterThan(0)
+            ? InvoiceStatus.PARTIALLY_PAID
+            : InvoiceStatus.ISSUED;
+
+      return tx.invoice.update({
+        where: { id: invoice.id },
+        data: { totalAmount: newTotal, status: newStatus },
+        include: INVOICE_INCLUDE,
+      });
+    });
+  }
+
   async cancelInvoice(id: string) {
     const inv = await this.prisma.invoice.findUnique({ where: { id } });
     if (!inv) throw new NotFoundException('Invoice not found');

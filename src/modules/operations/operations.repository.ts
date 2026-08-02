@@ -83,7 +83,6 @@ async create(dto: CreateOperationDto) {
       (sum, i) => sum + i.unitPrice * i.quantity,
       0,
     );
-    const totalPrice = basePrice + itemsTotal;
 
     const caseStep = await tx.caseStep.create({
       data: {
@@ -99,6 +98,9 @@ async create(dto: CreateOperationDto) {
     // laboratoriyasiga qarab guruhlanadi va har bir laboratoriya uchun
     // alohida LabOrder yaratiladi, hammasi shu operatsiyaning caseStep'iga
     // bog'lanadi — shu orqali operatsiya tafsilotlarida natijalar ko'rinadi.
+    // Bu tahlillar narxi operatsiyaning umumiy summasiga ham qo'shiladi.
+    let labTotal = 0;
+
     if (dto.labServiceIds?.length) {
       const services = await tx.laboratoryService.findMany({
         where: { id: { in: dto.labServiceIds } },
@@ -108,6 +110,8 @@ async create(dto: CreateOperationDto) {
           'Bir yoki bir nechta laboratoriya xizmati topilmadi',
         );
       }
+
+      labTotal = services.reduce((sum, s) => sum + (s.price ?? 0), 0);
 
       const groups = services.reduce((m, s) => {
         if (!m.has(s.laboratoryId)) m.set(s.laboratoryId, [] as typeof services);
@@ -134,6 +138,8 @@ async create(dto: CreateOperationDto) {
         }
       }
     }
+
+    const totalPrice = basePrice + itemsTotal + labTotal;
 
     const operation = await tx.operation.create({
       data: {
@@ -229,17 +235,31 @@ async update(id: string, dto: UpdateOperationDto) {
       }
     }
 
-    // basePrice yoki items o'zgargan bo'lishi mumkin — totalPrice HAR DOIM qayta hisoblanadi
-    const [allItems, operation] = await Promise.all([
+    // basePrice yoki items o'zgargan bo'lishi mumkin — totalPrice HAR DOIM qayta hisoblanadi.
+    // Bog'liq caseStep ostidagi laboratoriya tahlillari narxi ham hisobga olinadi.
+    const operation = await tx.operation.findUniqueOrThrow({ where: { id } });
+
+    const [allItems, labOrders] = await Promise.all([
       tx.operationItem.findMany({ where: { operationId: id } }),
-      tx.operation.findUniqueOrThrow({ where: { id } }),
+      operation.caseStepId
+        ? tx.labOrder.findMany({
+            where: { caseStepId: operation.caseStepId },
+            include: { items: { include: { service: true } } },
+          })
+        : Promise.resolve([]),
     ]);
 
     const itemsTotal = allItems.reduce(
       (sum, i) => sum + Number(i.totalPrice),
       0,
     );
-    const newTotal = Number(operation.basePrice) + itemsTotal;
+    const labTotal = labOrders.reduce(
+      (sum, order) =>
+        sum +
+        order.items.reduce((s, item) => s + (item.service.price ?? 0), 0),
+      0,
+    );
+    const newTotal = Number(operation.basePrice) + itemsTotal + labTotal;
 
     await tx.operation.update({
       where: { id },

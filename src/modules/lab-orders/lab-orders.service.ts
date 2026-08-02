@@ -3,10 +3,13 @@ import { readFile } from "fs/promises";
 import { join } from "path";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
+import { LabItemStatus, Prisma } from "../../generated/prisma/client";
+import { InvoiceItemSourceType, InvoiceSourceType, InvoiceStatus } from "../../generated/prisma/enums";
 import { PrismaService } from "../../prisma/prisma.service";
 import { generateDocx, generateCombinedDocx } from "./generators/docx-generator";
 import { generatePdf, generateCombinedPdf } from "./generators/pdf-generator";
 import {
+  AddLabOrderItemDto,
   ApplyLabResultTemplateDto,
   AddLabOrderItemFileDto,
   BulkSaveLabResultsDto,
@@ -57,6 +60,113 @@ export class LabOrdersService {
 
     await this.repo.recalcOrderStatus(orderId);
     return updated;
+  }
+
+  /**
+   * Buyurtma kartasidagi YAGONA "Keyingi bosqich" tugmasi — endi har bir
+   * xizmat o'zining alohida tugmasiga muhtoj emas. Bosilganda buyurtmadagi
+   * barcha faol (DELIVERED/CANCELLED bo'lmagan) xizmatlar bir vaqtda bir
+   * bosqich oldinga suriladi (masalan hammasi "Kutilmoqda"dan "Jarayonda"ga).
+   */
+  /**
+   * Buyurtma kartasidagi YAGONA qo'lda bosiladigan amal — "Bemorga
+   * topshirildi". Faqat "Tayyor" (READY) holatidagi xizmatlarni "Yetkazilgan"
+   * (DELIVERED)ga o'tkazadi. PENDING → IN_PROGRESS → READY o'tishlari bunga
+   * kirmaydi — ular natija sahifasida natija saqlanganda/yuborilganda
+   * avtomatik sodir bo'ladi (qarang: saveResultTables). Agar bu yerda ham
+   * PENDING/IN_PROGRESS'ni ilgarilatib yuborsak, laborant haqiqatda natija
+   * kiritmasdan "tayyor" deb belgilab qo'yishi mumkin bo'lib qolardi.
+   */
+  async deliverOrder(orderId: string, user: JwtPayload) {
+    const order = await this.repo.findById(orderId);
+    if (!order) throw new NotFoundException("Lab order not found");
+
+    const readyItems = order.items.filter((item) => item.status === "READY");
+    if (readyItems.length === 0) {
+      throw new BadRequestException("Buyurtmada topshirish uchun tayyor xizmat yo'q");
+    }
+
+    await this.repo.advanceItems(
+      readyItems.map((item) => ({ id: item.id, nextStatus: "DELIVERED" as LabItemStatus })),
+      user.userId,
+    );
+    await this.repo.recalcOrderStatus(orderId);
+    return this.repo.findById(orderId);
+  }
+
+  /**
+   * Natija kiritish sahifasida laborant buyurtmaga qo'shimcha xizmat qo'shishi
+   * mumkin (masalan tekshiruv jarayonida yana bir ko'rsatkich kerak bo'lib
+   * qolsa). isPaid=true bo'lsa xizmat narxi buyurtmaning umumiy hisobiga
+   * (invoice) qo'shiladi, false bo'lsa bepul deb belgilanadi.
+   */
+  async addItem(orderId: string, dto: AddLabOrderItemDto, user: JwtPayload) {
+    const order = await this.repo.findById(orderId);
+    if (!order) throw new NotFoundException("Lab order not found");
+
+    const service = await this.prisma.laboratoryService.findUnique({ where: { id: dto.serviceId } });
+    if (!service) throw new NotFoundException("Xizmat topilmadi");
+    if (service.laboratoryId !== order.laboratoryId) {
+      throw new BadRequestException("Bu xizmat ushbu laboratoriyaga tegishli emas");
+    }
+
+    const isPaid = dto.isPaid ?? true;
+    const item = await this.repo.createItem(orderId, dto.serviceId, isPaid);
+
+    if (isPaid) {
+      const price = new Prisma.Decimal(service.price ?? 0);
+      const invoice = await this.prisma.invoice.findFirst({
+        where: { sourceType: InvoiceSourceType.LAB_ORDER, sourceId: order.caseStep.id },
+      });
+
+      if (invoice) {
+        await this.prisma.$transaction([
+          this.prisma.invoiceItem.create({
+            data: {
+              invoiceId: invoice.id,
+              description: service.name,
+              quantity: 1,
+              unitPrice: price,
+              totalPrice: price,
+              sourceType: InvoiceItemSourceType.LAB_SERVICE,
+              sourceId: service.id,
+            },
+          }),
+          this.prisma.invoice.update({
+            where: { id: invoice.id },
+            data: { totalAmount: { increment: price } },
+          }),
+        ]);
+      } else {
+        // Ehtiyot chorasi — odatda buyurtma yaratilganda invoice ham birga
+        // yaratiladi, lekin topilmasa yangisini ochamiz.
+        await this.prisma.invoice.create({
+          data: {
+            patientId: order.patientId,
+            sourceType: InvoiceSourceType.LAB_ORDER,
+            sourceId: order.caseStep.id,
+            totalAmount: price,
+            status: InvoiceStatus.ISSUED,
+            createdById: user.userId,
+            items: {
+              create: [
+                {
+                  description: service.name,
+                  quantity: 1,
+                  unitPrice: price,
+                  totalPrice: price,
+                  sourceType: InvoiceItemSourceType.LAB_SERVICE,
+                  sourceId: service.id,
+                },
+              ],
+            },
+          },
+        });
+      }
+    }
+
+    await this.repo.recalcOrderStatus(orderId);
+    return item;
   }
 
   async addFile(orderId: string, itemId: string, dto: AddLabOrderItemFileDto) {

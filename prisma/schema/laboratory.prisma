@@ -61,6 +61,7 @@ model LabOrderItem {
   status        LabItemStatus      @default(PENDING)
   labOrderId    String
   serviceId     String
+  isPaid        Boolean            @default(true)
   performedById String?
   fileUrl       String?
   fileName      String?
