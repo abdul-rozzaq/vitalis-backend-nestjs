@@ -20,28 +20,98 @@ const STAFF_SELECT = { id: true, first_name: true, last_name: true, role: true }
 const SHIFT_INCLUDE = {
   department: { select: { id: true, name: true } },
   staff: { include: { user: { select: STAFF_SELECT } } },
+  /*
+    Davomat — reja bilan bir so'rovda keladi, aks holda board "kim
+    biriktirilgan" ni ko'rsatib, "kim haqiqatda keldi" ni ko'rsatmasdi.
+
+    `events` ATAYLAB `take: 1` bilan cheklangan: bizga faqat kirish skanidagi
+    yuz rasmi kerak. Cheklovsiz 60 kunlik board javobiga minglab qator qo'shilardi.
+  */
+  attendanceRecords: {
+    select: {
+      userId: true,
+      checkInAt: true,
+      checkOutAt: true,
+      lateMinutes: true,
+      earlyLeaveMinutes: true,
+      workedMinutes: true,
+      absentMinutes: true,
+      status: true,
+      events: {
+        where: { rawStatus: "checkIn" },
+        select: { picturePath: true },
+        orderBy: { eventAt: "asc" },
+        take: 1,
+      },
+    },
+  },
 } as const;
 
 const DEFAULT_PAGE_SIZE = 200;
 
 type ShiftWithStaff = {
+  startAt: Date;
+  endAt: Date;
   requiredDoctors: number;
   requiredNurses: number;
   staff: { role: ShiftStaffRole }[];
+  attendanceRecords: {
+    userId: string;
+    checkInAt: Date | null;
+    checkOutAt: Date | null;
+    lateMinutes: number;
+    earlyLeaveMinutes: number;
+    workedMinutes: number;
+    absentMinutes: number;
+    status: string;
+    events: { picturePath: string | null }[];
+  }[];
 };
 
-/** Har bir smenaga required-vs-assigned hisobini qo'shadi. */
-function withStaffing<T extends ShiftWithStaff>(shift: T) {
+/**
+ * Har bir smenaga reja (`staffing`) va haqiqat (`attendance`) hisobini qo'shadi.
+ *
+ * `attendance.expected` biriktirilgan xodimlar soni, `arrived` esa kirish skani
+ * bo'lganlar. `insideNow` faqat smena davom etayotganda ma'noga ega.
+ */
+function withStaffing<T extends ShiftWithStaff>(shift: T, now: Date = new Date()) {
   const assignedDoctors = shift.staff.filter((s) => s.role === ShiftStaffRole.DOCTOR).length;
   const assignedNurses = shift.staff.filter((s) => s.role === ShiftStaffRole.NURSE).length;
+
+  const records = shift.attendanceRecords;
+  const isRunning = now >= shift.startAt && now < shift.endAt;
+
+  const attendance = {
+    expected: shift.staff.length,
+    arrived: records.filter((r) => r.checkInAt !== null).length,
+    late: records.filter((r) => r.lateMinutes > 0).length,
+    absent: records.filter((r) => r.status === "ABSENT").length,
+    /** To'liqsiz yozuvlar — operator aralashuvini talab qiladi. */
+    incomplete: records.filter(
+      (r) => r.status === "MISSING_CHECKIN" || r.status === "MISSING_CHECKOUT",
+    ).length,
+    insideNow: isRunning
+      ? records.filter((r) => r.checkInAt !== null && r.checkOutAt === null).length
+      : 0,
+    totalLateMinutes: records.reduce((sum, r) => sum + r.lateMinutes, 0),
+    totalWorkedMinutes: records.reduce((sum, r) => sum + r.workedMinutes, 0),
+    isRunning,
+  };
+
   return {
     ...shift,
+    // Ichma-ich `events` massivi o'rniga bitta skalyar — frontend uni join qilmaydi.
+    attendanceRecords: records.map(({ events, ...rest }) => ({
+      ...rest,
+      checkInPicture: events[0]?.picturePath ?? null,
+    })),
     staffing: {
       requiredDoctors: shift.requiredDoctors,
       assignedDoctors,
       requiredNurses: shift.requiredNurses,
       assignedNurses,
     },
+    attendance,
   };
 }
 
@@ -92,7 +162,7 @@ export class ShiftsService {
       this.prisma.shift.count({ where }),
     ]);
 
-    return { data: shifts.map(withStaffing), total, page, limit };
+    return { data: shifts.map((s) => withStaffing(s)), total, page, limit };
   }
 
   async retrieve(id: string) {
@@ -240,6 +310,10 @@ export class ShiftsService {
         endAt: p.endAt,
         requiredDoctors: p.requiredDoctors,
         requiredNurses: p.requiredNurses,
+        // Shablon nomi saqlanadi — board kartasi va ommaviy biriktirish
+        // matritsasi smenani shu nom bilan ko'rsatadi. `VarChar(500)`,
+        // shablon nomi esa `VarChar(64)` — sig'maslik xavfi yo'q.
+        note: p.templateName,
       })),
       skipDuplicates: true,
     });
@@ -374,7 +448,7 @@ export class ShiftsService {
       include: SHIFT_INCLUDE,
       orderBy: { startAt: "asc" },
     });
-    return shifts.map(withStaffing);
+    return shifts.map((s) => withStaffing(s));
   }
 
   async getMyUpcoming(userId: string) {
@@ -385,7 +459,7 @@ export class ShiftsService {
       orderBy: { startAt: "asc" },
       take: 50,
     });
-    return shifts.map(withStaffing);
+    return shifts.map((s) => withStaffing(s));
   }
 
   // ── Smena bo'limi bo'yicha xonalar + bemorlar (board) ──────────────────────
