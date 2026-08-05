@@ -3,7 +3,9 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
+  Post,
   Query,
 } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -11,9 +13,12 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { RoleName } from '../../common/enums/role-name.enum';
 import { JwtPayload } from '../../common/types/jwt-payload.type';
 import {
+  AdjustAttendanceRecordDto,
   AttendanceEventsQueryDto,
   AttendanceRecordsQueryDto,
+  LinkEmployeeDto,
   PatchAttendanceRecordDto,
+  ResolveToShiftDto,
 } from './attendance.dto';
 import { AttendanceService } from './attendance.service';
 
@@ -60,6 +65,58 @@ export class AttendanceController {
   @Get('events')
   listEvents(@Query() query: AttendanceEventsQueryDto) {
     return this.service.listEvents(query);
+  }
+
+  // ── Istisnolar navbati ──────────────────────────────────────────────────────
+
+  /**
+   * Admin / Direktor: hal qilinmagan skanlar va to'liqsiz yozuvlar.
+   * Ilgari bular faqat log'ga tushib, hech kimga ko'rinmasdi.
+   */
+  @Roles(RoleName.ADMIN, RoleName.DIREKTOR)
+  @Get('unresolved')
+  listUnresolved() {
+    return this.service.listUnresolved();
+  }
+
+  /**
+   * Admin: terminal ID ni xodimga bog'laydi va shu ID bilan kelgan barcha
+   * hal qilinmagan skanlarni qayta ishlaydi.
+   */
+  @Roles(RoleName.ADMIN)
+  @Post('events/:id/link-user')
+  linkEmployee(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: LinkEmployeeDto,
+  ) {
+    return this.service.linkEmployeeNo(id, dto.userId);
+  }
+
+  /**
+   * Admin: `NO_SHIFT` skanini smenaga bog'laydi (kerak bo'lsa xodimni
+   * smenaga biriktirib).
+   */
+  @Roles(RoleName.ADMIN)
+  @Post('events/:id/assign-shift')
+  resolveToShift(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ResolveToShiftDto,
+  ) {
+    return this.service.resolveEventToShift(id, dto.shiftId);
+  }
+
+  /**
+   * Admin: qo'lda vaqt tuzatish. Xom skan o'zgarmaydi — tuzatish alohida
+   * audit yozuvi sifatida saqlanadi.
+   */
+  @Roles(RoleName.ADMIN)
+  @Post('records/:id/adjust')
+  adjustRecord(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdjustAttendanceRecordDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.service.adjustRecord(id, dto, user.userId);
   }
 
   /**

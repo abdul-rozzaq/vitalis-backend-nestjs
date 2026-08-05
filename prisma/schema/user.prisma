@@ -25,6 +25,8 @@ model User {
   shiftStaff           ShiftStaff[]           @relation("ShiftStaffAssignments")
   attendanceEvents     AttendanceEvent[]
   attendanceRecords    AttendanceRecord[]
+  /// Bu foydalanuvchi kiritgan qo'lda tuzatishlar (audit izi).
+  attendanceAdjustments AttendanceAdjustment[]
 
   @@map("users")
 }
