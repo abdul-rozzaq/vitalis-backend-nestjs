@@ -44,10 +44,10 @@ jobs:
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          format: markdown
+          format: html
           message: |
-            ${{ job.status == 'success' && '✅' || '❌' }} *${{ github.repository }}*
-            Branch: `${{ github.ref_name }}`
-            Commit: `${{ github.sha }}`
-            By: ${{ github.actor }}
+            ${{ job.status == 'success' && '✅' || '❌' }} <b>${{ github.repository }}</b>
+            Branch: <code>${{ github.ref_name }}</code>
+            Commit: <code>${{ github.sha }}</code>
+            By: <b>${{ github.actor }}</b>
             ${{ github.event.head_commit.message }}
