@@ -4,7 +4,9 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [main, new-features/*, muslimbek]
+
+  workflow_dispatch:
 
 jobs:
   docker:
