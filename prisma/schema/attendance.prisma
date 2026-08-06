@@ -28,18 +28,52 @@ model AttendanceRecord {
   checkOutAt        DateTime?
   lateMinutes       Int                   @default(0)
   earlyLeaveMinutes Int                   @default(0)
+  /// Smena oynasi ichida haqiqatda ichkarida bo'lgan daqiqalar.
+  /// Birinchi kirish va oxirgi chiqish ayirmasi EMAS — juftlangan
+  /// segmentlar yig'indisi, ya'ni smena o'rtasida chiqib ketish hisobga olinadi.
+  workedMinutes     Int                   @default(0)
+  /// Smenaning o'tgan qismidan yo'q bo'lgan daqiqalar (kechikish shu ichida).
+  absentMinutes     Int                   @default(0)
   status            AttendanceRecordStatus @default(PRESENT)
   note              String?               @db.VarChar(500)
+  /// Operator qo'lda kiritgan kirish vaqti — qurilma ishlamay qolgan yoki
+  /// xodim skanerlashni unutgan holat uchun. Xom `AttendanceEvent` HECH QACHON
+  /// o'zgartirilmaydi; qayta hisoblashda bu qiymat sintetik skan sifatida
+  /// qo'shiladi, shuning uchun tuzatish cron ishlaganda ham yo'qolmaydi.
+  manualCheckInAt   DateTime?
+  manualCheckOutAt  DateTime?
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
 
-  user   User            @relation(fields: [userId],  references: [id])
-  shift  Shift           @relation(fields: [shiftId], references: [id])
-  events AttendanceEvent[] // checkIn, checkOut va qayta skanlar — barchasi shu record'ga bog'liq
+  user        User                   @relation(fields: [userId],  references: [id])
+  shift       Shift                  @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  events      AttendanceEvent[] // checkIn, checkOut va qayta skanlar — barchasi shu record'ga bog'liq
+  adjustments AttendanceAdjustment[]
 
   @@unique([userId, shiftId])
   @@index([userId, shiftId])
   @@map("attendance_records")
+}
+
+/// Qo'lda tuzatish izi. Har bir o'zgartirish alohida qator — kim, qachon,
+/// nimani, nimadan nimaga va nima sababdan o'zgartirgani saqlanadi.
+/// Yozuvlar hech qachon o'chirilmaydi va tahrirlanmaydi.
+model AttendanceAdjustment {
+  id         String    @id @default(uuid())
+  recordId   String
+  /// "checkInAt" | "checkOutAt"
+  field      String    @db.VarChar(20)
+  oldValue   DateTime?
+  newValue   DateTime?
+  reason     String    @db.VarChar(500)
+  adjustedBy String
+  createdAt  DateTime  @default(now())
+
+  record AttendanceRecord @relation(fields: [recordId],   references: [id], onDelete: Cascade)
+  user   User             @relation(fields: [adjustedBy], references: [id])
+
+  @@index([recordId])
+  @@map("attendance_adjustments")
 }
 
 enum AttendanceEventStatus {
@@ -57,6 +91,11 @@ enum AttendanceRecordStatus {
   EARLY_LEAVE
   LATE_AND_EARLY_LEAVE
   ABSENT
+  /// Chiqish skani yo'q — smena yakunlangan, lekin xodim chiqishda skanerlamagan.
+  /// Ilgari bunday yozuv jimgina PRESENT bo'lardi.
+  MISSING_CHECKOUT
+  /// Kirish skani yo'q — faqat chiqish qayd etilgan.
+  MISSING_CHECKIN
 
   @@map("attendance_record_statuses")
 }

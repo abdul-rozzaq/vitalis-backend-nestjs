@@ -30,6 +30,54 @@ export function clinicDayUTC(input?: string | Date | null): Date {
 }
 
 /**
+ * Klinika mintaqasidagi UTC ofseti (soatlarda). Toshkent DST ishlatmaydi,
+ * shuning uchun bu konstanta yil davomida o'zgarmaydi.
+ */
+const CLINIC_UTC_OFFSET_HOURS = 5;
+
+/**
+ * Klinika mintaqasidagi kalendar kun + "HH:mm" ni aniq UTC momentga aylantiradi.
+ *
+ * `new Date("2026-09-01T08:00")` server TZ'siga bog'liq bo'lgani uchun ishlatilmaydi;
+ * bu funksiya doim Asia/Tashkent (UTC+5) deb hisoblaydi.
+ *
+ * @param day  - "YYYY-MM-DD" yoki Date (klinika kuni sifatida talqin qilinadi)
+ * @param time - "HH:mm"
+ * @param dayOffset - qo'shiladigan kunlar soni (tungi smena uchun 1)
+ */
+export function clinicDateTimeUTC(day: string | Date, time: string, dayOffset = 0): Date {
+  const base = clinicDayUTC(day);
+  const [hh, mm] = parseClinicTime(time);
+  return new Date(
+    Date.UTC(
+      base.getUTCFullYear(),
+      base.getUTCMonth(),
+      base.getUTCDate() + dayOffset,
+      hh - CLINIC_UTC_OFFSET_HOURS,
+      mm,
+    ),
+  );
+}
+
+/**
+ * "HH:mm" ni [soat, daqiqa] ga ajratadi. Noto'g'ri format bo'lsa xato tashlaydi.
+ */
+export function parseClinicTime(time: string): [number, number] {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(time);
+  if (!match) throw new Error(`Vaqt formati noto'g'ri (HH:mm kutilgan): ${time}`);
+  return [Number(match[1]), Number(match[2])];
+}
+
+/**
+ * Klinika mintaqasidagi hafta kunini qaytaradi: 1=Dushanba ... 7=Yakshanba.
+ * `clinicDayUTC` natijasi UTC yarim tuni bo'lgani uchun `getUTCDay()` xavfsiz.
+ */
+export function clinicDayOfWeek(day: string | Date): number {
+  const d = clinicDayUTC(day).getUTCDay(); // 0=Yakshanba
+  return d === 0 ? 7 : d;
+}
+
+/**
  * Berilgan (yoki hozirgi) momentning klinika mintaqasidagi soatini (0–23) qaytaradi.
  */
 export function clinicHour(now: Date = new Date()): number {

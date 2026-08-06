@@ -1,37 +1,135 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { clinicDayUTC } from "../../common/clinic-time";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { ShiftStaffRole, WardStatus } from "../../generated/prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
-import { AssignStaffDto, CreateShiftDto, ShiftsQueryDto, ShiftStaffInputDto, UpdateShiftDto } from "./shifts.dto";
+import { planShifts, PlannedShift } from "./shift-generator";
+import {
+  AssignStaffDto,
+  BulkAssignDto,
+  CreateShiftDto,
+  GenerateShiftsDto,
+  MAX_GENERATE_DAYS,
+  ShiftsQueryDto,
+  ShiftStaffInputDto,
+  UpdateShiftDto,
+} from "./shifts.dto";
 
 const STAFF_SELECT = { id: true, first_name: true, last_name: true, role: true } as const;
 
 const SHIFT_INCLUDE = {
   department: { select: { id: true, name: true } },
   staff: { include: { user: { select: STAFF_SELECT } } },
-  requirements: { include: { role: true } },
-  assignments: { include: { user: { select: STAFF_SELECT }, role: true } },
+  /*
+    Davomat — reja bilan bir so'rovda keladi, aks holda board "kim
+    biriktirilgan" ni ko'rsatib, "kim haqiqatda keldi" ni ko'rsatmasdi.
+
+    `events` ATAYLAB `take: 1` bilan cheklangan: bizga faqat kirish skanidagi
+    yuz rasmi kerak. Cheklovsiz 60 kunlik board javobiga minglab qator qo'shilardi.
+  */
+  attendanceRecords: {
+    select: {
+      userId: true,
+      checkInAt: true,
+      checkOutAt: true,
+      lateMinutes: true,
+      earlyLeaveMinutes: true,
+      workedMinutes: true,
+      absentMinutes: true,
+      status: true,
+      events: {
+        where: { rawStatus: "checkIn" },
+        select: { picturePath: true },
+        orderBy: { eventAt: "asc" },
+        take: 1,
+      },
+    },
+  },
 } as const;
 
+const DEFAULT_PAGE_SIZE = 200;
+
 type ShiftWithStaff = {
+  startAt: Date;
+  endAt: Date;
   requiredDoctors: number;
   requiredNurses: number;
   staff: { role: ShiftStaffRole }[];
+  attendanceRecords: {
+    userId: string;
+    checkInAt: Date | null;
+    checkOutAt: Date | null;
+    lateMinutes: number;
+    earlyLeaveMinutes: number;
+    workedMinutes: number;
+    absentMinutes: number;
+    status: string;
+    events: { picturePath: string | null }[];
+  }[];
 };
 
-/** Har bir smenaga required-vs-assigned hisobini qo'shadi. */
-function withStaffing<T extends ShiftWithStaff>(shift: T) {
+/**
+ * Har bir smenaga reja (`staffing`) va haqiqat (`attendance`) hisobini qo'shadi.
+ *
+ * `attendance.expected` biriktirilgan xodimlar soni, `arrived` esa kirish skani
+ * bo'lganlar. `insideNow` faqat smena davom etayotganda ma'noga ega.
+ */
+function withStaffing<T extends ShiftWithStaff>(shift: T, now: Date = new Date()) {
   const assignedDoctors = shift.staff.filter((s) => s.role === ShiftStaffRole.DOCTOR).length;
   const assignedNurses = shift.staff.filter((s) => s.role === ShiftStaffRole.NURSE).length;
+
+  const records = shift.attendanceRecords;
+  const isRunning = now >= shift.startAt && now < shift.endAt;
+
+  const attendance = {
+    expected: shift.staff.length,
+    arrived: records.filter((r) => r.checkInAt !== null).length,
+    late: records.filter((r) => r.lateMinutes > 0).length,
+    absent: records.filter((r) => r.status === "ABSENT").length,
+    /** To'liqsiz yozuvlar — operator aralashuvini talab qiladi. */
+    incomplete: records.filter(
+      (r) => r.status === "MISSING_CHECKIN" || r.status === "MISSING_CHECKOUT",
+    ).length,
+    insideNow: isRunning
+      ? records.filter((r) => r.checkInAt !== null && r.checkOutAt === null).length
+      : 0,
+    totalLateMinutes: records.reduce((sum, r) => sum + r.lateMinutes, 0),
+    totalWorkedMinutes: records.reduce((sum, r) => sum + r.workedMinutes, 0),
+    isRunning,
+  };
+
   return {
     ...shift,
+    // Ichma-ich `events` massivi o'rniga bitta skalyar — frontend uni join qilmaydi.
+    attendanceRecords: records.map(({ events, ...rest }) => ({
+      ...rest,
+      checkInPicture: events[0]?.picturePath ?? null,
+    })),
     staffing: {
       requiredDoctors: shift.requiredDoctors,
       assignedDoctors,
       requiredNurses: shift.requiredNurses,
       assignedNurses,
     },
+    attendance,
   };
+}
+
+/**
+ * Filtr chegarasini klinika mintaqasi bo'yicha talqin qiladi.
+ *
+ * "2026-09-30" kabi sana-only qiymat `new Date()` da UTC yarim tuni bo'lib qoladi
+ * (= Toshkentda 05:00), natijada oxirgi kunning smenalari filtrdan tushib qolardi.
+ * Sana-only bo'lsa klinika kunining boshi/oxiri olinadi; to'liq ISO timestamp
+ * berilgan bo'lsa o'sha moment aynan ishlatiladi.
+ */
+function clinicBoundary(value: string, edge: "start" | "end"): Date {
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  if (!dateOnly) return new Date(value);
+  const day = clinicDayUTC(value);
+  // Klinika kunining boshi = UTC 19:00 (oldingi kun), oxiri = +24 soat
+  const startOfClinicDay = new Date(day.getTime() - 5 * 3_600_000);
+  return edge === "start" ? startOfClinicDay : new Date(startOfClinicDay.getTime() + 86_400_000);
 }
 
 @Injectable()
@@ -46,16 +144,25 @@ export class ShiftsService {
     if (query.status) where.status = query.status;
     if (query.from || query.to) {
       where.AND = [];
-      if (query.from) where.AND.push({ endAt: { gte: new Date(query.from) } });
-      if (query.to) where.AND.push({ startAt: { lte: new Date(query.to) } });
+      if (query.from) where.AND.push({ endAt: { gte: clinicBoundary(query.from, "start") } });
+      if (query.to) where.AND.push({ startAt: { lte: clinicBoundary(query.to, "end") } });
     }
 
-    const shifts = await this.prisma.shift.findMany({
-      where,
-      include: SHIFT_INCLUDE,
-      orderBy: { startAt: "asc" },
-    });
-    return shifts.map(withStaffing);
+    const limit = query.limit ?? DEFAULT_PAGE_SIZE;
+    const page = query.page ?? 1;
+
+    const [shifts, total] = await this.prisma.$transaction([
+      this.prisma.shift.findMany({
+        where,
+        include: SHIFT_INCLUDE,
+        orderBy: { startAt: "asc" },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.shift.count({ where }),
+    ]);
+
+    return { data: shifts.map((s) => withStaffing(s)), total, page, limit };
   }
 
   async retrieve(id: string) {
@@ -87,31 +194,10 @@ export class ShiftsService {
         note: dto.note,
         staff: staff.length ? { create: staff.map((s) => ({ userId: s.userId, role: s.role })) } : undefined,
       },
+      include: SHIFT_INCLUDE,
     });
 
-    // Dual-write requirements and assignments
-    const docRole = await this.getRoleByCode('DOCTOR');
-    const nurseRole = await this.getRoleByCode('NURSE');
-
-    const reqs = [];
-    if (dto.requiredDoctors) reqs.push({ shiftId: shift.id, roleId: docRole.id, requiredCount: dto.requiredDoctors });
-    else reqs.push({ shiftId: shift.id, roleId: docRole.id, requiredCount: 1 });
-    if (dto.requiredNurses) reqs.push({ shiftId: shift.id, roleId: nurseRole.id, requiredCount: dto.requiredNurses });
-    else reqs.push({ shiftId: shift.id, roleId: nurseRole.id, requiredCount: 1 });
-    
-    await this.prisma.shiftRequirement.createMany({ data: reqs });
-
-    if (staff.length) {
-      const assigns = staff.map(s => ({
-        shiftId: shift.id,
-        userId: s.userId,
-        roleId: s.role === ShiftStaffRole.DOCTOR ? docRole.id : nurseRole.id
-      }));
-      await this.prisma.shiftAssignment.createMany({ data: assigns });
-    }
-
-    const finalShift = await this.prisma.shift.findUnique({ where: { id: shift.id }, include: SHIFT_INCLUDE });
-    return withStaffing(finalShift as any);
+    return withStaffing(shift);
   }
 
   async update(id: string, dto: UpdateShiftDto) {
@@ -138,31 +224,10 @@ export class ShiftsService {
         note: dto.note,
         status: dto.status,
       },
+      include: SHIFT_INCLUDE,
     });
 
-    // Dual-update requirements
-    if (dto.requiredDoctors !== undefined || dto.requiredNurses !== undefined) {
-      const docRole = await this.getRoleByCode('DOCTOR');
-      const nurseRole = await this.getRoleByCode('NURSE');
-      
-      if (dto.requiredDoctors !== undefined) {
-        await this.prisma.shiftRequirement.upsert({
-          where: { shiftId_roleId: { shiftId: id, roleId: docRole.id } },
-          create: { shiftId: id, roleId: docRole.id, requiredCount: dto.requiredDoctors },
-          update: { requiredCount: dto.requiredDoctors }
-        });
-      }
-      if (dto.requiredNurses !== undefined) {
-        await this.prisma.shiftRequirement.upsert({
-          where: { shiftId_roleId: { shiftId: id, roleId: nurseRole.id } },
-          create: { shiftId: id, roleId: nurseRole.id, requiredCount: dto.requiredNurses },
-          update: { requiredCount: dto.requiredNurses }
-        });
-      }
-    }
-
-    const finalShift = await this.prisma.shift.findUnique({ where: { id }, include: SHIFT_INCLUDE });
-    return withStaffing(finalShift as any);
+    return withStaffing(shift);
   }
 
   async delete(id: string) {
@@ -172,23 +237,111 @@ export class ShiftsService {
     return { message: "Smena o'chirildi" };
   }
 
+  // ── Generatsiya ────────────────────────────────────────────────────────────
+
+  /**
+   * Shablonlar asosida davr uchun smenalarni yaratadi.
+   * `dryRun` bo'lsa hech narsa yozilmaydi — faqat nima bo'lishi qaytariladi.
+   */
+  async generate(dto: GenerateShiftsDto) {
+    const dept = await this.prisma.department.findUnique({
+      where: { id: dto.departmentId },
+      select: { id: true },
+    });
+    if (!dept) throw new NotFoundException("Bo'lim topilmadi");
+
+    const fromDay = clinicDayUTC(dto.from);
+    const toDay = clinicDayUTC(dto.to);
+    if (fromDay > toDay) throw new BadRequestException("Boshlanish sanasi tugash sanasidan keyin bo'lmasligi kerak");
+
+    const dayCount = Math.round((toDay.getTime() - fromDay.getTime()) / 86_400_000) + 1;
+    if (dayCount > MAX_GENERATE_DAYS) {
+      throw new BadRequestException(`Davr juda uzun: maksimal ${MAX_GENERATE_DAYS} kun`);
+    }
+
+    const templates = await this.prisma.shiftTemplate.findMany({
+      where: { id: { in: dto.templateIds }, departmentId: dto.departmentId, isActive: true },
+    });
+    if (templates.length !== dto.templateIds.length) {
+      throw new BadRequestException("Ba'zi shablonlar topilmadi yoki boshqa bo'limga tegishli");
+    }
+
+    const planned = planShifts(templates, dto.from, dto.to, dto.daysOfWeek);
+    if (!planned.length) {
+      return { created: 0, skipped: 0, toCreate: [], skippedShifts: [], dryRun: !!dto.dryRun };
+    }
+
+    // Mavjud smenalarni BITTA so'rovda olamiz — takrorlanishni aniqlash uchun
+    const windowStart = planned[0].startAt;
+    const windowEnd = planned.reduce((max, p) => (p.endAt > max ? p.endAt : max), planned[0].endAt);
+    const existing = await this.prisma.shift.findMany({
+      where: { departmentId: dto.departmentId, startAt: { gte: windowStart }, endAt: { lte: windowEnd } },
+      select: { startAt: true, endAt: true },
+    });
+    const existingKeys = new Set(existing.map((s) => `${s.startAt.getTime()}|${s.endAt.getTime()}`));
+
+    const toCreate: PlannedShift[] = [];
+    const skippedShifts: PlannedShift[] = [];
+    for (const p of planned) {
+      const key = `${p.startAt.getTime()}|${p.endAt.getTime()}`;
+      if (existingKeys.has(key)) {
+        skippedShifts.push(p);
+      } else {
+        existingKeys.add(key); // shablonlar orasidagi takrorlanishdan ham himoya
+        toCreate.push(p);
+      }
+    }
+
+    if (dto.dryRun) {
+      return {
+        created: 0,
+        skipped: skippedShifts.length,
+        toCreate,
+        skippedShifts,
+        dryRun: true,
+      };
+    }
+
+    // `skipDuplicates` + unique constraint = ikki marta bosishdan himoya
+    const result = await this.prisma.shift.createMany({
+      data: toCreate.map((p) => ({
+        departmentId: dto.departmentId,
+        startAt: p.startAt,
+        endAt: p.endAt,
+        requiredDoctors: p.requiredDoctors,
+        requiredNurses: p.requiredNurses,
+        // Shablon nomi saqlanadi — board kartasi va ommaviy biriktirish
+        // matritsasi smenani shu nom bilan ko'rsatadi. `VarChar(500)`,
+        // shablon nomi esa `VarChar(64)` — sig'maslik xavfi yo'q.
+        note: p.templateName,
+      })),
+      skipDuplicates: true,
+    });
+
+    return {
+      created: result.count,
+      skipped: planned.length - result.count,
+      toCreate,
+      skippedShifts,
+      dryRun: false,
+    };
+  }
+
   // ── Xodim biriktirish ──────────────────────────────────────────────────────
 
   async assignStaff(id: string, dto: AssignStaffDto) {
-    const shift = await this.prisma.shift.findUnique({ where: { id }, select: { id: true, startAt: true, endAt: true } });
+    const shift = await this.prisma.shift.findUnique({
+      where: { id },
+      select: { id: true, startAt: true, endAt: true },
+    });
     if (!shift) throw new NotFoundException("Smena topilmadi");
     await this.validateStaffRole(dto.userId, dto.role);
 
-    // Improvement 3: Overlap validation
     const overlapping = await this.prisma.shiftStaff.findFirst({
       where: {
         userId: dto.userId,
-        shift: {
-          id: { not: id },
-          startAt: { lt: shift.endAt },
-          endAt: { gt: shift.startAt }
-        }
-      }
+        shift: { id: { not: id }, startAt: { lt: shift.endAt }, endAt: { gt: shift.startAt } },
+      },
     });
     if (overlapping) throw new BadRequestException("Xodim bu vaqtda boshqa smenaga biriktirilgan (Overlap)");
 
@@ -198,14 +351,6 @@ export class ShiftsService {
       update: { role: dto.role },
     });
 
-    // Dual-write to ShiftAssignment
-    const roleId = (await this.getRoleByCode(dto.role)).id;
-    await this.prisma.shiftAssignment.upsert({
-      where: { shiftId_userId: { shiftId: id, userId: dto.userId } },
-      create: { shiftId: id, userId: dto.userId, roleId },
-      update: { roleId },
-    });
-
     return this.retrieve(id);
   }
 
@@ -213,8 +358,85 @@ export class ShiftsService {
     const shift = await this.prisma.shift.findUnique({ where: { id }, select: { id: true } });
     if (!shift) throw new NotFoundException("Smena topilmadi");
     await this.prisma.shiftStaff.deleteMany({ where: { shiftId: id, userId } });
-    await this.prisma.shiftAssignment.deleteMany({ where: { shiftId: id, userId } });
     return this.retrieve(id);
+  }
+
+  /**
+   * Bir nechta smenaga bir nechta xodimni bittada biriktiradi.
+   *
+   * To'qnashuvlar butun amalni bekor qilmaydi — ular `skipped` ro'yxatida
+   * sabab bilan qaytariladi, qolganlari yoziladi.
+   */
+  async bulkAssign(dto: BulkAssignDto) {
+    // 1. Rollarni bir marta tekshiramiz (har biriktirishda emas)
+    const uniqueUsers = new Map<string, ShiftStaffRole>();
+    for (const s of dto.staff) {
+      const prev = uniqueUsers.get(s.userId);
+      if (prev && prev !== s.role) {
+        throw new BadRequestException("Bir xodim ikki xil rol bilan berilgan");
+      }
+      uniqueUsers.set(s.userId, s.role);
+    }
+    await this.validateStaffRoles([...uniqueUsers].map(([userId, role]) => ({ userId, role })));
+
+    // 2. Smenalar
+    const shifts = await this.prisma.shift.findMany({
+      where: { id: { in: dto.shiftIds } },
+      select: { id: true, startAt: true, endAt: true },
+    });
+    if (shifts.length !== dto.shiftIds.length) {
+      throw new BadRequestException("Ba'zi smenalar topilmadi");
+    }
+
+    // 3. Xodimlarning shu oynadagi MAVJUD biriktirishlari — bitta so'rovda
+    const windowStart = shifts.reduce((min, s) => (s.startAt < min ? s.startAt : min), shifts[0].startAt);
+    const windowEnd = shifts.reduce((max, s) => (s.endAt > max ? s.endAt : max), shifts[0].endAt);
+    const existing = await this.prisma.shiftStaff.findMany({
+      where: {
+        userId: { in: [...uniqueUsers.keys()] },
+        shift: { startAt: { lt: windowEnd }, endAt: { gt: windowStart } },
+      },
+      select: { userId: true, shiftId: true, shift: { select: { startAt: true, endAt: true } } },
+    });
+
+    // userId -> band intervallar
+    const busy = new Map<string, { shiftId: string; startAt: Date; endAt: Date }[]>();
+    for (const e of existing) {
+      const list = busy.get(e.userId) ?? [];
+      list.push({ shiftId: e.shiftId, startAt: e.shift.startAt, endAt: e.shift.endAt });
+      busy.set(e.userId, list);
+    }
+
+    // 4. To'qnashuvlarni xotirada hisoblaymiz
+    const toCreate: { shiftId: string; userId: string; role: ShiftStaffRole }[] = [];
+    const skipped: { shiftId: string; userId: string; reason: string }[] = [];
+
+    for (const shift of shifts) {
+      for (const [userId, role] of uniqueUsers) {
+        const intervals = busy.get(userId) ?? [];
+        const alreadyHere = intervals.some((i) => i.shiftId === shift.id);
+        if (alreadyHere) {
+          skipped.push({ shiftId: shift.id, userId, reason: "Allaqachon biriktirilgan" });
+          continue;
+        }
+        const conflict = intervals.some((i) => i.startAt < shift.endAt && i.endAt > shift.startAt);
+        if (conflict) {
+          skipped.push({ shiftId: shift.id, userId, reason: "Boshqa smena bilan to'qnashadi" });
+          continue;
+        }
+        toCreate.push({ shiftId: shift.id, userId, role });
+        // Shu partiya ichidagi keyingi smenalar bilan to'qnashuvni ham hisobga olamiz
+        intervals.push({ shiftId: shift.id, startAt: shift.startAt, endAt: shift.endAt });
+        busy.set(userId, intervals);
+      }
+    }
+
+    if (dto.dryRun) {
+      return { assigned: 0, skipped, toCreate, dryRun: true };
+    }
+
+    const result = await this.prisma.shiftStaff.createMany({ data: toCreate, skipDuplicates: true });
+    return { assigned: result.count, skipped, toCreate, dryRun: false };
   }
 
   // ── Xodim uchun (duty ekrani) ──────────────────────────────────────────────
@@ -226,7 +448,7 @@ export class ShiftsService {
       include: SHIFT_INCLUDE,
       orderBy: { startAt: "asc" },
     });
-    return shifts.map(withStaffing);
+    return shifts.map((s) => withStaffing(s));
   }
 
   async getMyUpcoming(userId: string) {
@@ -237,7 +459,7 @@ export class ShiftsService {
       orderBy: { startAt: "asc" },
       take: 50,
     });
-    return shifts.map(withStaffing);
+    return shifts.map((s) => withStaffing(s));
   }
 
   // ── Smena bo'limi bo'yicha xonalar + bemorlar (board) ──────────────────────
@@ -261,11 +483,22 @@ export class ShiftsService {
         })
       : [];
 
+    const byRoom = new Map<string, typeof wards>();
+    for (const w of wards) {
+      const list = byRoom.get(w.roomId) ?? [];
+      list.push(w);
+      byRoom.set(w.roomId, list);
+    }
+
     return rooms.map((room) => ({
       ...room,
-      patients: wards
-        .filter((w) => w.roomId === room.id)
-        .map((w) => ({ wardId: w.id, checkIn: w.checkIn, daysStayed: w.daysStayed, status: w.status, patient: w.patient })),
+      patients: (byRoom.get(room.id) ?? []).map((w) => ({
+        wardId: w.id,
+        checkIn: w.checkIn,
+        daysStayed: w.daysStayed,
+        status: w.status,
+        patient: w.patient,
+      })),
     }));
   }
 
@@ -293,26 +526,32 @@ export class ShiftsService {
     for (const s of staff) {
       if (seen.has(s.userId)) throw new BadRequestException("Bir xodim ikki marta biriktirilgan");
       seen.add(s.userId);
-      await this.validateStaffRole(s.userId, s.role);
     }
+    await this.validateStaffRoles(staff);
   }
 
   private async validateStaffRole(userId: string, role: ShiftStaffRole) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-    if (!user) throw new NotFoundException("Xodim topilmadi");
-    if (role === ShiftStaffRole.DOCTOR && user.role !== RoleName.DOCTOR) {
-      throw new BadRequestException("Tanlangan xodim shifokor emas");
-    }
-    if (role === ShiftStaffRole.NURSE && user.role !== RoleName.HAMSHIRA) {
-      throw new BadRequestException("Tanlangan xodim hamshira emas");
-    }
+    await this.validateStaffRoles([{ userId, role }]);
   }
 
-  private async getRoleByCode(code: string) {
-    let role = await this.prisma.staffRole.findUnique({ where: { code } });
-    if (!role) {
-      role = await this.prisma.staffRole.create({ data: { code, name: code } });
+  /** Bir so'rovda barcha xodimlarni tekshiradi (N+1 emas). */
+  private async validateStaffRoles(staff: { userId: string; role: ShiftStaffRole }[]) {
+    if (!staff.length) return;
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: staff.map((s) => s.userId) } },
+      select: { id: true, role: true },
+    });
+    const byId = new Map(users.map((u) => [u.id, u.role]));
+
+    for (const s of staff) {
+      const userRole = byId.get(s.userId);
+      if (!userRole) throw new NotFoundException("Xodim topilmadi");
+      if (s.role === ShiftStaffRole.DOCTOR && userRole !== RoleName.DOCTOR) {
+        throw new BadRequestException("Tanlangan xodim shifokor emas");
+      }
+      if (s.role === ShiftStaffRole.NURSE && userRole !== RoleName.HAMSHIRA) {
+        throw new BadRequestException("Tanlangan xodim hamshira emas");
+      }
     }
-    return role;
   }
 }

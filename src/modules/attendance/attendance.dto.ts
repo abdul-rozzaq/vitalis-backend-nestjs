@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { IsISO8601, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 // ─── Webhook Event DTO ────────────────────────────────────────────────────────
 
@@ -56,6 +56,43 @@ export class PatchAttendanceRecordDto {
   /** Admin tomonidan qo'lda tushiriladigan izoh */
   @IsOptional()
   @IsString()
+  note?: string;
+}
+
+/** Terminal ID ni xodimga bog'lash. */
+export class LinkEmployeeDto {
+  @IsUUID()
+  userId: string;
+}
+
+/** `NO_SHIFT` skanini smenaga bog'lash. */
+export class ResolveToShiftDto {
+  @IsUUID()
+  shiftId: string;
+}
+
+/**
+ * Qo'lda tuzatish. `null` yuborilsa avvalgi qo'lda kiritilgan qiymat
+ * bekor qilinadi va yozuv faqat xom skanlardan qayta hisoblanadi.
+ */
+export class AdjustAttendanceRecordDto {
+  @IsOptional()
+  @IsISO8601()
+  checkInAt?: string | null;
+
+  @IsOptional()
+  @IsISO8601()
+  checkOutAt?: string | null;
+
+  /** Sabab majburiy — audit izi ma'nosiz bo'lib qolmasligi uchun. */
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  reason: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
   note?: string;
 }
 

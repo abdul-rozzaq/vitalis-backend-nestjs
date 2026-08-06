@@ -1,7 +1,8 @@
+name: vitalis
+
 services:
   db:
     image: postgres:17-alpine
-    container_name: postgres_17_db
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -20,7 +21,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: redis_7
     restart: always
     ports:
       - "6337:6379"

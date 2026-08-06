@@ -1,7 +1,6 @@
 model Shift {
   id              String             @id @default(uuid())
   departmentId    String
-  workScheduleId  String?
   startAt         DateTime // to'liq timestamp (smena boshlanishi)
   endAt           DateTime // to'liq timestamp (tugash — ertasi kun bo'lishi mumkin)
   requiredDoctors Int                @default(1)
@@ -10,45 +9,17 @@ model Shift {
   status          ShiftStatus        @default(SCHEDULED)
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
-  department      Department         @relation(fields: [departmentId], references: [id])
-  workSchedule    WorkSchedule?      @relation(fields: [workScheduleId], references: [id], onDelete: Cascade)
-  staff           ShiftStaff[] // Deprecated: use assignments
-  requirements    ShiftRequirement[]
-  assignments       ShiftAssignment[]
+
+  department        Department         @relation(fields: [departmentId], references: [id])
+  staff             ShiftStaff[]
   rounds            WardRound[]
   attendanceRecords AttendanceRecord[]
 
+  /// Bulk generatsiya idempotent bo'lishi uchun: bir bo'limda bir xil
+  /// boshlanish/tugash vaqtiga ega ikkinchi smena yaratilmaydi.
+  @@unique([departmentId, startAt, endAt])
   @@index([departmentId, startAt, endAt])
   @@map("shifts")
-}
-
-model ShiftRequirement {
-  id            String @id @default(uuid())
-  shiftId       String
-  roleId        String
-  requiredCount Int    @default(1)
-
-  shift Shift     @relation(fields: [shiftId], references: [id], onDelete: Cascade)
-  role  StaffRole @relation(fields: [roleId], references: [id])
-
-  @@unique([shiftId, roleId])
-  @@map("shift_requirements")
-}
-
-model ShiftAssignment {
-  id        String   @id @default(uuid())
-  shiftId   String
-  userId    String
-  roleId    String
-  createdAt DateTime @default(now())
-
-  shift Shift     @relation(fields: [shiftId], references: [id], onDelete: Cascade)
-  user  User      @relation(fields: [userId], references: [id])
-  role  StaffRole @relation(fields: [roleId], references: [id])
-
-  @@unique([shiftId, userId])
-  @@index([userId])
-  @@map("shift_assignments")
 }
 
 model ShiftStaff {
@@ -61,6 +32,7 @@ model ShiftStaff {
   user    User           @relation("ShiftStaffAssignments", fields: [userId], references: [id])
 
   @@unique([shiftId, userId])
+  @@index([userId])
   @@map("shift_staff")
 }
 
