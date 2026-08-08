@@ -11,6 +11,7 @@ import * as bcrypt from "bcryptjs";
 import "dotenv/config";
 import { PrismaClient } from "../../src/generated/prisma/client";
 import { UMUMIY_QON_TAHLILI_ROWS, BIOKIMYOVIY_TAHLIL_ROWS, KOAGULOGRAMMA_ROWS } from "./data/lab-default-rows";
+import { BIOCHEMISTRY_RESULT_LAYOUT, CBC_RESULT_LAYOUT } from "../../src/modules/lab-common/result-layout";
 
 const connectionString = process.env.DATABASE_URL!;
 
@@ -289,18 +290,21 @@ async function main() {
     createdLabs.push(labRec);
     for (const svc of lab.services) {
       const rows = (svc as any).defaultRows?.map((r: any, i: number) => ({ ...r, sortOrder: i }));
+      const layout = svc.name.toLowerCase().includes("biokim") || svc.name.toLowerCase().includes("биоким")
+        ? BIOCHEMISTRY_RESULT_LAYOUT
+        : CBC_RESULT_LAYOUT;
       let svcRec = await prisma.laboratoryService.findFirst({
         where: { name: svc.name, laboratoryId: labRec.id },
       });
       if (!svcRec) {
         svcRec = await prisma.laboratoryService.create({
-          data: { name: svc.name, price: svc.price, laboratoryId: labRec.id, defaultRows: rows },
+          data: { name: svc.name, price: svc.price, laboratoryId: labRec.id, defaultRows: rows ? { layout, rows } : undefined },
         });
       } else if (rows) {
         // Shablon avval bo'sh bo'lgan xizmat qayta seed qilinsa ham yangilanadi
         svcRec = await prisma.laboratoryService.update({
           where: { id: svcRec.id },
-          data: { defaultRows: rows },
+          data: { defaultRows: rows ? { layout, rows } : undefined },
         });
       }
       allLabServices.push(svcRec);

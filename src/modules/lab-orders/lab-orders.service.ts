@@ -6,6 +6,7 @@ import { JwtPayload } from "../../common/types/jwt-payload.type";
 import { LabItemStatus, Prisma } from "../../generated/prisma/client";
 import { InvoiceItemSourceType, InvoiceSourceType, InvoiceStatus } from "../../generated/prisma/enums";
 import { PrismaService } from "../../prisma/prisma.service";
+import { unpackRowsPayload } from "../lab-common/result-layout";
 import { generateDocx, generateCombinedDocx } from "./generators/docx-generator";
 import { generatePdf, generateCombinedPdf } from "./generators/pdf-generator";
 import {
@@ -19,6 +20,29 @@ import {
 import { LabOrdersRepository } from "./lab-orders.repository";
 
 export type DocumentFormat = "pdf" | "docx";
+
+type ResultInputRow = { code?: string; indicator: string; result?: string; norm?: string; unit?: string; sortOrder?: number };
+
+function mergeRowsWithServiceTemplate(inputRows: ResultInputRow[], serviceName: string, rawDefaultRows: unknown): ResultInputRow[] {
+  const { rows: templateRows } = unpackRowsPayload(rawDefaultRows, serviceName);
+  if (!templateRows.length) return inputRows;
+
+  return templateRows.map((templateRow: any, index: number) => {
+    const existing =
+      inputRows.find((row) => templateRow.code && row.code && row.code === templateRow.code) ??
+      inputRows.find((row) => row.indicator === templateRow.indicator) ??
+      inputRows[index];
+
+    return {
+      code: templateRow.code,
+      indicator: templateRow.indicator,
+      norm: templateRow.norm,
+      unit: templateRow.unit,
+      result: existing?.result ?? "",
+      sortOrder: index,
+    };
+  });
+}
 
 @Injectable()
 export class LabOrdersService {
@@ -199,7 +223,8 @@ export class LabOrdersService {
     const item = order.items.find((i) => i.id === itemId);
     if (!item) throw new NotFoundException("Lab order item not found");
 
-    const table = await this.repo.upsertResultTable(itemId, dto.rows);
+    const rows = mergeRowsWithServiceTemplate(dto.rows, item.service.name, item.service.defaultRows);
+    const table = await this.repo.upsertResultTable(itemId, rows);
 
     // Natijani kim kiritgani/tasdiqlaganini saqlab qo'yamiz, hujjat generatsiyasida
     // shu odam "laborant" sifatida ko'rsatiladi.
@@ -239,7 +264,8 @@ export class LabOrdersService {
       const item = order.items.find((i) => i.id === entry.itemId);
       if (!item) throw new NotFoundException(`Lab order item not found: ${entry.itemId}`);
 
-      const table = await this.repo.upsertResultTable(entry.itemId, entry.rows);
+      const rows = mergeRowsWithServiceTemplate(entry.rows, item.service.name, item.service.defaultRows);
+      const table = await this.repo.upsertResultTable(entry.itemId, rows);
       tables.push(table);
 
       const itemUpdate: { status?: "READY" | "IN_PROGRESS"; performedById: string } = { performedById: user.userId };
@@ -274,12 +300,13 @@ export class LabOrdersService {
     const template = await this.prisma.labResultTemplate.findUnique({ where: { id: dto.templateId } });
     if (!template) throw new NotFoundException("Natija shabloni topilmadi");
 
-    const templateRows = (template.rows as unknown as {
+    const templatePayload = unpackRowsPayload(template.rows, template.name);
+    const templateRows = templatePayload.rows as {
       code?: string;
       indicator: string;
       norm?: string;
       unit?: string;
-    }[]) ?? [];
+    }[];
 
     const rows = templateRows.map((r, index) => ({
       code: r.code,
@@ -348,6 +375,7 @@ export class LabOrdersService {
       doctorName: performer ? `${performer.first_name} ${performer.last_name}` : "—",
       logoBuffer,
       rows: item.resultTable.rows,
+      resultLayout: item.service.resultLayout,
     };
 
     return format === "pdf" ? generatePdf(data) : generateDocx(data);
@@ -412,6 +440,7 @@ export class LabOrdersService {
       sections: itemsWithResults.map((item) => ({
         title: item.service.name,
         rows: item.resultTable!.rows,
+        resultLayout: item.service.resultLayout,
       })),
     };
 

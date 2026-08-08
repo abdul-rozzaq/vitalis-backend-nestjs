@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { LabItemStatus, LabOrderStatus } from "../../generated/prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
+import { LabResultLayout, unpackRowsPayload } from "../lab-common/result-layout";
 
 const LAB_ORDER_INCLUDE = {
   patient: {
@@ -33,30 +34,59 @@ const LAB_ORDER_INCLUDE = {
   },
 } as const;
 
+type NormalizedService<T extends { name: string; defaultRows?: unknown }> = Omit<T, "defaultRows"> & {
+  defaultRows: unknown[];
+  resultLayout: LabResultLayout;
+};
+
+type NormalizedOrder<T extends { items: Array<{ service: { name: string; defaultRows?: unknown } }> }> = Omit<T, "items"> & {
+  items: Array<Omit<T["items"][number], "service"> & { service: NormalizedService<T["items"][number]["service"]> }>;
+};
+
+function normalizeOrder<T extends { items: Array<{ service: { name: string; defaultRows?: unknown } }> }>(order: T): NormalizedOrder<T> {
+  return {
+    ...order,
+    items: order.items.map((item) => {
+      const payload = unpackRowsPayload(item.service.defaultRows, item.service.name);
+      return {
+        ...item,
+        service: {
+          ...item.service,
+          defaultRows: payload.rows,
+          resultLayout: payload.layout,
+        },
+      };
+    }),
+  } as NormalizedOrder<T>;
+}
+
 @Injectable()
 export class LabOrdersRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll() {
-    return this.prisma.labOrder.findMany({
+  async findAll() {
+    const orders = await this.prisma.labOrder.findMany({
       include: LAB_ORDER_INCLUDE,
       orderBy: { createdAt: "desc" },
     });
+    return orders.map(normalizeOrder);
   }
 
-  findByLaboratoryIds(laboratoryIds: string[]) {
-    return this.prisma.labOrder.findMany({
+  async findByLaboratoryIds(laboratoryIds: string[]) {
+    const orders = await this.prisma.labOrder.findMany({
       where: { laboratoryId: { in: laboratoryIds } },
       include: LAB_ORDER_INCLUDE,
       orderBy: { createdAt: "desc" },
     });
+    return orders.map(normalizeOrder);
   }
 
-  findById(id: string) {
-    return this.prisma.labOrder.findUnique({
+  async findById(id: string) {
+    const order = await this.prisma.labOrder.findUnique({
       where: { id },
       include: LAB_ORDER_INCLUDE,
     });
+    return order ? normalizeOrder(order) : null;
   }
 
   updateItem(itemId: string, data: { status?: LabItemStatus; note?: string; performedById?: string }) {
@@ -87,6 +117,9 @@ export class LabOrdersRepository {
         service: { select: { id: true, name: true, price: true, defaultRows: true } },
         files: { orderBy: { createdAt: "asc" as const } },
       },
+    }).then((item) => {
+      const payload = unpackRowsPayload(item.service.defaultRows, item.service.name);
+      return { ...item, service: { ...item.service, defaultRows: payload.rows, resultLayout: payload.layout } };
     });
   }
 
