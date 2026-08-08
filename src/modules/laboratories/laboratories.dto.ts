@@ -13,6 +13,27 @@ import {
   ValidateNested,
 } from "class-validator";
 
+export class LabResultColumnDto {
+  @IsString()
+  key: "code" | "indicator" | "result" | "norm" | "unit";
+
+  @IsString()
+  label: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  width?: number;
+}
+
+export class LabResultLayoutDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => LabResultColumnDto)
+  columns: LabResultColumnDto[];
+}
+
 export class DefaultLabResultRowDto {
   @IsOptional()
   @IsString()
@@ -75,6 +96,11 @@ export class CreateLaboratoryServiceDto {
   @ValidateNested({ each: true })
   @Type(() => DefaultLabResultRowDto)
   defaultRows?: DefaultLabResultRowDto[];
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => LabResultLayoutDto)
+  resultLayout?: LabResultLayoutDto;
 }
 
 export class UpdateLaboratoryServiceDto {
@@ -95,4 +121,9 @@ export class UpdateLaboratoryServiceDto {
   @ValidateNested({ each: true })
   @Type(() => DefaultLabResultRowDto)
   defaultRows?: DefaultLabResultRowDto[] | null;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => LabResultLayoutDto)
+  resultLayout?: LabResultLayoutDto;
 }
