@@ -19,6 +19,7 @@ import { LaboratoriesModule } from "./modules/laboratories/laboratories.module";
 import { LaboratoryAssignmentsModule } from "./modules/laboratory-assignments/laboratory-assignments.module";
 import { MedicalCardsModule } from "./modules/medical-cards/medical-cards.module";
 import { MedicinesModule } from "./modules/medicines/medicines.module";
+import { PatientSourcesModule } from "./modules/patient-sources/patient-sources.module";
 import { PatientsModule } from "./modules/patients/patients.module";
 import { PrescriptionsModule } from "./modules/prescriptions/prescriptions.module";
 import { RegionsModule } from "./modules/regions/regions.module";
@@ -76,6 +77,7 @@ import { AttendanceModule } from "./modules/attendance/attendance.module";
     DistrictsModule,
     StatsModule,
     MedicinesModule,
+    PatientSourcesModule,
     PrescriptionsModule,
     MedicalCardsModule,
     CasesModule,

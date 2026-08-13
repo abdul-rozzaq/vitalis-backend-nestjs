@@ -47,7 +47,7 @@ async list(userId: string, isDoctor: boolean, search?: string, excludeOccupied?:
           }
         : {}),
     },
-    include: { district: { include: { region: true } } },
+    include: { district: { include: { region: true } }, source: true },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -59,7 +59,7 @@ async list(userId: string, isDoctor: boolean, search?: string, excludeOccupied?:
         ...(isDoctor ? { appointments: { some: { assignment: { userId } } } } : {}),
         deletedAt: null,
       },
-      include: { district: { include: { region: true } } },
+      include: { district: { include: { region: true } }, source: true },
     });
     
     if (!patient) throw new NotFoundException("Patient not found");

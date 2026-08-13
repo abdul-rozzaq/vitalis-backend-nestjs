@@ -32,9 +32,10 @@ export class CreatePatientDto {
   @MaxLength(64)
   last_name: string;
 
+  @IsOptional()
   @IsString()
   @MaxLength(15)
-  phone_number: string;
+  phone_number?: string | null;
 
   @IsEnum(Gender)
   gender: Gender;
@@ -46,6 +47,10 @@ export class CreatePatientDto {
   @IsString()
   @MaxLength(255)
   address?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  sourceId?: string | null;
 
   @IsOptional()
   @IsEnum(BloodType)
@@ -70,8 +75,9 @@ export class CreatePatientDto {
   @Matches(/^\d{14}$/, { message: "PINFL must be exactly 14 digits" })
   pinfl?: string | null;
 
+  @IsOptional()
   @IsUUID()
-  districtId: string;
+  districtId?: string | null;
 }
 
 export class UpdatePatientDto {
@@ -88,7 +94,7 @@ export class UpdatePatientDto {
   @IsOptional()
   @IsString()
   @MaxLength(15)
-  phone_number?: string;
+  phone_number?: string | null;
 
   @IsOptional()
   @IsEnum(Gender)
@@ -102,6 +108,10 @@ export class UpdatePatientDto {
   @IsString()
   @MaxLength(255)
   address?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  sourceId?: string | null;
 
   @IsOptional()
   @IsEnum(BloodType)

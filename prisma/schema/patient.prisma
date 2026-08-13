@@ -2,10 +2,12 @@ model Patient {
   id               String               @id @default(uuid())
   first_name       String               @db.VarChar(64)
   last_name        String               @db.VarChar(64)
-  phone_number     String               @db.VarChar(15)
+  phone_number     String?              @db.VarChar(15)
   gender           String               @db.VarChar(10)
   birth_date       DateTime             @db.Date
   address          String?              @db.VarChar(255)
+  sourceId         String?
+  source           PatientSource?       @relation(fields: [sourceId], references: [id])
   blood_type       BloodType?           @default(O_POSITIVE)
   document_type    DocumentType?
   document_series  String?              @db.VarChar(10)
@@ -63,6 +65,15 @@ enum DocumentType {
   RESIDENCE_PERMIT
 
   @@map("document_types")
+}
+
+model PatientSource {
+  id       String    @id @default(uuid())
+  name     String    @unique @db.VarChar(128)
+  createdAt DateTime @default(now())
+  patients Patient[]
+
+  @@map("patient_sources")
 }
 
 enum BloodType {
