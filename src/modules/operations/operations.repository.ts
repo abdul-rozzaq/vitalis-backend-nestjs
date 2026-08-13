@@ -72,26 +72,30 @@ export class OperationsRepository {
 
 async create(dto: CreateOperationDto) {
   return this.prisma.$transaction(async (tx) => {
-    const operationType = await tx.operationType.findUniqueOrThrow({
-      where: { id: dto.operationTypeId },
-      select: { basePrice: true },
-    });
+    const operationType = dto.operationTypeId
+      ? await tx.operationType.findUniqueOrThrow({
+          where: { id: dto.operationTypeId },
+          select: { basePrice: true },
+        })
+      : null;
 
-    const basePrice = dto.basePrice ?? Number(operationType.basePrice);
+    const basePrice = dto.basePrice ?? Number(operationType?.basePrice ?? 0);
 
     const itemsTotal = (dto.items ?? []).reduce(
       (sum, i) => sum + i.unitPrice * i.quantity,
       0,
     );
 
-    const caseStep = await tx.caseStep.create({
-      data: {
-        caseId: dto.caseId,
-        type: CaseStepType.OPERATION,
-        status: CaseStepStatus.PENDING,
-        note: dto.note,
-      },
-    });
+    const caseStep = dto.caseId
+      ? await tx.caseStep.create({
+          data: {
+            caseId: dto.caseId,
+            type: CaseStepType.OPERATION,
+            status: CaseStepStatus.PENDING,
+            note: dto.note,
+          },
+        })
+      : null;
 
     // Bemorni operatsiya bilan bir vaqtda laboratoriya tahlillariga ham
     // yuborish (masalan, operatsiya oldi tahlillari). Xizmatlar o'z
@@ -102,6 +106,11 @@ async create(dto: CreateOperationDto) {
     let labTotal = 0;
 
     if (dto.labServiceIds?.length) {
+      if (!caseStep) {
+        throw new BadRequestException(
+          'Laboratoriya tahlillarini yuborish uchun avval Holat (Case) tanlang',
+        );
+      }
       const services = await tx.laboratoryService.findMany({
         where: { id: { in: dto.labServiceIds } },
       });
@@ -146,19 +155,21 @@ async create(dto: CreateOperationDto) {
         patientId: dto.patientId,
         operationTypeId: dto.operationTypeId,
         roomId: dto.roomId,
-        departmentId: dto.departmentId,
-        caseStepId: caseStep.id,
-        scheduledAt: new Date(dto.scheduledAt),
+        departmentId: dto.departmentId ?? null,
+        caseStepId: caseStep?.id,
+        scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
         note: dto.note,
         contractNumber: dto.contractNumber,
         basePrice,
         totalPrice,
-        surgeons: {
-          create: dto.surgeons.map((s) => ({
+        surgeons: dto.surgeons?.length
+          ? {
+              create: dto.surgeons.map((s) => ({
             surgeonId: s.surgeonId,
             role: s.role,
-          })),
-        },
+              })),
+            }
+          : undefined,
         items: dto.items?.length
           ? {
               create: dto.items.map((item) => ({

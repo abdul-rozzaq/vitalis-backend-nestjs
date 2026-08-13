@@ -32,6 +32,11 @@ export class WardsController {
     return this.service.getStats();
   }
 
+  @Get("/doctors")
+  getDoctors() {
+    return this.service.getDoctors();
+  }
+
   @Get("/room/:roomId")
   getByRoom(@Param("roomId") roomId: string) {
     return this.service.getByRoom(roomId);

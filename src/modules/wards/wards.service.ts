@@ -74,6 +74,8 @@ export class WardsService {
       const ward = await this.repository.createInTx(tx, {
         patientId: dto.patientId,
         roomId: dto.roomId,
+        cardNumber: dto.cardNumber ?? null,
+        doctorId: dto.doctorId ?? null,
         checkIn: dto.checkIn,
         expectedOut: dto.expectedOut,
         note: dto.note,
@@ -154,6 +156,10 @@ export class WardsService {
   // Xona sig'imi statistikasi
   async roomOccupancy(roomId: string) {
     return this.repository.roomOccupancy(roomId);
+  }
+
+  async getDoctors() {
+    return this.repository.findDoctors();
   }
 
   // Umumiy statistika

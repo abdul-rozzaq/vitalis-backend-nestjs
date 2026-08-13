@@ -38,9 +38,12 @@ export class OperationsService {
   }
 
   async create(dto: CreateOperationDto) {
-    const hasLead = dto.surgeons.some((s) => s.role === 'LEAD');
-    if (!hasLead) {
-      throw new BadRequestException("Kamida 1 ta LEAD jarroh bo'lishi kerak");
+    // Agar jarrohlar belgilangan bo'lsa, kamida 1 ta LEAD bo'lishi kerak
+    if (dto.surgeons && dto.surgeons.length > 0) {
+      const hasLead = dto.surgeons.some((s) => s.role === 'LEAD');
+      if (!hasLead) {
+        throw new BadRequestException("Kamida 1 ta LEAD jarroh bo'lishi kerak");
+      }
     }
 
     // Invois operatsiya yaratilishi bilan avtomatik yaratilmaydi — bu
@@ -64,7 +67,7 @@ export class OperationsService {
     const basePrice = new Prisma.Decimal(op.basePrice?.toString() ?? '0');
 
     invoiceItems.push({
-      description: op.operationType.name,
+      description: (op.operationType?.name ?? 'Operatsiya'),
       quantity: 1,
       unitPrice: basePrice,
       sourceType: InvoiceItemSourceType.OPERATION,
@@ -165,7 +168,7 @@ export class OperationsService {
       ? fullInvoiceItems
       : [
           {
-            description: `${op.operationType.name} — invois #${activeInvoices.length + 1}`,
+            description: `${(op.operationType?.name ?? 'Operatsiya')} — invois #${activeInvoices.length + 1}`,
             quantity: 1,
             unitPrice: targetAmount,
             sourceType: InvoiceItemSourceType.OPERATION,
@@ -228,7 +231,7 @@ export class OperationsService {
         updated.basePrice?.toString() ?? '0',
       );
       invoiceItems.push({
-        description: updated.operationType.name,
+        description: (updated.operationType?.name ?? 'Operatsiya'),
         quantity: 1,
         unitPrice: basePrice,
         sourceId: updated.id,
@@ -379,7 +382,7 @@ export class OperationsService {
 
     if (Number(op.basePrice) > 0) {
       rows.push({
-        name: op.operationType.name,
+        name: (op.operationType?.name ?? 'Operatsiya'),
         quantity: 1,
         unitPrice: Number(op.basePrice),
         totalPrice: Number(op.basePrice),

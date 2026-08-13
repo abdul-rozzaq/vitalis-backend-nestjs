@@ -9,6 +9,8 @@ export interface WardCreateData {
   roomId: string;
   checkIn?: string;
   expectedOut?: string;
+  cardNumber?: number | null;
+  doctorId?: string | null;
   note?: string;
   companionsCount?: number;
   patientPricePerDay?: Prisma.Decimal | null;
@@ -24,6 +26,14 @@ const WARD_INCLUDE = {
       phone_number: true,
       birth_date: true,
       blood_type: true,
+    },
+  },
+  doctor: {
+    select: {
+      id: true,
+      first_name: true,
+      last_name: true,
+      role: true,
     },
   },
   room: {
@@ -69,6 +79,8 @@ export class WardsRepository {
       data: {
         patientId: data.patientId,
         roomId: data.roomId,
+        cardNumber: data.cardNumber ?? null,
+        doctorId: data.doctorId ?? null,
         checkIn: data.checkIn ? new Date(data.checkIn) : new Date(),
         expectedOut: data.expectedOut ? new Date(data.expectedOut) : undefined,
         note: data.note,
@@ -185,6 +197,8 @@ export class WardsRepository {
       data: {
         ...(data.patientId !== undefined ? { patientId: data.patientId } : {}),
         ...(data.roomId !== undefined ? { roomId: data.roomId } : {}),
+        ...(data.cardNumber !== undefined ? { cardNumber: data.cardNumber } : {}),
+        ...(data.doctorId !== undefined ? { doctorId: data.doctorId } : {}),
         ...(data.checkIn !== undefined ? { checkIn: new Date(data.checkIn) } : {}),
         ...(data.note !== undefined ? { note: data.note } : {}),
         ...(data.companionsCount !== undefined ? { companionsCount: data.companionsCount } : {}),
@@ -267,6 +281,14 @@ export class WardsRepository {
         companionsCount: w.companionsCount,
       })),
     };
+  }
+
+  async findDoctors() {
+    return this.prisma.user.findMany({
+      where: { role: "DOCTOR" },
+      select: { id: true, first_name: true, last_name: true, role: true },
+      orderBy: [{ first_name: "asc" }, { last_name: "asc" }],
+    });
   }
 
   // Umumiy statistika (dashboard uchun)

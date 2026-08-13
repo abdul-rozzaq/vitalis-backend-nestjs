@@ -2,6 +2,8 @@ model Wards {
   id              String     @id @default(uuid())
   patientId       String
   roomId          String
+  cardNumber      Int?
+  doctorId        String?
   checkIn         DateTime   @default(now())
   expectedOut     DateTime?
   actualOut       DateTime?
@@ -17,6 +19,7 @@ model Wards {
   updatedAt       DateTime   @updatedAt
   patient         Patient    @relation(fields: [patientId], references: [id])
   room            Room       @relation(fields: [roomId], references: [id])
+  doctor          User?      @relation("WardDoctor", fields: [doctorId], references: [id])
 
   @@map("wards")
 }
