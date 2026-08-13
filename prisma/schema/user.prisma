@@ -22,6 +22,7 @@ model User {
   procedureOrders      ProcedureOrder[]
   operationSurgeons    OperationSurgeon[]     @relation("OperationSurgeons")
   operationTypeDoctors OperationTypeDoctor[]  @relation("OperationTypeDoctors")
+  wardDoctorRecords   Wards[]                @relation("WardDoctor")
   shiftStaff           ShiftStaff[]           @relation("ShiftStaffAssignments")
   attendanceEvents     AttendanceEvent[]
   attendanceRecords    AttendanceRecord[]

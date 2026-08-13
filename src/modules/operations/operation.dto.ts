@@ -50,21 +50,25 @@ export class CreateOperationDto {
   @IsUUID()
   patientId: string;
 
+  @IsOptional()
   @IsUUID()
-  operationTypeId: string;
+  operationTypeId?: string;
 
+  @IsOptional()
   @IsUUID()
-  caseId: string;
+  caseId?: string;
 
   @IsOptional()
   @IsUUID()
   roomId?: string;
 
+  @IsOptional()
   @IsUUID()
-  departmentId: string;
+  departmentId?: string;
 
+  @IsOptional()
   @IsDateString()
-  scheduledAt: string;
+  scheduledAt?: string;
 
   @IsOptional()
   @IsString()
@@ -81,12 +85,12 @@ export class CreateOperationDto {
   @Min(0)
   basePrice?: number;
 
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ArrayMaxSize(2)
   @ValidateNested({ each: true })
   @Type(() => CreateOperationSurgeonDto)
-  surgeons: CreateOperationSurgeonDto[];
+  surgeons?: CreateOperationSurgeonDto[];
 
   @IsOptional()
   @IsArray()

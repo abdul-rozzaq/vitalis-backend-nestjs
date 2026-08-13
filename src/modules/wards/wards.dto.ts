@@ -11,6 +11,16 @@ export class CreateWardDto {
   roomId: string;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  cardNumber?: number;
+
+  @IsOptional()
+  @IsUUID()
+  doctorId?: string;
+
+  @IsOptional()
   @IsDateString()
   checkIn?: string;
 
@@ -68,6 +78,16 @@ export class UpdateWardDto {
   @IsOptional()
   @IsUUID()
   roomId?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  cardNumber?: number | null;
+
+  @IsOptional()
+  @IsUUID()
+  doctorId?: string | null;
 
   @IsOptional()
   @IsDateString()

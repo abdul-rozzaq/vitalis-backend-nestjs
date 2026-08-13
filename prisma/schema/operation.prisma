@@ -33,11 +33,11 @@ model Operation {
   id              String             @id @default(uuid())
   status          OperationStatus    @default(SCHEDULED)
   patientId       String
-  operationTypeId String
+  operationTypeId String?
   roomId          String?
   departmentId    String?
   caseStepId      String?            @unique
-  scheduledAt     DateTime
+  scheduledAt     DateTime?
   startedAt       DateTime?
   completedAt     DateTime?
   note            String?
@@ -49,7 +49,7 @@ model Operation {
   items           OperationItem[]
   surgeons        OperationSurgeon[]
   caseStep        CaseStep?          @relation(fields: [caseStepId], references: [id])
-  operationType   OperationType      @relation(fields: [operationTypeId], references: [id])
+  operationType   OperationType?     @relation(fields: [operationTypeId], references: [id])
   patient         Patient            @relation(fields: [patientId], references: [id])
   room            Room?              @relation(fields: [roomId], references: [id])
   department      Department?        @relation(fields: [departmentId], references: [id])
