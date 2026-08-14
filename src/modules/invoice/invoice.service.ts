@@ -14,7 +14,7 @@ import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 
 const INVOICE_INCLUDE = {
   items: true,
-  payments: true,
+  payments: { orderBy: { createdAt: "desc" as const } },
   patient: true,
 } as const;
 
@@ -145,6 +145,7 @@ export class InvoiceService {
         invoice: {
           include: {
             patient: true,
+            items: true,
           },
         },
         createdBy: true,
@@ -303,7 +304,7 @@ export class InvoiceService {
         ? InvoiceStatus.PAID
         : InvoiceStatus.PARTIALLY_PAID;
 
-      return tx.invoice.update({
+      const updatedInvoice = await tx.invoice.update({
         where: { id: invoice.id },
         data: {
           paidCash: newPaidCash,
@@ -312,6 +313,24 @@ export class InvoiceService {
         },
         include: INVOICE_INCLUDE,
       });
+
+      const paymentTransaction = await tx.balanceTransaction.findFirst({
+        where: {
+          source: BalanceTxSource.INVOICE_PAYMENT,
+          sourceId: invoicePayment.id,
+          type: BalanceTxType.DEBIT,
+        },
+        select: { paymentMethod: true },
+      });
+
+      return {
+        ...updatedInvoice,
+        payments: updatedInvoice.payments.map((payment) =>
+          payment.id === invoicePayment.id
+            ? { ...payment, paymentMethod: paymentTransaction?.paymentMethod ?? params.paymentMethod ?? null }
+            : payment,
+        ),
+      };
     });
   }
 
