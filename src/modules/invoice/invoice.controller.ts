@@ -21,6 +21,8 @@ export class InvoiceController {
     @Query('sourceType') sourceType?: string,
     @Query('patientId') patientId?: string,
     @Query('doctorId') doctorId?: string,
+    @Query('operationTypeId') operationTypeId?: string,
+    @Query('operationDoctorId') operationDoctorId?: string,
     @Query('patientSearch') patientSearch?: string,
     @Query('amountMin') amountMin?: string,
     @Query('amountMax') amountMax?: string,
@@ -37,10 +39,22 @@ export class InvoiceController {
         : undefined,
       patientId,
       doctorId,
+      operationTypeId,
+      operationDoctorId,
       patientSearch,
       amountMin: amountMin ? parseFloat(amountMin) : undefined,
       amountMax: amountMax ? parseFloat(amountMax) : undefined,
     });
+  }
+
+  @Get('operation-doctors')
+  listOperationDoctors(@Query('operationTypeId') operationTypeId?: string) {
+    return this.invoiceService.listOperationPaymentDoctors(operationTypeId);
+  }
+
+  @Get('payments/operation-doctors')
+  listOperationPaymentDoctors(@Query('operationTypeId') operationTypeId?: string) {
+    return this.invoiceService.listOperationPaymentDoctors(operationTypeId);
   }
 
   @Get('payments')
@@ -53,6 +67,8 @@ export class InvoiceController {
     @Query('amountMax') amountMax?: string,
     @Query('invoiceSourceType') invoiceSourceType?: string,
     @Query('paymentMethod') paymentMethod?: string,
+    @Query('operationTypeId') operationTypeId?: string,
+    @Query('doctorId') doctorId?: string,
   ) {
     return this.invoiceService.listPayments({
       dateFrom: dateFrom ? new Date(dateFrom) : undefined,
@@ -73,6 +89,8 @@ export class InvoiceController {
             .map((s) => s.trim())
             .filter(Boolean) as any[])
         : undefined,
+      operationTypeId,
+      doctorId,
     });
   }
 
