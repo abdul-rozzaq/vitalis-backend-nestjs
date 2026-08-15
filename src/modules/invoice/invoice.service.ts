@@ -32,6 +32,8 @@ export class InvoiceService {
     sourceType?: InvoiceSourceType[];
     patientId?: string;
     doctorId?: string;
+    operationTypeId?: string;
+    operationDoctorId?: string;
     patientSearch?: string;
     amountMin?: number;
     amountMax?: number;
@@ -58,7 +60,25 @@ export class InvoiceService {
           ? params.sourceType[0]
           : { in: params.sourceType };
     }
-    if (params.doctorId) {
+    if (params.operationTypeId || params.operationDoctorId) {
+      const operations = await this.prisma.operation.findMany({
+        where: {
+          ...(params.operationTypeId
+            ? { operationTypeId: params.operationTypeId }
+            : {}),
+          ...(params.operationDoctorId
+            ? { surgeons: { some: { surgeonId: params.operationDoctorId } } }
+            : {}),
+        },
+        select: { id: true },
+      });
+
+      const operationIds = operations.map((operation) => operation.id);
+      where.sourceType = InvoiceSourceType.OPERATION;
+      where.sourceId = {
+        in: operationIds.length > 0 ? operationIds : ['__none__'],
+      };
+    } else if (params.doctorId) {
       const appointments = await this.prisma.appointment.findMany({
         where: { assignment: { userId: params.doctorId } },
         select: { id: true },
@@ -79,6 +99,32 @@ export class InvoiceService {
     });
   }
 
+  async listOperationPaymentDoctors(operationTypeId?: string) {
+    const rows = await this.prisma.operationSurgeon.findMany({
+      where: operationTypeId
+        ? { operation: { operationTypeId } }
+        : undefined,
+      select: {
+        surgeon: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            role: true,
+          },
+        },
+      },
+      orderBy: { surgeon: { first_name: 'asc' } },
+    });
+
+    const unique = new Map<string, (typeof rows)[number]['surgeon']>();
+    for (const row of rows) {
+      unique.set(row.surgeon.id, row.surgeon);
+    }
+
+    return Array.from(unique.values());
+  }
+
   async listPayments(params: {
     dateFrom?: Date;
     dateTo?: Date;
@@ -88,10 +134,18 @@ export class InvoiceService {
     amountMax?: number;
     invoiceSourceType?: InvoiceSourceType[];
     paymentMethod?: PaymentMethod[];
+    operationTypeId?: string;
+    doctorId?: string;
   }) {
     const where: Prisma.InvoicePaymentWhereInput = {};
 
-    if (params.patientId || params.patientSearch || (params.invoiceSourceType && params.invoiceSourceType.length > 0)) {
+    if (
+      params.patientId ||
+      params.patientSearch ||
+      (params.invoiceSourceType && params.invoiceSourceType.length > 0) ||
+      params.operationTypeId ||
+      params.doctorId
+    ) {
       where.invoice = {};
 
       if (params.patientId) {
@@ -112,6 +166,36 @@ export class InvoiceService {
           params.invoiceSourceType.length === 1
             ? params.invoiceSourceType[0]
             : { in: params.invoiceSourceType };
+      }
+
+      // Operatsiya bo'yicha filter berilsa, payment faqat OPERATION
+      // manbasidan olinadi. sourceId esa Invoice'dagi individual
+      // operation ID'ga teng. Shu sababli avval mos operatsiyalarni
+      // topib, keyin invoice sourceId bo'yicha cheklaymiz.
+      if (params.operationTypeId || params.doctorId) {
+        const operationWhere: Prisma.OperationWhereInput = {};
+
+        if (params.operationTypeId) {
+          operationWhere.operationTypeId = params.operationTypeId;
+        }
+
+        if (params.doctorId) {
+          operationWhere.surgeons = {
+            some: { surgeonId: params.doctorId },
+          };
+        }
+
+        const operations = await this.prisma.operation.findMany({
+          where: operationWhere,
+          select: { id: true },
+        });
+
+        const operationIds = operations.map((operation) => operation.id);
+
+        where.invoice.sourceType = InvoiceSourceType.OPERATION;
+        where.invoice.sourceId = {
+          in: operationIds.length > 0 ? operationIds : ['__none__'],
+        };
       }
     }
 
