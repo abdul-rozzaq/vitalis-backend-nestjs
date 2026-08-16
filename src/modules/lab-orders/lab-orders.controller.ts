@@ -5,7 +5,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
 import {
-  AddLabOrderItemDto,
+  AddLabOrderItemsDto,
   ApplyLabResultTemplateDto,
   AddLabOrderItemFileDto,
   BulkSaveLabResultsDto,
@@ -41,10 +41,10 @@ export class LabOrdersController {
     return this.service.deliverOrder(id, user);
   }
 
-  // Natija kiritish sahifasidan buyurtmaga yangi xizmat qo'shish (to'lovli/bepul).
+  // Natija kiritish sahifasidan buyurtmaga bir nechta yangi xizmat qo'shish (to'lovli/bepul).
   @Post(":id/items")
-  addItem(@Param("id") id: string, @Body() dto: AddLabOrderItemDto, @CurrentUser() user: JwtPayload) {
-    return this.service.addItem(id, dto, user);
+  addItems(@Param("id") id: string, @Body() dto: AddLabOrderItemsDto, @CurrentUser() user: JwtPayload) {
+    return this.service.addItems(id, dto, user);
   }
 
   // "Umumiy" natija kiritish — bitta buyurtmadagi bir nechta xizmat natijasini

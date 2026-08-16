@@ -10,7 +10,7 @@ import { unpackRowsPayload } from "../lab-common/result-layout";
 import { generateDocx, generateCombinedDocx } from "./generators/docx-generator";
 import { generatePdf, generateCombinedPdf } from "./generators/pdf-generator";
 import {
-  AddLabOrderItemDto,
+  AddLabOrderItemsDto,
   ApplyLabResultTemplateDto,
   AddLabOrderItemFileDto,
   BulkSaveLabResultsDto,
@@ -119,78 +119,93 @@ export class LabOrdersService {
   }
 
   /**
-   * Natija kiritish sahifasida laborant buyurtmaga qo'shimcha xizmat qo'shishi
-   * mumkin (masalan tekshiruv jarayonida yana bir ko'rsatkich kerak bo'lib
-   * qolsa). isPaid=true bo'lsa xizmat narxi buyurtmaning umumiy hisobiga
-   * (invoice) qo'shiladi, false bo'lsa bepul deb belgilanadi.
+   * Natija kiritish sahifasida laborant buyurtmaga bir nechta qo'shimcha
+   * xizmat qo'shishi mumkin (masalan tekshiruv jarayonida yana bir nechta
+   * ko'rsatkich kerak bo'lib qolsa). isPaid=true bo'lsa xizmatlar narxi
+   * buyurtmaning umumiy hisobiga (invoice) qo'shiladi, false bo'lsa bepul deb
+   * belgilanadi. `dto.totalPrice` berilgan bo'lsa (masalan chegirma berish
+   * uchun), xizmatlar narxlari yig'indisi o'rniga shu summa hisobga
+   * qo'shiladi — farq alohida qator sifatida invoice'ga qo'shiladi, shunda
+   * har bir xizmat o'z nominal narxida ko'rinib turadi.
    */
-  async addItem(orderId: string, dto: AddLabOrderItemDto, user: JwtPayload) {
+  async addItems(orderId: string, dto: AddLabOrderItemsDto, user: JwtPayload) {
     const order = await this.repo.findById(orderId);
     if (!order) throw new NotFoundException("Lab order not found");
 
-    const service = await this.prisma.laboratoryService.findUnique({ where: { id: dto.serviceId } });
-    if (!service) throw new NotFoundException("Xizmat topilmadi");
-    if (service.laboratoryId !== order.laboratoryId) {
-      throw new BadRequestException("Bu xizmat ushbu laboratoriyaga tegishli emas");
-    }
+    const uniqueServiceIds = Array.from(new Set(dto.serviceIds));
+    const existingIds = new Set(order.items.filter((i) => i.status !== "CANCELLED").map((i) => i.serviceId));
 
-    const isPaid = dto.isPaid ?? true;
-    const item = await this.repo.createItem(orderId, dto.serviceId, isPaid);
+    const services = await this.prisma.laboratoryService.findMany({ where: { id: { in: uniqueServiceIds } } });
+    if (services.length !== uniqueServiceIds.length) throw new NotFoundException("Xizmat topilmadi");
 
-    if (isPaid) {
-      const price = new Prisma.Decimal(service.price ?? 0);
-      const invoice = await this.prisma.invoice.findFirst({
-        where: { sourceType: InvoiceSourceType.LAB_ORDER, sourceId: order.caseStep.id },
-      });
-
-      if (invoice) {
-        await this.prisma.$transaction([
-          this.prisma.invoiceItem.create({
-            data: {
-              invoiceId: invoice.id,
-              description: service.name,
-              quantity: 1,
-              unitPrice: price,
-              totalPrice: price,
-              sourceType: InvoiceItemSourceType.LAB_SERVICE,
-              sourceId: service.id,
-            },
-          }),
-          this.prisma.invoice.update({
-            where: { id: invoice.id },
-            data: { totalAmount: { increment: price } },
-          }),
-        ]);
-      } else {
-        // Ehtiyot chorasi — odatda buyurtma yaratilganda invoice ham birga
-        // yaratiladi, lekin topilmasa yangisini ochamiz.
-        await this.prisma.invoice.create({
-          data: {
-            patientId: order.patientId,
-            sourceType: InvoiceSourceType.LAB_ORDER,
-            sourceId: order.caseStep.id,
-            totalAmount: price,
-            status: InvoiceStatus.ISSUED,
-            createdById: user.userId,
-            items: {
-              create: [
-                {
-                  description: service.name,
-                  quantity: 1,
-                  unitPrice: price,
-                  totalPrice: price,
-                  sourceType: InvoiceItemSourceType.LAB_SERVICE,
-                  sourceId: service.id,
-                },
-              ],
-            },
-          },
-        });
+    for (const service of services) {
+      if (service.laboratoryId !== order.laboratoryId) {
+        throw new BadRequestException("Bu xizmat ushbu laboratoriyaga tegishli emas");
+      }
+      if (existingIds.has(service.id)) {
+        throw new BadRequestException(`"${service.name}" xizmati allaqachon qo'shilgan`);
       }
     }
 
+    const isPaid = dto.isPaid ?? true;
+    const items = [];
+    for (const serviceId of uniqueServiceIds) {
+      items.push(await this.repo.createItem(orderId, serviceId, isPaid));
+    }
+
+    if (isPaid) {
+      const nominalTotal = services.reduce((sum, s) => sum.add(new Prisma.Decimal(s.price ?? 0)), new Prisma.Decimal(0));
+      const finalTotal = dto.totalPrice != null ? new Prisma.Decimal(dto.totalPrice) : nominalTotal;
+
+      const invoiceItemsData: {
+        description: string;
+        quantity: number;
+        unitPrice: Prisma.Decimal;
+        totalPrice: Prisma.Decimal;
+        sourceType: InvoiceItemSourceType;
+        sourceId?: string;
+      }[] = services.map((service) => {
+        const price = new Prisma.Decimal(service.price ?? 0);
+        return {
+          description: service.name,
+          quantity: 1,
+          unitPrice: price,
+          totalPrice: price,
+          sourceType: InvoiceItemSourceType.LAB_SERVICE,
+          sourceId: service.id,
+        };
+      });
+
+      const diff = finalTotal.sub(nominalTotal);
+      if (!diff.isZero()) {
+        invoiceItemsData.push({
+          description: diff.isNegative() ? "Chegirma" : "Qo'shimcha to'lov",
+          quantity: 1,
+          unitPrice: diff,
+          totalPrice: diff,
+          sourceType: InvoiceItemSourceType.MANUAL,
+        });
+      }
+
+      // Eski invoice'ga qo'shib yubormaymiz — u allaqachon to'langan/qisman
+      // to'langan bo'lishi mumkin, shu sababli qo'shimcha xizmatlar uchun
+      // har doim alohida yangi invoice ochamiz (bitta caseStep bo'yicha bir
+      // nechta invoice bo'lishi tizimda normal holat, qarang: getInvoicesBySource).
+      await this.prisma.invoice.create({
+        data: {
+          patientId: order.patientId,
+          sourceType: InvoiceSourceType.LAB_ORDER,
+          sourceId: order.caseStep.id,
+          totalAmount: finalTotal,
+          status: InvoiceStatus.ISSUED,
+          createdById: user.userId,
+          items: { create: invoiceItemsData },
+        },
+      });
+    }
+
     await this.repo.recalcOrderStatus(orderId);
-    return item;
+    return items;
   }
 
   async addFile(orderId: string, itemId: string, dto: AddLabOrderItemFileDto) {
