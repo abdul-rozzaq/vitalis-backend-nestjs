@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsBoolean, IsEnum, IsInt, IsOptional, IsString, Min, ValidateNested } from "class-validator";
+import { ArrayMinSize, IsArray, IsBoolean, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min, ValidateNested } from "class-validator";
 import { LabItemStatus } from "../../generated/prisma/client";
 
 export class UpdateLabOrderItemDto {
@@ -12,16 +12,25 @@ export class UpdateLabOrderItemDto {
   note?: string;
 }
 
-// Laborant natija kiritish sahifasida buyurtmaga qo'shimcha xizmat qo'shishi
-// uchun. isPaid=true bo'lsa — xizmat narxi mavjud hisobga (invoice) qo'shiladi,
-// false bo'lsa — bepul deb belgilanadi va hisobga qo'shilmaydi.
-export class AddLabOrderItemDto {
-  @IsString()
-  serviceId: string;
+// Laborant natija kiritish sahifasida buyurtmaga bir nechta qo'shimcha xizmat
+// qo'shishi uchun. isPaid=true bo'lsa — xizmatlar narxi mavjud hisobga
+// (invoice) qo'shiladi, false bo'lsa — bepul deb belgilanadi va hisobga
+// qo'shilmaydi. `totalPrice` berilsa, xizmatlar narxlari yig'indisi o'rniga
+// shu summa hisobga qo'shiladi (masalan chegirma berish uchun).
+export class AddLabOrderItemsDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  serviceIds: string[];
 
   @IsOptional()
   @IsBoolean()
   isPaid?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalPrice?: number;
 }
 
 export class AddLabOrderItemFileDto {
