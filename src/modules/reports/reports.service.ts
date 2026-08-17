@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { InvoiceSourceType } from "../../generated/prisma/enums";
+import { BalanceTxSource, BalanceTxType, InvoiceSourceType, PaymentMethod } from "../../generated/prisma/enums";
 import { PrismaService } from "../../prisma/prisma.service";
 
 @Injectable()
@@ -10,12 +10,30 @@ export class ReportsService {
     const payments = await this.prisma.invoicePayment.findMany({
       where: { createdAt: { gte: from, lte: to } },
       select: {
+        id: true,
         cashAmount: true,
         bonusAmount: true,
         totalAmount: true,
         invoice: { select: { sourceType: true } },
+        createdById: true,
+        createdBy: { select: { first_name: true, last_name: true } },
       },
     });
+
+    // Naqd to'lovning "to'lov turi" (CASH/CARD/TRANSFER/OTHER) o'zida saqlanmaydi —
+    // u shu to'lov uchun yaratilgan INVOICE_PAYMENT DEBIT balance tranzaksiyasida
+    // yotadi (invoice.service.ts'dagi pay() bilan bir xil yondashuv).
+    const methodTxs = payments.length
+      ? await this.prisma.balanceTransaction.findMany({
+          where: {
+            source: BalanceTxSource.INVOICE_PAYMENT,
+            sourceId: { in: payments.map((p) => p.id) },
+            type: BalanceTxType.DEBIT,
+          },
+          select: { sourceId: true, paymentMethod: true },
+        })
+      : [];
+    const methodMap = new Map(methodTxs.map((t) => [t.sourceId as string, t.paymentMethod]));
 
     const totals = payments.reduce(
       (acc, p) => ({
@@ -27,25 +45,66 @@ export class ReportsService {
     );
 
     const bySourceMap = new Map<InvoiceSourceType, { cash: number; bonus: number; total: number; count: number }>();
+    const byMethodMap = new Map<string, { amount: number; count: number }>();
+    const byStaffMap = new Map<string, { staffId: string; staffName: string; cash: number; bonus: number; total: number; count: number }>();
+
     for (const p of payments) {
-      const key = p.invoice.sourceType;
-      const entry = bySourceMap.get(key) ?? { cash: 0, bonus: 0, total: 0, count: 0 };
-      entry.cash += Number(p.cashAmount);
-      entry.bonus += Number(p.bonusAmount);
-      entry.total += Number(p.totalAmount);
-      entry.count += 1;
-      bySourceMap.set(key, entry);
+      const sourceKey = p.invoice.sourceType;
+      const sourceEntry = bySourceMap.get(sourceKey) ?? { cash: 0, bonus: 0, total: 0, count: 0 };
+      sourceEntry.cash += Number(p.cashAmount);
+      sourceEntry.bonus += Number(p.bonusAmount);
+      sourceEntry.total += Number(p.totalAmount);
+      sourceEntry.count += 1;
+      bySourceMap.set(sourceKey, sourceEntry);
+
+      const cash = Number(p.cashAmount);
+      if (cash > 0) {
+        const method = methodMap.get(p.id) ?? PaymentMethod.CASH;
+        const methodEntry = byMethodMap.get(method) ?? { amount: 0, count: 0 };
+        methodEntry.amount += cash;
+        methodEntry.count += 1;
+        byMethodMap.set(method, methodEntry);
+      }
+      const bonus = Number(p.bonusAmount);
+      if (bonus > 0) {
+        const methodEntry = byMethodMap.get("BONUS") ?? { amount: 0, count: 0 };
+        methodEntry.amount += bonus;
+        methodEntry.count += 1;
+        byMethodMap.set("BONUS", methodEntry);
+      }
+
+      const staffEntry = byStaffMap.get(p.createdById) ?? {
+        staffId: p.createdById,
+        staffName: `${p.createdBy.first_name} ${p.createdBy.last_name}`.trim(),
+        cash: 0,
+        bonus: 0,
+        total: 0,
+        count: 0,
+      };
+      staffEntry.cash += Number(p.cashAmount);
+      staffEntry.bonus += Number(p.bonusAmount);
+      staffEntry.total += Number(p.totalAmount);
+      staffEntry.count += 1;
+      byStaffMap.set(p.createdById, staffEntry);
     }
 
     const bySource = Array.from(bySourceMap.entries())
       .map(([sourceType, v]) => ({ sourceType, ...v }))
       .sort((a, b) => b.total - a.total);
 
+    const byPaymentMethod = Array.from(byMethodMap.entries())
+      .map(([method, v]) => ({ method, ...v }))
+      .sort((a, b) => b.amount - a.amount);
+
+    const byStaff = Array.from(byStaffMap.values()).sort((a, b) => b.total - a.total);
+
     return {
       from,
       to,
       totals: { ...totals, paymentsCount: payments.length },
       bySource,
+      byPaymentMethod,
+      byStaff,
     };
   }
 
