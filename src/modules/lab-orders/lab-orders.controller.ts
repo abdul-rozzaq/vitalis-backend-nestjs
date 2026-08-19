@@ -9,6 +9,7 @@ import {
   ApplyLabResultTemplateDto,
   AddLabOrderItemFileDto,
   BulkSaveLabResultsDto,
+  CreateLabOrderInvoiceDto,
   UpdateLabOrderItemDto,
   UpsertLabResultTableDto,
 } from "./lab-orders.dto";
@@ -45,6 +46,14 @@ export class LabOrdersController {
   @Post(":id/items")
   addItems(@Param("id") id: string, @Body() dto: AddLabOrderItemsDto, @CurrentUser() user: JwtPayload) {
     return this.service.addItems(id, dto, user);
+  }
+
+  // Yuborishda invois kechiktirilgan bo'lsa (deferLabInvoice=true), labarant
+  // shu amal orqali hali hisoblanmagan xizmatlar uchun invoisni o'zi yaratadi,
+  // kerak bo'lsa narxni o'zgartirib (masalan chegirma uchun).
+  @Post(":id/create-invoice")
+  createOrderInvoice(@Param("id") id: string, @Body() dto: CreateLabOrderInvoiceDto, @CurrentUser() user: JwtPayload) {
+    return this.service.createOrderInvoice(id, dto, user);
   }
 
   // "Umumiy" natija kiritish — bitta buyurtmadagi bir nechta xizmat natijasini
