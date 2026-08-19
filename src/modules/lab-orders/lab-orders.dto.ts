@@ -33,6 +33,18 @@ export class AddLabOrderItemsDto {
   totalPrice?: number;
 }
 
+// Bemorni laboratoriyaga yuborishda invois kechiktirilgan bo'lsa
+// (deferLabInvoice=true), labarant shu DTO orqali buyurtmaning hali
+// hisoblanmagan xizmatlari uchun invoisni o'zi yaratadi. `totalPrice`
+// berilsa (masalan chegirma uchun), xizmatlar narxlari yig'indisi o'rniga
+// shu summa hisobga qo'shiladi.
+export class CreateLabOrderInvoiceDto {
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalPrice?: number;
+}
+
 export class AddLabOrderItemFileDto {
   @IsString()
   url: string;

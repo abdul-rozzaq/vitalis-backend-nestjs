@@ -111,6 +111,11 @@ export class CasesService {
         return m;
       }, new Map<string, typeof services>());
 
+      // deferLabInvoice=true bo'lsa, invois hozircha yaratilmaydi — xizmatlar
+      // "invoiced: false" deb belgilanadi va labarant keyinroq LabOrdersService
+      // .createOrderInvoice orqali narxni belgilab, invoisni o'zi yaratadi.
+      const deferInvoice = dto.deferLabInvoice === true;
+
       return this.prisma.$transaction(async (tx) => {
         const step = await tx.caseStep.create({
           data: {
@@ -127,7 +132,7 @@ export class CasesService {
           unitPrice: Prisma.Decimal;
           totalPrice: Prisma.Decimal;
           sourceType: InvoiceItemSourceType;
-          sourceId: string;
+          sourceId?: string;
         }[] = [];
 
         for (const [labId, svcs] of groups.entries()) {
@@ -144,6 +149,7 @@ export class CasesService {
               data: {
                 labOrder: { connect: { id: labOrder.id } },
                 service: { connect: { id: svc.id } },
+                invoiced: !deferInvoice,
               },
             });
           }
@@ -161,19 +167,37 @@ export class CasesService {
           }
         }
 
-        const totalAmount = allInvoiceItems.reduce((sum, item) => sum.add(item.unitPrice), new Prisma.Decimal(0));
+        if (!deferInvoice) {
+          const nominalTotal = allInvoiceItems.reduce((sum, item) => sum.add(item.unitPrice), new Prisma.Decimal(0));
+          const finalTotal = dto.labTotalPrice != null ? new Prisma.Decimal(dto.labTotalPrice) : nominalTotal;
 
-        await tx.invoice.create({
-          data: {
-            patientId: patientCase.patientId,
-            sourceType: InvoiceSourceType.LAB_ORDER,
-            sourceId: step.id,
-            totalAmount,
-            status: InvoiceStatus.ISSUED,
-            createdById: user.userId,
-            items: { create: allInvoiceItems },
-          },
-        });
+          // Yuboruvchi umumiy summani o'zgartirgan bo'lsa (masalan chegirma
+          // uchun), farq alohida qator sifatida qo'shiladi — shunda har bir
+          // xizmat o'z nominal narxida ko'rinib turadi (qarang: lab-orders
+          // moduli addItems'dagi bir xil naqsh).
+          const diff = finalTotal.sub(nominalTotal);
+          if (!diff.isZero()) {
+            allInvoiceItems.push({
+              description: diff.isNegative() ? "Chegirma" : "Qo'shimcha to'lov",
+              quantity: 1,
+              unitPrice: diff,
+              totalPrice: diff,
+              sourceType: InvoiceItemSourceType.MANUAL,
+            });
+          }
+
+          await tx.invoice.create({
+            data: {
+              patientId: patientCase.patientId,
+              sourceType: InvoiceSourceType.LAB_ORDER,
+              sourceId: step.id,
+              totalAmount: finalTotal,
+              status: InvoiceStatus.ISSUED,
+              createdById: user.userId,
+              items: { create: allInvoiceItems },
+            },
+          });
+        }
 
         return tx.caseStep.findUnique({ where: { id: step.id }, include: STEP_INCLUDE });
       });

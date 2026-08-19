@@ -14,6 +14,7 @@ import {
   ApplyLabResultTemplateDto,
   AddLabOrderItemFileDto,
   BulkSaveLabResultsDto,
+  CreateLabOrderInvoiceDto,
   UpdateLabOrderItemDto,
   UpsertLabResultTableDto,
 } from "./lab-orders.dto";
@@ -206,6 +207,81 @@ export class LabOrdersService {
 
     await this.repo.recalcOrderStatus(orderId);
     return items;
+  }
+
+  /**
+   * Bemorni laboratoriyaga yuborishda invois kechiktirilgan bo'lsa
+   * (cases moduli: deferLabInvoice=true), labarant narxni ko'rib chiqqach
+   * shu metod orqali hali hisoblanmagan (invoiced=false) xizmatlar uchun
+   * invoisni o'zi yaratadi. `dto.totalPrice` berilsa (masalan chegirma
+   * uchun), xizmatlar narxlari yig'indisi o'rniga shu summa hisobga
+   * qo'shiladi — farq alohida qator sifatida invoice'ga qo'shiladi.
+   */
+  async createOrderInvoice(orderId: string, dto: CreateLabOrderInvoiceDto, user: JwtPayload) {
+    const order = await this.repo.findById(orderId);
+    if (!order) throw new NotFoundException("Lab order not found");
+
+    const pendingItems = order.items.filter((i) => !i.invoiced);
+    if (!pendingItems.length) {
+      throw new BadRequestException("Ushbu buyurtmada hisoblanmagan xizmat yo'q");
+    }
+
+    const nominalTotal = pendingItems.reduce(
+      (sum, i) => sum.add(new Prisma.Decimal(i.service.price ?? 0)),
+      new Prisma.Decimal(0),
+    );
+    const finalTotal = dto.totalPrice != null ? new Prisma.Decimal(dto.totalPrice) : nominalTotal;
+
+    const invoiceItemsData: {
+      description: string;
+      quantity: number;
+      unitPrice: Prisma.Decimal;
+      totalPrice: Prisma.Decimal;
+      sourceType: InvoiceItemSourceType;
+      sourceId?: string;
+    }[] = pendingItems.map((item) => {
+      const price = new Prisma.Decimal(item.service.price ?? 0);
+      return {
+        description: item.service.name,
+        quantity: 1,
+        unitPrice: price,
+        totalPrice: price,
+        sourceType: InvoiceItemSourceType.LAB_SERVICE,
+        sourceId: item.service.id,
+      };
+    });
+
+    const diff = finalTotal.sub(nominalTotal);
+    if (!diff.isZero()) {
+      invoiceItemsData.push({
+        description: diff.isNegative() ? "Chegirma" : "Qo'shimcha to'lov",
+        quantity: 1,
+        unitPrice: diff,
+        totalPrice: diff,
+        sourceType: InvoiceItemSourceType.MANUAL,
+      });
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.invoice.create({
+        data: {
+          patientId: order.patientId,
+          sourceType: InvoiceSourceType.LAB_ORDER,
+          sourceId: order.caseStep.id,
+          totalAmount: finalTotal,
+          status: InvoiceStatus.ISSUED,
+          createdById: user.userId,
+          items: { create: invoiceItemsData },
+        },
+      });
+
+      await tx.labOrderItem.updateMany({
+        where: { id: { in: pendingItems.map((i) => i.id) } },
+        data: { invoiced: true },
+      });
+    });
+
+    return this.repo.findById(orderId);
   }
 
   async addFile(orderId: string, itemId: string, dto: AddLabOrderItemFileDto) {
