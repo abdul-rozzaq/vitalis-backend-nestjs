@@ -128,6 +128,16 @@ export class LabOrdersService {
    * uchun), xizmatlar narxlari yig'indisi o'rniga shu summa hisobga
    * qo'shiladi — farq alohida qator sifatida invoice'ga qo'shiladi, shunda
    * har bir xizmat o'z nominal narxida ko'rinib turadi.
+   *
+   * Agar buyurtmada hali invois yaratilmagan (invoiced=false) xizmatlar
+   * bo'lsa — demak invois hali kechiktirilgan holatda (deferLabInvoice) va
+   * labarant createOrderInvoice orqali hali narxni belgilamagan — yangi
+   * qo'shilgan xizmat ham shu "kutilayotgan" ro'yxatga qo'shiladi, alohida
+   * invois ochilmaydi. Bu holda uning narxi createOrderInvoice
+   * chaqirilganda yaratiladigan yagona invoisga birga qo'shiladi. Aks holda
+   * (invois allaqachon yaratilgan bo'lsa) yangi xizmat uchun har doim
+   * alohida yangi invois ochiladi (eski, ehtimol to'langan invoisga
+   * qo'shib yubormaymiz).
    */
   async addItems(orderId: string, dto: AddLabOrderItemsDto, user: JwtPayload) {
     const order = await this.repo.findById(orderId);
@@ -149,12 +159,15 @@ export class LabOrdersService {
     }
 
     const isPaid = dto.isPaid ?? true;
+    const hasPendingInvoice = order.items.some((i) => i.isPaid && !i.invoiced);
+    const deferToExistingInvoice = isPaid && hasPendingInvoice;
+
     const items = [];
     for (const serviceId of uniqueServiceIds) {
-      items.push(await this.repo.createItem(orderId, serviceId, isPaid));
+      items.push(await this.repo.createItem(orderId, serviceId, isPaid, !deferToExistingInvoice));
     }
 
-    if (isPaid) {
+    if (isPaid && !deferToExistingInvoice) {
       const nominalTotal = services.reduce((sum, s) => sum.add(new Prisma.Decimal(s.price ?? 0)), new Prisma.Decimal(0));
       const finalTotal = dto.totalPrice != null ? new Prisma.Decimal(dto.totalPrice) : nominalTotal;
 

@@ -110,9 +110,9 @@ export class LabOrdersRepository {
     });
   }
 
-  createItem(labOrderId: string, serviceId: string, isPaid: boolean) {
+  createItem(labOrderId: string, serviceId: string, isPaid: boolean, invoiced = true) {
     return this.prisma.labOrderItem.create({
-      data: { labOrder: { connect: { id: labOrderId } }, service: { connect: { id: serviceId } }, isPaid },
+      data: { labOrder: { connect: { id: labOrderId } }, service: { connect: { id: serviceId } }, isPaid, invoiced },
       include: {
         service: { select: { id: true, name: true, price: true, defaultRows: true } },
         files: { orderBy: { createdAt: "asc" as const } },
