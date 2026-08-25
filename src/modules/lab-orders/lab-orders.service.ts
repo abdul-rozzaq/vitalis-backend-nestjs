@@ -28,18 +28,24 @@ function mergeRowsWithServiceTemplate(inputRows: ResultInputRow[], serviceName: 
   const { rows: templateRows } = unpackRowsPayload(rawDefaultRows, serviceName);
   if (!templateRows.length) return inputRows;
 
-  return templateRows.map((templateRow: any, index: number) => {
-    const existing =
-      inputRows.find((row) => templateRow.code && row.code && row.code === templateRow.code) ??
-      inputRows.find((row) => row.indicator === templateRow.indicator) ??
-      inputRows[index];
+  // Diqqat: bu yerda `templateRows` emas, `inputRows` bo'yicha iteratsiya
+  // qilinadi. Laborant natija kiritish sahifasida kerak bo'lmagan qatorni
+  // o'chirib qoldirishi mumkin — agar shablon bo'yicha iteratsiya qilinsa,
+  // o'chirilgan qator har safar saqlashda template'dan qayta tiklanib
+  // qolardi. Qolgan qatorlar uchun kod/ko'rsatkich/me'yor/birlik shablon
+  // bilan solishtirib "kanonik" qiymatga tekislanadi (frontendda bu ustunlar
+  // tahrirlanmasligi kerak, lekin backend shu bilan ham himoyalanadi).
+  return inputRows.map((row, index) => {
+    const templateRow =
+      templateRows.find((t: any) => t.code && row.code && t.code === row.code) ??
+      templateRows.find((t: any) => t.indicator === row.indicator);
 
     return {
-      code: templateRow.code,
-      indicator: templateRow.indicator,
-      norm: templateRow.norm,
-      unit: templateRow.unit,
-      result: existing?.result ?? "",
+      code: templateRow?.code ?? row.code,
+      indicator: templateRow?.indicator ?? row.indicator,
+      norm: templateRow?.norm ?? row.norm,
+      unit: templateRow?.unit ?? row.unit,
+      result: row.result ?? "",
       sortOrder: index,
     };
   });
