@@ -508,9 +508,9 @@ export class AttendanceService {
         orderBy: { shift: { startAt: 'desc' } },
         take: 100,
       }),
-      // Face ID bog'lanmagan tibbiyot xodimlari — jimgina ishlamay qolish manbayi
+      // Face ID bog'lanmagan xodimlar — jimgina ishlamay qolish manbayi
       this.prisma.user.findMany({
-        where: { employeeNo: null, role: { in: ['DOCTOR', 'HAMSHIRA'] } },
+        where: { employeeNo: null },
         select: { id: true, first_name: true, last_name: true, role: true },
         orderBy: { last_name: 'asc' },
       }),
