@@ -1,7 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { clinicDayUTC } from "../../common/clinic-time";
-import { RoleName } from "../../common/enums/role-name.enum";
-import { ShiftStaffRole, WardStatus } from "../../generated/prisma/client";
+import { UserRole, WardStatus } from "../../generated/prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { planShifts, PlannedShift } from "./shift-generator";
 import {
@@ -54,7 +53,7 @@ type ShiftWithStaff = {
   endAt: Date;
   requiredDoctors: number;
   requiredNurses: number;
-  staff: { role: ShiftStaffRole }[];
+  staff: { role: UserRole }[];
   attendanceRecords: {
     userId: string;
     checkInAt: Date | null;
@@ -75,8 +74,8 @@ type ShiftWithStaff = {
  * bo'lganlar. `insideNow` faqat smena davom etayotganda ma'noga ega.
  */
 function withStaffing<T extends ShiftWithStaff>(shift: T, now: Date = new Date()) {
-  const assignedDoctors = shift.staff.filter((s) => s.role === ShiftStaffRole.DOCTOR).length;
-  const assignedNurses = shift.staff.filter((s) => s.role === ShiftStaffRole.NURSE).length;
+  const assignedDoctors = shift.staff.filter((s) => s.role === UserRole.DOCTOR).length;
+  const assignedNurses = shift.staff.filter((s) => s.role === UserRole.HAMSHIRA).length;
 
   const records = shift.attendanceRecords;
   const isRunning = now >= shift.startAt && now < shift.endAt;
@@ -369,7 +368,7 @@ export class ShiftsService {
    */
   async bulkAssign(dto: BulkAssignDto) {
     // 1. Rollarni bir marta tekshiramiz (har biriktirishda emas)
-    const uniqueUsers = new Map<string, ShiftStaffRole>();
+    const uniqueUsers = new Map<string, UserRole>();
     for (const s of dto.staff) {
       const prev = uniqueUsers.get(s.userId);
       if (prev && prev !== s.role) {
@@ -408,7 +407,7 @@ export class ShiftsService {
     }
 
     // 4. To'qnashuvlarni xotirada hisoblaymiz
-    const toCreate: { shiftId: string; userId: string; role: ShiftStaffRole }[] = [];
+    const toCreate: { shiftId: string; userId: string; role: UserRole }[] = [];
     const skipped: { shiftId: string; userId: string; reason: string }[] = [];
 
     for (const shift of shifts) {
@@ -530,12 +529,12 @@ export class ShiftsService {
     await this.validateStaffRoles(staff);
   }
 
-  private async validateStaffRole(userId: string, role: ShiftStaffRole) {
+  private async validateStaffRole(userId: string, role: UserRole) {
     await this.validateStaffRoles([{ userId, role }]);
   }
 
   /** Bir so'rovda barcha xodimlarni tekshiradi (N+1 emas). */
-  private async validateStaffRoles(staff: { userId: string; role: ShiftStaffRole }[]) {
+  private async validateStaffRoles(staff: { userId: string; role: UserRole }[]) {
     if (!staff.length) return;
     const users = await this.prisma.user.findMany({
       where: { id: { in: staff.map((s) => s.userId) } },
@@ -546,11 +545,8 @@ export class ShiftsService {
     for (const s of staff) {
       const userRole = byId.get(s.userId);
       if (!userRole) throw new NotFoundException("Xodim topilmadi");
-      if (s.role === ShiftStaffRole.DOCTOR && userRole !== RoleName.DOCTOR) {
-        throw new BadRequestException("Tanlangan xodim shifokor emas");
-      }
-      if (s.role === ShiftStaffRole.NURSE && userRole !== RoleName.HAMSHIRA) {
-        throw new BadRequestException("Tanlangan xodim hamshira emas");
+      if (s.role !== userRole) {
+        throw new BadRequestException("Berilgan rol xodimning tizimdagi roliga mos kelmaydi");
       }
     }
   }
