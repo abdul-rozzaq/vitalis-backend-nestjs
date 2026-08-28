@@ -48,9 +48,8 @@ export class CreatePatientDto {
   @MaxLength(255)
   address?: string | null;
 
-  @IsOptional()
   @IsUUID()
-  sourceId?: string | null;
+  sourceId: string;
 
   @IsOptional()
   @IsEnum(BloodType)
