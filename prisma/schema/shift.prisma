@@ -23,13 +23,12 @@ model Shift {
 }
 
 model ShiftStaff {
-  id      String         @id @default(uuid())
+  id      String   @id @default(uuid())
   shiftId String
   userId  String
-  /// Qaysi kvotani band qilyapti: DOCTOR yoki NURSE
-  role    ShiftStaffRole
-  shift   Shift          @relation(fields: [shiftId], references: [id], onDelete: Cascade)
-  user    User           @relation("ShiftStaffAssignments", fields: [userId], references: [id])
+  role    UserRole
+  shift   Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  user    User     @relation("ShiftStaffAssignments", fields: [userId], references: [id])
 
   @@unique([shiftId, userId])
   @@index([userId])
@@ -80,9 +79,3 @@ enum ShiftStatus {
   @@map("shift_statuses")
 }
 
-enum ShiftStaffRole {
-  DOCTOR
-  NURSE
-
-  @@map("shift_staff_roles")
-}

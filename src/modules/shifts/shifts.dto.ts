@@ -15,7 +15,7 @@ import {
   Min,
   ValidateNested,
 } from "class-validator";
-import { ShiftStaffRole, ShiftStatus } from "../../generated/prisma/client";
+import { ShiftStatus, UserRole } from "../../generated/prisma/client";
 
 /** Bitta so'rovda biriktirilishi mumkin bo'lgan xodimlar chegarasi. */
 export const MAX_STAFF_PER_SHIFT = 50;
@@ -28,8 +28,8 @@ export class ShiftStaffInputDto {
   @IsUUID()
   userId: string;
 
-  @IsEnum(ShiftStaffRole)
-  role: ShiftStaffRole;
+  @IsEnum(UserRole)
+  role: UserRole;
 }
 
 export class CreateShiftDto {
@@ -106,8 +106,8 @@ export class AssignStaffDto {
   @IsUUID()
   userId: string;
 
-  @IsEnum(ShiftStaffRole)
-  role: ShiftStaffRole;
+  @IsEnum(UserRole)
+  role: UserRole;
 }
 
 export class ShiftsQueryDto {
