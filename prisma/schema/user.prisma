@@ -10,6 +10,10 @@ model User {
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
   role                 UserRole               @default(TEXNIK_HODIM)
+  /// SMENA = navbat bo'yicha ishlaydi (ShiftStaff orqali qo'lda biriktiriladi).
+  /// FIXED = aniq kunlik ish vaqti bor (FixedWorkSchedule orqali smenalar avtomatik yaratiladi).
+  workType             WorkType               @default(SMENA)
+  fixedWorkSchedule    FixedWorkSchedule?
   assignments          Assignment[]
   auditLogs            AuditLog[]
   balanceTransactions  BalanceTransaction[]
@@ -44,4 +48,11 @@ enum UserRole {
   DIAGNOST
 
   @@map("user_roles")
+}
+
+enum WorkType {
+  SMENA
+  FIXED
+
+  @@map("work_types")
 }

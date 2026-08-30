@@ -14,6 +14,7 @@ model Department {
   procedures  Procedure[]
 
   shiftTemplates ShiftTemplate[]
+  fixedWorkSchedules FixedWorkSchedule[]
   operationTypes OperationType[]
   operations     Operation[]
 
