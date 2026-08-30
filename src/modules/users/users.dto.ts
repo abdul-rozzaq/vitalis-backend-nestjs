@@ -1,6 +1,7 @@
 import { Type } from "class-transformer";
 import { IsDate, IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator";
 import { RoleName } from "../../common/enums/role-name.enum";
+import { WorkType } from "../../generated/prisma/client";
 
 export class CreateUserDto {
   @IsString()
@@ -41,6 +42,11 @@ export class CreateUserDto {
   @IsString()
   @MaxLength(50)
   employeeNo?: string | null;
+
+  /** SMENA = navbat bo'yicha; FIXED = aniq kunlik ish vaqti (FixedWorkSchedule orqali). */
+  @IsOptional()
+  @IsEnum(WorkType)
+  workType?: WorkType;
 }
 
 export class UpdateUserDto {
@@ -86,4 +92,8 @@ export class UpdateUserDto {
   @IsString()
   @MaxLength(50)
   employeeNo?: string | null;
+
+  @IsOptional()
+  @IsEnum(WorkType)
+  workType?: WorkType;
 }
