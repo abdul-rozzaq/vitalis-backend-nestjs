@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { DiagnosticItemStatus, DiagnosticOrderStatus } from "../../generated/prisma/client";
+import { InvoiceSourceType } from "../../generated/prisma/enums";
 import { PrismaService } from "../../prisma/prisma.service";
 
 const DIAGNOSTIC_ORDER_INCLUDE = {
@@ -101,6 +102,87 @@ export class DiagnosticOrdersRepository {
     return this.prisma.diagnosticOrder.update({
       where: { id: diagnosticOrderId },
       data: { status: newStatus },
+    });
+  }
+
+  async deleteOrder(id: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.diagnosticOrder.findUnique({
+        where: { id },
+        include: { caseStep: true },
+      });
+      if (!order) return null;
+
+      await tx.invoice.deleteMany({
+        where: {
+          sourceType: InvoiceSourceType.DIAGNOSTIC_ORDER,
+          sourceId: { in: [order.id, order.caseStepId] },
+          paidCash: 0,
+          paidBonus: 0,
+        },
+      });
+
+      if (order.caseStepId) {
+        return tx.caseStep.delete({ where: { id: order.caseStepId } });
+      }
+
+      return tx.diagnosticOrder.delete({ where: { id } });
+    });
+  }
+
+  async deleteItem(orderId: string, itemId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.diagnosticOrder.findUnique({
+        where: { id: orderId },
+        include: {
+          items: { select: { id: true } },
+          caseStep: true,
+        },
+      });
+      if (!order) return null;
+
+      const item = order.items.find((i) => i.id === itemId);
+      if (!item) return null;
+
+      if (order.items.length <= 1) {
+        await tx.invoice.deleteMany({
+          where: {
+            sourceType: InvoiceSourceType.DIAGNOSTIC_ORDER,
+            sourceId: { in: [order.id, order.caseStepId] },
+            paidCash: 0,
+            paidBonus: 0,
+          },
+        });
+        if (order.caseStepId) {
+          return tx.caseStep.delete({ where: { id: order.caseStepId } });
+        }
+        return tx.diagnosticOrder.delete({ where: { id: orderId } });
+      }
+
+      await tx.diagnosticOrderItem.delete({ where: { id: itemId } });
+
+      const remainingItems = await tx.diagnosticOrderItem.findMany({
+        where: { diagnosticOrderId: orderId },
+        select: { status: true },
+      });
+      const statuses = remainingItems.map((i) => i.status);
+      let newStatus: DiagnosticOrderStatus = DiagnosticOrderStatus.PENDING;
+      if (statuses.every((s) => s === DiagnosticItemStatus.DELIVERED || s === DiagnosticItemStatus.CANCELLED)) {
+        newStatus = DiagnosticOrderStatus.COMPLETED;
+      } else if (
+        statuses.some((s) => s === DiagnosticItemStatus.READY || s === DiagnosticItemStatus.DELIVERED)
+      ) {
+        newStatus = DiagnosticOrderStatus.IN_PROGRESS;
+      } else if (statuses.some((s) => s === DiagnosticItemStatus.IN_PROGRESS)) {
+        newStatus = DiagnosticOrderStatus.IN_PROGRESS;
+      }
+
+      await tx.diagnosticOrder.update({
+        where: { id: orderId },
+        data: { status: newStatus },
+      });
+
+      return { success: true };
     });
   }
 }

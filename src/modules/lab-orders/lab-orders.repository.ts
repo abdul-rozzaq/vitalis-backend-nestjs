@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { LabItemStatus, LabOrderStatus } from "../../generated/prisma/client";
+import { InvoiceSourceType } from "../../generated/prisma/enums";
 import { PrismaService } from "../../prisma/prisma.service";
 import { LabResultLayout, unpackRowsPayload } from "../lab-common/result-layout";
 
@@ -216,6 +217,96 @@ export class LabOrdersRepository {
     return this.prisma.labOrder.update({
       where: { id: labOrderId },
       data: { status: newStatus },
+    });
+  }
+
+  async deleteOrder(id: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.labOrder.findUnique({
+        where: { id },
+        include: {
+          caseStep: {
+            include: {
+              labOrders: { select: { id: true } },
+            },
+          },
+        },
+      });
+      if (!order) return null;
+
+      if (order.caseStep) {
+        if (!order.caseStep.labOrders || order.caseStep.labOrders.length <= 1) {
+          await tx.invoice.deleteMany({
+            where: {
+              sourceType: InvoiceSourceType.LAB_ORDER,
+              sourceId: order.caseStepId,
+              paidCash: 0,
+              paidBonus: 0,
+            },
+          });
+          return tx.caseStep.delete({ where: { id: order.caseStepId } });
+        }
+      }
+
+      return tx.labOrder.delete({ where: { id } });
+    });
+  }
+
+  async deleteItem(orderId: string, itemId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.labOrder.findUnique({
+        where: { id: orderId },
+        include: {
+          items: { select: { id: true } },
+          caseStep: {
+            include: {
+              labOrders: { select: { id: true } },
+            },
+          },
+        },
+      });
+      if (!order) return null;
+
+      const item = order.items.find((i) => i.id === itemId);
+      if (!item) return null;
+
+      if (order.items.length <= 1) {
+        if (order.caseStep && (!order.caseStep.labOrders || order.caseStep.labOrders.length <= 1)) {
+          await tx.invoice.deleteMany({
+            where: {
+              sourceType: InvoiceSourceType.LAB_ORDER,
+              sourceId: order.caseStepId,
+              paidCash: 0,
+              paidBonus: 0,
+            },
+          });
+          return tx.caseStep.delete({ where: { id: order.caseStepId } });
+        }
+        return tx.labOrder.delete({ where: { id: orderId } });
+      }
+
+      await tx.labOrderItem.delete({ where: { id: itemId } });
+
+      const remainingItems = await tx.labOrderItem.findMany({
+        where: { labOrderId: orderId },
+        select: { status: true },
+      });
+      const statuses = remainingItems.map((i) => i.status);
+      let newStatus: LabOrderStatus = LabOrderStatus.PENDING;
+      if (statuses.every((s) => s === LabItemStatus.DELIVERED || s === LabItemStatus.CANCELLED)) {
+        newStatus = LabOrderStatus.COMPLETED;
+      } else if (statuses.some((s) => s === LabItemStatus.READY || s === LabItemStatus.DELIVERED)) {
+        newStatus = LabOrderStatus.IN_PROGRESS;
+      } else if (statuses.some((s) => s === LabItemStatus.IN_PROGRESS)) {
+        newStatus = LabOrderStatus.IN_PROGRESS;
+      }
+
+      await tx.labOrder.update({
+        where: { id: orderId },
+        data: { status: newStatus },
+      });
+
+      return { success: true };
     });
   }
 }
