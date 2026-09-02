@@ -7,7 +7,6 @@ import {
 import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CLINIC_TZ } from '../../common/clinic-time';
-import { ShiftStaffRole } from '../../generated/prisma/client';
 import {
   AttendanceEventStatus,
   AttendanceRecordStatus,
@@ -508,9 +507,9 @@ export class AttendanceService {
         orderBy: { shift: { startAt: 'desc' } },
         take: 100,
       }),
-      // Face ID bog'lanmagan tibbiyot xodimlari — jimgina ishlamay qolish manbayi
+      // Face ID bog'lanmagan xodimlar — jimgina ishlamay qolish manbayi
       this.prisma.user.findMany({
-        where: { employeeNo: null, role: { in: ['DOCTOR', 'HAMSHIRA'] } },
+        where: { employeeNo: null },
         select: { id: true, first_name: true, last_name: true, role: true },
         orderBy: { last_name: 'asc' },
       }),
@@ -668,7 +667,8 @@ export class AttendanceService {
       where: { id: event.userId },
       select: { role: true },
     });
-    const role = user?.role === 'DOCTOR' ? ShiftStaffRole.DOCTOR : ShiftStaffRole.NURSE;
+    if (!user) throw new NotFoundException('Xodim topilmadi');
+    const role = user.role;
 
     await this.prisma.shiftStaff.upsert({
       where: { shiftId_userId: { shiftId, userId: event.userId } },

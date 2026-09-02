@@ -1,0 +1,39 @@
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsUUID,
+  Matches,
+  Max,
+  Min,
+} from "class-validator";
+
+/** "HH:mm" (00:00–23:59) */
+const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const TIME_MESSAGE = "Vaqt HH:mm formatida bo'lishi kerak";
+
+export class UpsertFixedScheduleDto {
+  @IsUUID()
+  departmentId: string;
+
+  @Matches(TIME_PATTERN, { message: TIME_MESSAGE })
+  startTime: string;
+
+  @Matches(TIME_PATTERN, { message: TIME_MESSAGE })
+  endTime: string;
+
+  /** [1=Dushanba .. 7=Yakshanba]. Bo'sh = har kuni. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(7)
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  @Max(7, { each: true })
+  daysOfWeek?: number[];
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
