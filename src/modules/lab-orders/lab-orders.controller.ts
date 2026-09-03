@@ -144,4 +144,14 @@ export class LabOrdersController {
   removeFile(@Param("id") id: string, @Param("itemId") itemId: string, @Param("fileId") fileId: string) {
     return this.service.removeFile(id, itemId, fileId);
   }
+
+  @Delete(":id/items/:itemId")
+  deleteItem(@Param("id") id: string, @Param("itemId") itemId: string, @CurrentUser() user: JwtPayload) {
+    return this.service.deleteItem(id, itemId, user);
+  }
+
+  @Delete(":id")
+  deleteOrder(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    return this.service.deleteOrder(id, user);
+  }
 }

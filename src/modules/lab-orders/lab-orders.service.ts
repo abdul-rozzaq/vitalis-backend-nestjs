@@ -575,4 +575,44 @@ export class LabOrdersService {
     if (!file || file.labOrderItemId !== itemId) throw new NotFoundException("File not found");
     return this.repo.removeFile(fileId);
   }
+
+  async deleteOrder(id: string, user: JwtPayload) {
+    const order = await this.repo.findById(id);
+    if (!order) throw new NotFoundException("Lab order not found");
+
+    if (user.role === RoleName.LABARANT) {
+      const labAssignments = await this.prisma.laboratoryAssignment.findMany({
+        where: { userId: user.userId, isActive: true },
+        select: { laboratoryId: true },
+      });
+      const laboratoryIds = labAssignments.map((a) => a.laboratoryId);
+      if (!laboratoryIds.includes(order.laboratoryId)) {
+        throw new ForbiddenException("Bu buyurtmani o'chirish uchun ruxsat yo'q");
+      }
+    }
+
+    await this.repo.deleteOrder(id);
+    return { success: true };
+  }
+
+  async deleteItem(orderId: string, itemId: string, user: JwtPayload) {
+    const order = await this.repo.findById(orderId);
+    if (!order) throw new NotFoundException("Lab order not found");
+    const item = order.items.find((i) => i.id === itemId);
+    if (!item) throw new NotFoundException("Lab order item not found");
+
+    if (user.role === RoleName.LABARANT) {
+      const labAssignments = await this.prisma.laboratoryAssignment.findMany({
+        where: { userId: user.userId, isActive: true },
+        select: { laboratoryId: true },
+      });
+      const laboratoryIds = labAssignments.map((a) => a.laboratoryId);
+      if (!laboratoryIds.includes(order.laboratoryId)) {
+        throw new ForbiddenException("Bu xizmatni o'chirish uchun ruxsat yo'q");
+      }
+    }
+
+    await this.repo.deleteItem(orderId, itemId);
+    return { success: true };
+  }
 }
