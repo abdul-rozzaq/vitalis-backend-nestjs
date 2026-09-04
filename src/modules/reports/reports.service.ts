@@ -14,11 +14,15 @@ export class ReportsService {
         cashAmount: true,
         bonusAmount: true,
         totalAmount: true,
-        invoice: { select: { sourceType: true } },
+        invoice: { select: { sourceType: true, sourceId: true } },
         createdById: true,
         createdBy: { select: { first_name: true, last_name: true } },
       },
     });
+
+    const departmentMap = await this.resolveDepartments(
+      payments.map((p) => ({ sourceType: p.invoice.sourceType, sourceId: p.invoice.sourceId })),
+    );
 
     // Naqd to'lovning "to'lov turi" (CASH/CARD/TRANSFER/OTHER) o'zida saqlanmaydi —
     // u shu to'lov uchun yaratilgan INVOICE_PAYMENT DEBIT balance tranzaksiyasida
@@ -47,6 +51,10 @@ export class ReportsService {
     const bySourceMap = new Map<InvoiceSourceType, { cash: number; bonus: number; total: number; count: number }>();
     const byMethodMap = new Map<string, { amount: number; count: number }>();
     const byStaffMap = new Map<string, { staffId: string; staffName: string; cash: number; bonus: number; total: number; count: number }>();
+    const byDepartmentMap = new Map<
+      string,
+      { departmentId: string | null; departmentName: string; cash: number; bonus: number; total: number; count: number }
+    >();
 
     for (const p of payments) {
       const sourceKey = p.invoice.sourceType;
@@ -86,6 +94,22 @@ export class ReportsService {
       staffEntry.total += Number(p.totalAmount);
       staffEntry.count += 1;
       byStaffMap.set(p.createdById, staffEntry);
+
+      const dept = departmentMap.get(`${p.invoice.sourceType}:${p.invoice.sourceId}`) ?? null;
+      const deptKey = dept?.id ?? "__none__";
+      const deptEntry = byDepartmentMap.get(deptKey) ?? {
+        departmentId: dept?.id ?? null,
+        departmentName: dept?.name ?? "Boshqa",
+        cash: 0,
+        bonus: 0,
+        total: 0,
+        count: 0,
+      };
+      deptEntry.cash += Number(p.cashAmount);
+      deptEntry.bonus += Number(p.bonusAmount);
+      deptEntry.total += Number(p.totalAmount);
+      deptEntry.count += 1;
+      byDepartmentMap.set(deptKey, deptEntry);
     }
 
     const bySource = Array.from(bySourceMap.entries())
@@ -98,6 +122,8 @@ export class ReportsService {
 
     const byStaff = Array.from(byStaffMap.values()).sort((a, b) => b.total - a.total);
 
+    const byDepartment = Array.from(byDepartmentMap.values()).sort((a, b) => b.total - a.total);
+
     return {
       from,
       to,
@@ -105,7 +131,82 @@ export class ReportsService {
       bySource,
       byPaymentMethod,
       byStaff,
+      byDepartment,
     };
+  }
+
+  /**
+   * To'lov qaysi INVOICE manbasidan kelganini (WARD/APPOINTMENT/OPERATION/
+   * PROCEDURE_ORDER) haqiqiy Department'ga bog'laydi — shu orqali "shu
+   * to'lov qaysi bo'lim daromadiga yozilishi kerak" degan savolga javob
+   * beradi. LAB_ORDER va DIAGNOSTIC_ORDER Department emas, balki alohida
+   * Laboratory/Diagnostics ierarxiyasiga tegishli bo'lgani uchun (va MANUAL
+   * uchun umuman bo'lim yo'q) ular "Boshqa" sifatida guruhlanadi.
+   *
+   * Natija: `"${sourceType}:${sourceId}"` -> {id, name} xaritasi.
+   */
+  private async resolveDepartments(
+    refs: { sourceType: InvoiceSourceType; sourceId: string }[],
+  ): Promise<Map<string, { id: string; name: string }>> {
+    const idsByType = new Map<InvoiceSourceType, Set<string>>();
+    for (const r of refs) {
+      const set = idsByType.get(r.sourceType) ?? new Set<string>();
+      set.add(r.sourceId);
+      idsByType.set(r.sourceType, set);
+    }
+
+    const result = new Map<string, { id: string; name: string }>();
+
+    const wardIds = Array.from(idsByType.get(InvoiceSourceType.WARD) ?? []);
+    if (wardIds.length) {
+      const wards = await this.prisma.wards.findMany({
+        where: { id: { in: wardIds } },
+        select: {
+          id: true,
+          department: { select: { id: true, name: true } },
+          room: { select: { department: { select: { id: true, name: true } } } },
+        },
+      });
+      for (const w of wards) {
+        const dept = w.department ?? w.room.department;
+        if (dept) result.set(`${InvoiceSourceType.WARD}:${w.id}`, dept);
+      }
+    }
+
+    const appointmentIds = Array.from(idsByType.get(InvoiceSourceType.APPOINTMENT) ?? []);
+    if (appointmentIds.length) {
+      const appointments = await this.prisma.appointment.findMany({
+        where: { id: { in: appointmentIds } },
+        select: { id: true, assignment: { select: { department: { select: { id: true, name: true } } } } },
+      });
+      for (const a of appointments) {
+        result.set(`${InvoiceSourceType.APPOINTMENT}:${a.id}`, a.assignment.department);
+      }
+    }
+
+    const operationIds = Array.from(idsByType.get(InvoiceSourceType.OPERATION) ?? []);
+    if (operationIds.length) {
+      const operations = await this.prisma.operation.findMany({
+        where: { id: { in: operationIds } },
+        select: { id: true, department: { select: { id: true, name: true } } },
+      });
+      for (const o of operations) {
+        if (o.department) result.set(`${InvoiceSourceType.OPERATION}:${o.id}`, o.department);
+      }
+    }
+
+    const procedureOrderIds = Array.from(idsByType.get(InvoiceSourceType.PROCEDURE_ORDER) ?? []);
+    if (procedureOrderIds.length) {
+      const procedureOrders = await this.prisma.procedureOrder.findMany({
+        where: { id: { in: procedureOrderIds } },
+        select: { id: true, procedure: { select: { department: { select: { id: true, name: true } } } } },
+      });
+      for (const po of procedureOrders) {
+        result.set(`${InvoiceSourceType.PROCEDURE_ORDER}:${po.id}`, po.procedure.department);
+      }
+    }
+
+    return result;
   }
 
   /** So'nggi N oy uchun oylik daromadni manba bo'yicha guruhlab qaytaradi (trend chart uchun). */

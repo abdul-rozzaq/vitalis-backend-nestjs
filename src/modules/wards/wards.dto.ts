@@ -10,6 +10,12 @@ export class CreateWardDto {
   @IsUUID()
   roomId: string;
 
+  // Bemor rasman biriktirilgan bo'lim. Berilmasa — xonaning bo'limi olinadi.
+  // Xona bo'limi to'lib qolganda, boshqa bo'lim xonasiga yotqizib, shu bo'limni belgilash mumkin.
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -78,6 +84,10 @@ export class UpdateWardDto {
   @IsOptional()
   @IsUUID()
   roomId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string | null;
 
   @IsOptional()
   @Type(() => Number)
