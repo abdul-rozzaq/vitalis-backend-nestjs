@@ -12,6 +12,7 @@ model Department {
   rooms       Room[]
   shifts      Shift[]
   procedures  Procedure[]
+  wards       Wards[]      @relation("WardDepartment")
 
   shiftTemplates ShiftTemplate[]
   fixedWorkSchedules FixedWorkSchedule[]

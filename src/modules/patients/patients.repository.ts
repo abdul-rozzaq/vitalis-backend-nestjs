@@ -25,7 +25,7 @@ export class PatientsRepository {
     });
   }
 
-async list(userId: string, isDoctor: boolean, search?: string, excludeOccupied?: boolean) {
+async list(userId: string, isDoctor: boolean, search?: string, excludeOccupied?: boolean, sourceId?: string) {
   return this.prisma.patient.findMany({
     where: {
       deletedAt: null,
@@ -46,6 +46,7 @@ async list(userId: string, isDoctor: boolean, search?: string, excludeOccupied?:
             },
           }
         : {}),
+      ...(sourceId ? { sourceId } : {}),
     },
     include: { district: { include: { region: true } }, source: true },
     orderBy: { createdAt: "desc" },

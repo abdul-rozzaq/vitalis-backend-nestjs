@@ -44,6 +44,10 @@ export class DefaultLabResultRowDto {
 
   @IsOptional()
   @IsString()
+  result?: string;
+
+  @IsOptional()
+  @IsString()
   norm?: string;
 
   @IsOptional()

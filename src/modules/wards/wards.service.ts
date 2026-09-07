@@ -53,10 +53,15 @@ export class WardsService {
       );
     }
 
-    // Fetch department to get default prices
+    // Bemor rasman biriktirilgan bo'lim: operator tanlasa — o'sha, aks holda xonaning bo'limi.
+    // (Bo'lim xonalari to'lganda boshqa bo'lim xonasiga yotqizib, shu bo'limni saqlab qolish uchun)
+    const departmentId = dto.departmentId ?? occupancy.room.departmentId;
     const department = await this.prisma.department.findUnique({
-      where: { id: occupancy.room.departmentId },
+      where: { id: departmentId },
     });
+    if (!department) {
+      throw new NotFoundException("Bo'lim topilmadi");
+    }
 
     // Resolve snapshot prices — operator override wins over department defaults
     const patientPricePerDay: Prisma.Decimal | null =
@@ -74,6 +79,7 @@ export class WardsService {
       const ward = await this.repository.createInTx(tx, {
         patientId: dto.patientId,
         roomId: dto.roomId,
+        departmentId,
         cardNumber: dto.cardNumber ?? null,
         doctorId: dto.doctorId ?? null,
         checkIn: dto.checkIn,
@@ -201,6 +207,14 @@ export class WardsService {
           `"${occupancy.room.name}" xonasi to'lgan (${occupancy.capacity}/${occupancy.capacity} o'rin band)`,
         );
       }
+    }
+
+    // Agar departmentId o'zgartirilsa — bo'lim mavjudligini tekshir
+    if (dto.departmentId) {
+      const department = await this.prisma.department.findUnique({
+        where: { id: dto.departmentId },
+      });
+      if (!department) throw new NotFoundException("Bo'lim topilmadi");
     }
 
     // Agar patientId o'zgartirilsa — yangi bemor allaqachon yotayotganmi?
