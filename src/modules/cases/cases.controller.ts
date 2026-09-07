@@ -6,12 +6,12 @@ import { JwtPayload } from "../../common/types/jwt-payload.type";
 import { AddCaseStepDto, CreateCaseDto, UpdateCaseStepDto } from "./cases.dto";
 import { CasesService } from "./cases.service";
 
-@Roles(RoleName.ADMIN, RoleName.DOCTOR, RoleName.HAMSHIRA, RoleName.KASSIR)
+@Roles(RoleName.ADMIN, RoleName.DOCTOR, RoleName.HAMSHIRA, RoleName.KASSIR, RoleName.LABARANT)
 @Controller("cases")
 export class CasesController {
   constructor(private readonly service: CasesService) {}
 
-  @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.DOCTOR)
+  @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.DOCTOR, RoleName.LABARANT)
   @Post()
   create(@Body() dto: CreateCaseDto, @CurrentUser() _user: JwtPayload) {
     return this.service.create(dto);
@@ -22,7 +22,7 @@ export class CasesController {
     return this.service.findById(id, user);
   }
 
-  @Roles(RoleName.ADMIN, RoleName.DOCTOR)
+  @Roles(RoleName.ADMIN, RoleName.DOCTOR, RoleName.LABARANT)
   @Post(":id/steps")
   addStep(@Param("id") id: string, @Body() dto: AddCaseStepDto, @CurrentUser() user: JwtPayload) {
     return this.service.addStep(id, dto, user);
@@ -52,7 +52,7 @@ export class CasesController {
   }
 }
 
-@Roles(RoleName.ADMIN, RoleName.DOCTOR, RoleName.HAMSHIRA, RoleName.KASSIR)
+@Roles(RoleName.ADMIN, RoleName.DOCTOR, RoleName.HAMSHIRA, RoleName.KASSIR, RoleName.LABARANT)
 @Controller("patients/:patientId/cases")
 export class PatientCasesController {
   constructor(private readonly service: CasesService) {}

@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { PatientsRepository } from "./patients.repository";
 import { Prisma } from "../../generated/prisma/client";
+import { PatientsRepository } from "./patients.repository";
 
 @Injectable()
 export class PatientsService {
@@ -14,9 +14,10 @@ export class PatientsService {
     userId: string,
     isDoctor: boolean,
     search?: string,
-    excludeOccupied?: boolean
+    excludeOccupied?: boolean,
+    sourceId?: string
   ) {
-    return this.repository.list(userId, isDoctor, search, excludeOccupied);
+    return this.repository.list(userId, isDoctor, search, excludeOccupied, sourceId);
   }
 
   async retrieve(id: string, userId: string, isDoctor: boolean) {
