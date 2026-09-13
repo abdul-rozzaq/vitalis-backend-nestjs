@@ -94,6 +94,7 @@ model InvoiceItem {
   dateTo      DateTime?
   sourceType  InvoiceItemSourceType
   sourceId    String?
+  createdAt   DateTime              @default(now())
   invoice     Invoice               @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
@@ -172,6 +173,7 @@ enum InvoiceSourceType {
   OPERATION
   DIAGNOSTIC_ORDER
   PROCEDURE_ORDER
+  CASE
 
   @@map("invoice_source_types")
 }

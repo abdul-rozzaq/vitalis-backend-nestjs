@@ -3,6 +3,7 @@ import { Prisma } from '../../generated/prisma/client';
 import {
   BalanceTxSource,
   BalanceTxType,
+  CaseBillingMode,
   InvoiceItemSourceType,
   InvoiceSourceType,
   InvoiceStatus,
@@ -12,8 +13,24 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { BalanceService } from '../balance/balance.service';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 
+type PrismaTx = Prisma.TransactionClient;
+
+export type MasterInvoiceItemInput = {
+  description: string;
+  quantity: number;
+  unitPrice: Prisma.Decimal;
+  sourceType: InvoiceItemSourceType;
+  sourceId?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+};
+
+// Unique index name from migration 20260911033703 — kept here purely so the
+// P2002 catch below documents which constraint it's guarding against.
+const ONE_ACTIVE_MASTER_PER_CASE_CONSTRAINT = 'invoices_one_active_master_per_case';
+
 const INVOICE_INCLUDE = {
-  items: true,
+  items: { orderBy: { createdAt: "asc" as const } },
   payments: { orderBy: { createdAt: "desc" as const } },
   patient: true,
 } as const;
@@ -315,6 +332,148 @@ export class InvoiceService {
         },
       },
       include: { items: true, patient: true },
+    });
+  }
+
+  /**
+   * Single entry point every billing module (cases, lab-orders, operations,
+   * ward-billing) routes through before creating its own per-service
+   * invoice. If the case is in MASTER billing mode, the items are appended
+   * to (or used to create) the case's one running Master Invoice and that
+   * invoice is returned — the caller must skip its normal per-service
+   * invoice creation in that case. Returns null for PER_SERVICE cases, so
+   * existing per-module behaviour is untouched by default.
+   *
+   * A PAID Master Invoice that receives new items is recomputed back to
+   * ISSUED/PARTIALLY_PAID automatically (same status-from-totals logic as
+   * updateInvoice/syncOperationInvoice elsewhere in this file) — this is
+   * the agreed "auto-reopen" behaviour, no separate branch needed.
+   */
+  async billCaseService(
+    tx: PrismaTx,
+    params: {
+      caseId: string;
+      patientId: string;
+      items: MasterInvoiceItemInput[];
+      createdById: string;
+    },
+  ) {
+    if (params.items.length === 0) return null;
+
+    const patientCase = await tx.patientCase.findUnique({
+      where: { id: params.caseId },
+      select: { billingMode: true },
+    });
+    if (!patientCase || patientCase.billingMode !== CaseBillingMode.MASTER) {
+      return null;
+    }
+
+    const itemsData = params.items.map((item) => ({
+      description: item.description,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      totalPrice: item.unitPrice.mul(item.quantity),
+      sourceType: item.sourceType,
+      sourceId: item.sourceId,
+      dateFrom: item.dateFrom,
+      dateTo: item.dateTo,
+    }));
+    const addedTotal = itemsData.reduce((sum, i) => sum.add(i.totalPrice), new Prisma.Decimal(0));
+
+    const existing = await tx.invoice.findFirst({
+      where: {
+        sourceType: InvoiceSourceType.CASE,
+        sourceId: params.caseId,
+        status: { not: InvoiceStatus.CANCELLED },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: { items: true },
+    });
+
+    if (existing) {
+      return this.appendToMasterInvoice(tx, existing, itemsData, addedTotal);
+    }
+
+    // Defensive fallback: "convert to master" should already have created a
+    // DRAFT Master Invoice for this case, so we normally never reach here.
+    // If we do, create one now instead of silently falling back to
+    // per-service billing (which would re-fragment the bill). Status stays
+    // DRAFT — same reasoning as appendToMasterInvoice below: the journal
+    // accumulates quietly, becoming a real (ISSUED) invoice only when
+    // someone deliberately does that via PATCH /invoices/:id. Guarded by
+    // the invoices_one_active_master_per_case unique index against a
+    // concurrent request doing the same thing.
+    try {
+      return await tx.invoice.create({
+        data: {
+          patientId: params.patientId,
+          sourceType: InvoiceSourceType.CASE,
+          sourceId: params.caseId,
+          status: InvoiceStatus.DRAFT,
+          totalAmount: addedTotal,
+          createdById: params.createdById,
+          items: { create: itemsData },
+        },
+        include: { items: true },
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        // Lost the race to another concurrent call — the constraint named
+        // in ONE_ACTIVE_MASTER_PER_CASE_CONSTRAINT means one now exists.
+        const winner = await tx.invoice.findFirstOrThrow({
+          where: { sourceType: InvoiceSourceType.CASE, sourceId: params.caseId, status: { not: InvoiceStatus.CANCELLED } },
+          orderBy: { createdAt: 'desc' },
+          include: { items: true },
+        });
+        return this.appendToMasterInvoice(tx, winner, itemsData, addedTotal);
+      }
+      throw err;
+    }
+  }
+
+  private async appendToMasterInvoice(
+    tx: PrismaTx,
+    invoice: { id: string; status: InvoiceStatus; totalAmount: Prisma.Decimal; paidCash: Prisma.Decimal; paidBonus: Prisma.Decimal },
+    itemsData: Array<{
+      description: string;
+      quantity: number;
+      unitPrice: Prisma.Decimal;
+      totalPrice: Prisma.Decimal;
+      sourceType: InvoiceItemSourceType;
+      sourceId?: string;
+      dateFrom?: Date;
+      dateTo?: Date;
+    }>,
+    addedTotal: Prisma.Decimal,
+  ) {
+    const newTotal = invoice.totalAmount.add(addedTotal);
+    const paidTotal = invoice.paidCash.add(invoice.paidBonus);
+
+    // Hali DRAFT bo'lsa (hech kim "Invois yaratish" bosmagan) — jurnal
+    // shunchaki summasi o'sib, itemlar qo'shilib boraveradi, lekin holat
+    // DRAFT'da qoladi. Faqat xodim qo'lda invoisni "chiqargandan" keyin
+    // (status boshqa qiymatga o'tgach) yangi itemlar avtomatik
+    // ISSUED/PARTIALLY_PAID/PAID orasida qayta hisoblanadi (masalan PAID'dan
+    // keyin avtomatik qayta ochish uchun). Bu — reja hujjatidagi talab:
+    // invois "qachon shuncha to'lanadi" deb qo'lda yaratilishi kerak,
+    // xizmat qo'shilgan zahoti emas.
+    const newStatus =
+      invoice.status === InvoiceStatus.DRAFT
+        ? InvoiceStatus.DRAFT
+        : newTotal.greaterThan(0) && paidTotal.greaterThanOrEqualTo(newTotal)
+          ? InvoiceStatus.PAID
+          : paidTotal.greaterThan(0)
+            ? InvoiceStatus.PARTIALLY_PAID
+            : InvoiceStatus.ISSUED;
+
+    return tx.invoice.update({
+      where: { id: invoice.id },
+      data: {
+        totalAmount: newTotal,
+        status: newStatus,
+        items: { create: itemsData },
+      },
+      include: { items: true },
     });
   }
 

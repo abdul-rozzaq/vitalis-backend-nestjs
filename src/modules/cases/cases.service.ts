@@ -2,9 +2,11 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { AppException } from "../../common/exceptions/app.exception";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
-import { CaseStepStatus, CaseStepType, Prisma } from "../../generated/prisma/client";
+import { CaseBillingMode, CaseStatus, CaseStepStatus, CaseStepType, Prisma } from "../../generated/prisma/client";
 import { InvoiceItemSourceType, InvoiceSourceType, InvoiceStatus } from "../../generated/prisma/enums";
 import { PrismaService } from "../../prisma/prisma.service";
+import { InvoiceService } from "../invoice/invoice.service";
+import { generateOperationContractDocx, OperationContractRow } from "../operations/generators/operation-contract-docx";
 import { AddCaseStepDto, CreateCaseDto, UpdateCaseStepDto } from "./cases.dto";
 import { CasesRepository, STEP_INCLUDE } from "./cases.repository";
 
@@ -13,10 +15,34 @@ export class CasesService {
   constructor(
     private readonly repo: CasesRepository,
     private readonly prisma: PrismaService,
+    private readonly invoiceService: InvoiceService,
   ) {}
 
   findByPatientId(patientId: string, user: JwtPayload) {
     return this.repo.findByPatientId(patientId, user.userId, user.role === RoleName.DOCTOR);
+  }
+
+  /**
+   * "To'lov jurnali" sahifasi uchun — klinika bo'yicha (bemordan qat'iy
+   * nazar) filtrga mos case'lar ro'yxati, har biriga tegishli Master
+   * Invoice (bo'lsa) bilan birga. Invoice PatientCase bilan haqiqiy FK
+   * orqali bog'lanmagani uchun (faqat sourceType+sourceId) ikkinchi
+   * so'rov bilan qo'lda birlashtiriladi.
+   */
+  async findAll(filters: { billingMode?: CaseBillingMode; status?: CaseStatus }) {
+    const cases = await this.repo.findAll(filters);
+    if (cases.length === 0) return [];
+
+    const invoices = await this.prisma.invoice.findMany({
+      where: {
+        sourceType: InvoiceSourceType.CASE,
+        sourceId: { in: cases.map((c) => c.id) },
+      },
+      select: { id: true, sourceId: true, status: true, totalAmount: true, paidCash: true, paidBonus: true },
+    });
+    const invoiceByCaseId = new Map(invoices.map((inv) => [inv.sourceId, inv]));
+
+    return cases.map((c) => ({ ...c, invoice: invoiceByCaseId.get(c.id) ?? null }));
   }
 
   async findById(id: string, user: JwtPayload) {
@@ -25,14 +51,25 @@ export class CasesService {
     return c;
   }
 
-  async create(dto: CreateCaseDto) {
-    return this.repo.create(dto.patientId, dto.chiefComplaint);
+  async create(dto: CreateCaseDto, user: JwtPayload) {
+    const created = await this.repo.create(dto.patientId, dto.chiefComplaint);
+    if (dto.billingMode === "MASTER") {
+      await this.convertToMaster(created!.id, user);
+      return this.repo.findById(created!.id, user.userId, user.role === RoleName.DOCTOR);
+    }
+    return created;
   }
 
   async addStep(caseId: string, dto: AddCaseStepDto, user: JwtPayload) {
     const patientCase = await this.repo.findById(caseId, user.userId, user.role === RoleName.DOCTOR);
 
     if (!patientCase) throw new NotFoundException("Case not found");
+
+    // Hamshira faqat ukol/protsedura ("ukol qildim") qo'sha oladi — boshqa
+    // qadam turlari (konsultatsiya, lab, chiqish va h.k.) uchun ruxsati yo'q.
+    if (user.role === RoleName.HAMSHIRA && dto.type !== CaseStepType.PROCEDURE) {
+      throw new AppException("Hamshira faqat protsedura (ukol) qo'sha oladi", 403);
+    }
 
     if (dto.type === CaseStepType.CONSULTATION) {
       if (!dto.assignmentId) throw new AppException("assignmentId required for CONSULTATION", 400);
@@ -54,28 +91,45 @@ export class CasesService {
 
       const price = new Prisma.Decimal(dto.amount ?? assignment.department.price ?? 0);
 
-      await this.prisma.invoice.create({
-        data: {
-          patientId: patientCase.patientId,
-          sourceType: InvoiceSourceType.APPOINTMENT,
-          sourceId: appointment.id,
-          totalAmount: price,
-          status: InvoiceStatus.ISSUED,
-          createdById: user.userId,
-          items: {
-            create: [
-              {
-                description: `${assignment.department.name} konsultatsiya`,
-                quantity: 1,
-                unitPrice: price,
-                totalPrice: price,
-                sourceType: InvoiceItemSourceType.APPOINTMENT,
-                sourceId: appointment.id,
-              },
-            ],
+      const billedToMaster = await this.invoiceService.billCaseService(this.prisma, {
+        caseId,
+        patientId: patientCase.patientId,
+        createdById: user.userId,
+        items: [
+          {
+            description: `${assignment.department.name} konsultatsiya`,
+            quantity: 1,
+            unitPrice: price,
+            sourceType: InvoiceItemSourceType.APPOINTMENT,
+            sourceId: appointment.id,
           },
-        },
+        ],
       });
+
+      if (!billedToMaster) {
+        await this.prisma.invoice.create({
+          data: {
+            patientId: patientCase.patientId,
+            sourceType: InvoiceSourceType.APPOINTMENT,
+            sourceId: appointment.id,
+            totalAmount: price,
+            status: InvoiceStatus.ISSUED,
+            createdById: user.userId,
+            items: {
+              create: [
+                {
+                  description: `${assignment.department.name} konsultatsiya`,
+                  quantity: 1,
+                  unitPrice: price,
+                  totalPrice: price,
+                  sourceType: InvoiceItemSourceType.APPOINTMENT,
+                  sourceId: appointment.id,
+                },
+              ],
+            },
+          },
+        });
+      }
 
       return this.repo.createStep(caseId, {
         type: CaseStepType.CONSULTATION,
@@ -186,17 +240,26 @@ export class CasesService {
             });
           }
 
-          await tx.invoice.create({
-            data: {
-              patientId: patientCase.patientId,
-              sourceType: InvoiceSourceType.LAB_ORDER,
-              sourceId: step.id,
-              totalAmount: finalTotal,
-              status: InvoiceStatus.ISSUED,
-              createdById: user.userId,
-              items: { create: allInvoiceItems },
-            },
+          const billedToMaster = await this.invoiceService.billCaseService(tx, {
+            caseId,
+            patientId: patientCase.patientId,
+            createdById: user.userId,
+            items: allInvoiceItems,
           });
+
+          if (!billedToMaster) {
+            await tx.invoice.create({
+              data: {
+                patientId: patientCase.patientId,
+                sourceType: InvoiceSourceType.LAB_ORDER,
+                sourceId: step.id,
+                totalAmount: finalTotal,
+                status: InvoiceStatus.ISSUED,
+                createdById: user.userId,
+                items: { create: allInvoiceItems },
+              },
+            });
+          }
         }
 
         return tx.caseStep.findUnique({ where: { id: step.id }, include: STEP_INCLUDE });
@@ -254,17 +317,26 @@ export class CasesService {
         });
         const totalAmount = invoiceItems.reduce((sum, item) => sum.add(item.unitPrice), new Prisma.Decimal(0));
 
-        await tx.invoice.create({
-          data: {
-            patientId: patientCase.patientId,
-            sourceType: InvoiceSourceType.DIAGNOSTIC_ORDER,
-            sourceId: diagnosticOrder.id,
-            totalAmount,
-            status: InvoiceStatus.ISSUED,
-            createdById: user.userId,
-            items: { create: invoiceItems },
-          },
+        const billedToMaster = await this.invoiceService.billCaseService(tx, {
+          caseId,
+          patientId: patientCase.patientId,
+          createdById: user.userId,
+          items: invoiceItems,
         });
+
+        if (!billedToMaster) {
+          await tx.invoice.create({
+            data: {
+              patientId: patientCase.patientId,
+              sourceType: InvoiceSourceType.DIAGNOSTIC_ORDER,
+              sourceId: diagnosticOrder.id,
+              totalAmount,
+              status: InvoiceStatus.ISSUED,
+              createdById: user.userId,
+              items: { create: invoiceItems },
+            },
+          });
+        }
 
         return tx.caseStep.findUnique({ where: { id: step.id }, include: STEP_INCLUDE });
       });
@@ -307,34 +379,52 @@ export class CasesService {
           },
         });
 
-        await tx.invoice.create({
-          data: {
-            patientId: patientCase.patientId,
-            sourceType: InvoiceSourceType.PROCEDURE_ORDER,
-            sourceId: procedureOrder.id,
-            totalAmount: price,
-            status: InvoiceStatus.ISSUED,
-            createdById: user.userId,
-            items: {
-              create: [
-                {
-                  description: procedure.name,
-                  quantity: 1,
-                  unitPrice: price,
-                  totalPrice: price,
-                  sourceType: InvoiceItemSourceType.PROCEDURE_SERVICE,
-                  sourceId: procedure.id,
-                },
-              ],
+        const billedToMaster = await this.invoiceService.billCaseService(tx, {
+          caseId,
+          patientId: patientCase.patientId,
+          createdById: user.userId,
+          items: [
+            {
+              description: procedure.name,
+              quantity: 1,
+              unitPrice: price,
+              sourceType: InvoiceItemSourceType.PROCEDURE_SERVICE,
+              sourceId: procedure.id,
             },
-          },
+          ],
         });
+
+        if (!billedToMaster) {
+          await tx.invoice.create({
+            data: {
+              patientId: patientCase.patientId,
+              sourceType: InvoiceSourceType.PROCEDURE_ORDER,
+              sourceId: procedureOrder.id,
+              totalAmount: price,
+              status: InvoiceStatus.ISSUED,
+              createdById: user.userId,
+              items: {
+                create: [
+                  {
+                    description: procedure.name,
+                    quantity: 1,
+                    unitPrice: price,
+                    totalPrice: price,
+                    sourceType: InvoiceItemSourceType.PROCEDURE_SERVICE,
+                    sourceId: procedure.id,
+                  },
+                ],
+              },
+            },
+          });
+        }
 
         return tx.caseStep.findUnique({ where: { id: step.id }, include: STEP_INCLUDE });
       });
     }
 
     if (dto.type === CaseStepType.DISCHARGE) {
+      await this.attemptMasterInvoiceSettlement(caseId, user.userId);
       await this.repo.closeCase(caseId, "COMPLETED");
       return this.repo.createStep(caseId, {
         type: CaseStepType.DISCHARGE,
@@ -348,6 +438,56 @@ export class CasesService {
       type: dto.type,
       assignmentId: dto.assignmentId,
       note: dto.note,
+    });
+  }
+
+  /**
+   * Case'ni Master Invoice rejimiga o'tkazadi — bir yo'nalishli harakat
+   * (orqaga qaytarish endpointi yo'q, ataylab). Bo'sh DRAFT Master Invoice
+   * ochadi; keyingi barcha xizmatlar (billCaseService orqali) shunga
+   * qo'shiladi. Moliyaviy oqibati katta harakat bo'lgani uchun audit log
+   * majburiy.
+   */
+  async convertToMaster(caseId: string, user: JwtPayload) {
+    const patientCase = await this.prisma.patientCase.findUnique({ where: { id: caseId } });
+    if (!patientCase) throw new NotFoundException("Case not found");
+
+    if (patientCase.billingMode === "MASTER") {
+      throw new AppException("Bu case allaqachon Master hisob rejimida", 400);
+    }
+    if (patientCase.status !== "ACTIVE") {
+      throw new AppException("Faqat faol (ACTIVE) case'ni Master rejimga o'tkazish mumkin", 400);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const masterInvoice = await tx.invoice.create({
+        data: {
+          patientId: patientCase.patientId,
+          sourceType: InvoiceSourceType.CASE,
+          sourceId: caseId,
+          status: InvoiceStatus.DRAFT,
+          totalAmount: new Prisma.Decimal(0),
+          createdById: user.userId,
+        },
+      });
+
+      const updatedCase = await tx.patientCase.update({
+        where: { id: caseId },
+        data: { billingMode: "MASTER" },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: user.userId,
+          entity: "PatientCase",
+          entityId: caseId,
+          action: "CONVERT_TO_MASTER_INVOICE",
+          oldValues: { billingMode: patientCase.billingMode },
+          newValues: { billingMode: "MASTER", masterInvoiceId: masterInvoice.id },
+        },
+      });
+
+      return { case: updatedCase, masterInvoice };
     });
   }
 
@@ -370,7 +510,74 @@ export class CasesService {
   async closeCase(caseId: string, status: "COMPLETED" | "CANCELLED", user: JwtPayload) {
     const patientCase = await this.repo.findById(caseId, user.userId, user.role === RoleName.DOCTOR);
     if (!patientCase) throw new NotFoundException("Case not found");
+    if (status === "COMPLETED") {
+      await this.attemptMasterInvoiceSettlement(caseId, user.userId);
+    }
     return this.repo.closeCase(caseId, status);
+  }
+
+  /**
+   * Case MASTER rejimida bo'lsa, chiqishda (Discharge/COMPLETED) hamyonda
+   * (bonus + naqd balans) qolgan qarzni to'liq yopish uchun yetarli mablag'
+   * bo'lsa, avtomatik yakuniy hisob-kitob qiladi — reja hujjatidagi "hamyonda
+   * yetarli bo'lsa bir tugma bilan avtomatik yopiladi" qoidasi. Yetarli
+   * bo'lmasa hech narsa qilinmaydi: invoice ISSUED/PARTIALLY_PAID holida
+   * qoladi, kassir keyinroq mavjud to'lov oynasi (topUp bilan naqd/karta)
+   * orqali yopadi. Chiqishning o'zi hech qachon shu tekshiruv tufayli
+   * bloklanmaydi — bu metod hech qachon throw qilmaydi.
+   */
+  private async attemptMasterInvoiceSettlement(caseId: string, staffId: string) {
+    const patientCase = await this.prisma.patientCase.findUnique({
+      where: { id: caseId },
+      select: { billingMode: true },
+    });
+    if (!patientCase || patientCase.billingMode !== "MASTER") return;
+
+    const invoice = await this.prisma.invoice.findFirst({
+      where: {
+        sourceType: InvoiceSourceType.CASE,
+        sourceId: caseId,
+        // DRAFT ham kiradi: agar xodim davolash davomida hech qachon
+        // "Invois yaratish" bosmagan bo'lsa ham, chiqishda bu hisob-kitob
+        // baribir amalga oshishi kerak (qarang: pastdagi DRAFT->ISSUED band).
+        status: { in: [InvoiceStatus.DRAFT, InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID] },
+      },
+    });
+    if (!invoice) return;
+
+    const remaining = invoice.totalAmount.sub(invoice.paidCash.add(invoice.paidBonus));
+    if (remaining.lessThanOrEqualTo(0)) return;
+
+    const [cashBal, bonusBal] = await Promise.all([
+      this.prisma.patientBalance.findUnique({ where: { patientId: invoice.patientId } }),
+      this.prisma.patientBonusBalance.findUnique({ where: { patientId: invoice.patientId } }),
+    ]);
+
+    const zero = new Prisma.Decimal(0);
+    const availableBonus = bonusBal?.balance ?? zero;
+    const bonusToUse = Prisma.Decimal.min(availableBonus, remaining);
+    const cashNeeded = remaining.sub(bonusToUse);
+    const availableCash = cashBal?.balance ?? zero;
+
+    if (availableCash.lessThan(cashNeeded)) {
+      // Hamyon yetarli emas — avtomatik to'lay olmaymiz. Lekin invois hali
+      // DRAFT bo'lsa, "chiqarilgan" (ISSUED) holatga o'tkazamiz — aks holda
+      // kassir uni standart to'lov ekranlarida (Balans, Invoicelar) topa
+      // olmaydi, chunki ular faqat ISSUED/PARTIALLY_PAID'ni ko'rsatadi.
+      // Chiqishning o'zi baribir bloklanmaydi.
+      if (invoice.status === InvoiceStatus.DRAFT) {
+        await this.prisma.invoice.update({ where: { id: invoice.id }, data: { status: InvoiceStatus.ISSUED } });
+      }
+      return;
+    }
+
+    await this.invoiceService.payInvoice({
+      invoiceId: invoice.id,
+      cashAmount: cashNeeded,
+      bonusAmount: bonusToUse,
+      staffId,
+      note: "Chiqishda avtomatik yakuniy hisob-kitob (hamyondan)",
+    });
   }
 
   async deleteStep(caseId: string, stepId: string, user: JwtPayload) {
@@ -391,5 +598,67 @@ export class CasesService {
     const patientCase = await this.repo.findById(caseId, user.userId, user.role === RoleName.DOCTOR);
     if (!patientCase) throw new NotFoundException("Case not found");
     return this.repo.deleteCase(caseId);
+  }
+
+  /**
+   * Case jurnalini (Master Invoice qatorlari) klinikaning mavjud "hisob
+   * kitobi" shakliga solib, bosib chiqarish uchun DOCX hujjat yaratadi —
+   * xuddi operatsiya shartnomasi generatoridan (generateOperationContractDocx)
+   * foydalanadi, chunki ikkalasi ham bitta qog'oz shabloniga ("EUROMED
+   * FAMILY" МЧЖ клиникаси hisob-kitobi) mos keladi. Case'ning o'ziga xos
+   * shartnoma raqami yo'q — id'dan qisqa taqsimlangan havola sifatida
+   * hosil qilinadi (operatsiyalardagi fallback bilan bir xil naqsh).
+   */
+  async generateJournalDocument(caseId: string) {
+    const patientCase = await this.prisma.patientCase.findUnique({
+      where: { id: caseId },
+      include: { patient: true },
+    });
+    if (!patientCase) throw new NotFoundException("Case not found");
+
+    const invoice = await this.prisma.invoice.findFirst({
+      where: {
+        sourceType: InvoiceSourceType.CASE,
+        sourceId: caseId,
+        status: { not: InvoiceStatus.CANCELLED },
+      },
+      include: { items: { orderBy: { createdAt: "asc" } } },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const rows: OperationContractRow[] = (invoice?.items ?? []).map((item) => ({
+      name: item.description,
+      unit: item.sourceType === InvoiceItemSourceType.WARD_DAILY ? "кун" : undefined,
+      quantity: item.quantity,
+      unitPrice: Number(item.unitPrice),
+      totalPrice: Number(item.totalPrice),
+    }));
+
+    // Eng so'nggi yotoq yozuvidagi shifokorni "daволовчи shifokor" sifatida
+    // ko'rsatishga urinamiz — topilmasa qog'ozda qo'lda to'ldirish uchun
+    // bo'sh qoldiriladi.
+    const ward = await this.prisma.wards.findFirst({
+      where: { caseId },
+      include: { doctor: true },
+      orderBy: { checkIn: "desc" },
+    });
+
+    const now = new Date();
+    const buffer = await generateOperationContractDocx({
+      contractNumber: caseId.slice(0, 8).toUpperCase(),
+      contractTime: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+      startDate: patientCase.openedAt,
+      endDate: patientCase.closedAt,
+      patientFullName: `${patientCase.patient.first_name} ${patientCase.patient.last_name}`,
+      patientBirthDate: patientCase.patient.birth_date,
+      patientAddress: patientCase.patient.address,
+      diagnosis: patientCase.chiefComplaint,
+      doctorName: ward?.doctor ? `${ward.doctor.first_name} ${ward.doctor.last_name}` : undefined,
+      rows,
+      totalPrice: Number(invoice?.totalAmount ?? 0),
+      minRowCount: Math.max(20, rows.length + 3),
+    });
+
+    return { buffer, patientCase };
   }
 }

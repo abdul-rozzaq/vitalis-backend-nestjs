@@ -3,6 +3,7 @@ model Wards {
   patientId       String
   roomId          String
   departmentId    String?
+  caseId          String?
   cardNumber      Int?
   doctorId        String?
   checkIn         DateTime   @default(now())
@@ -22,7 +23,10 @@ model Wards {
   room            Room       @relation(fields: [roomId], references: [id])
   department      Department? @relation("WardDepartment", fields: [departmentId], references: [id])
   doctor          User?      @relation("WardDoctor", fields: [doctorId], references: [id])
+  case            PatientCase? @relation(fields: [caseId], references: [id])
 
+  @@index([departmentId])
+  @@index([caseId])
   @@map("wards")
 }
 
