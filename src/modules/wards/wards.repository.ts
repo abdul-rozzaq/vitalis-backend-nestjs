@@ -7,6 +7,7 @@ import { UpdateWardDto } from "./wards.dto";
 export interface WardCreateData {
   patientId: string;
   roomId: string;
+  departmentId?: string | null;
   checkIn?: string;
   expectedOut?: string;
   cardNumber?: number | null;
@@ -54,6 +55,13 @@ const WARD_INCLUDE = {
       },
     },
   },
+  // Bemor rasman biriktirilgan bo'lim (xonaning jismoniy bo'limidan farqli bo'lishi mumkin)
+  department: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
 } as const;
 
 @Injectable()
@@ -79,6 +87,7 @@ export class WardsRepository {
       data: {
         patientId: data.patientId,
         roomId: data.roomId,
+        departmentId: data.departmentId ?? null,
         cardNumber: data.cardNumber ?? null,
         doctorId: data.doctorId ?? null,
         checkIn: data.checkIn ? new Date(data.checkIn) : new Date(),
@@ -197,6 +206,7 @@ export class WardsRepository {
       data: {
         ...(data.patientId !== undefined ? { patientId: data.patientId } : {}),
         ...(data.roomId !== undefined ? { roomId: data.roomId } : {}),
+        ...(data.departmentId !== undefined ? { departmentId: data.departmentId } : {}),
         ...(data.cardNumber !== undefined ? { cardNumber: data.cardNumber } : {}),
         ...(data.doctorId !== undefined ? { doctorId: data.doctorId } : {}),
         ...(data.checkIn !== undefined ? { checkIn: new Date(data.checkIn) } : {}),

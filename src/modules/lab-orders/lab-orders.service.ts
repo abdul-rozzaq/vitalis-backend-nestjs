@@ -149,6 +149,17 @@ export class LabOrdersService {
     const order = await this.repo.findById(orderId);
     if (!order) throw new NotFoundException("Lab order not found");
 
+    if (user.role === RoleName.LABARANT) {
+      const labAssignments = await this.prisma.laboratoryAssignment.findMany({
+        where: { userId: user.userId, isActive: true },
+        select: { laboratoryId: true },
+      });
+      const laboratoryIds = labAssignments.map((a) => a.laboratoryId);
+      if (!laboratoryIds.includes(order.laboratoryId)) {
+        throw new ForbiddenException("Bu buyurtmaga xizmat qo'shish uchun ruxsat yo'q");
+      }
+    }
+
     const uniqueServiceIds = Array.from(new Set(dto.serviceIds));
     const existingIds = new Set(order.items.filter((i) => i.status !== "CANCELLED").map((i) => i.serviceId));
 
@@ -207,21 +218,42 @@ export class LabOrdersService {
         });
       }
 
-      // Eski invoice'ga qo'shib yubormaymiz — u allaqachon to'langan/qisman
-      // to'langan bo'lishi mumkin, shu sababli qo'shimcha xizmatlar uchun
-      // har doim alohida yangi invoice ochamiz (bitta caseStep bo'yicha bir
-      // nechta invoice bo'lishi tizimda normal holat, qarang: getInvoicesBySource).
-      await this.prisma.invoice.create({
-        data: {
-          patientId: order.patientId,
+      // Agar shu caseStep uchun hali to'lanmagan (ISSUED) invois mavjud
+      // bo'lsa — yangi xizmatlar o'sha invoisga qo'shiladi, shunda bitta
+      // bemorga ketma-ket (masalan bir necha soat ichida) qo'shilgan
+      // xizmatlar uchun bir nechta alohida to'lov invoisi hosil bo'lmaydi.
+      // Agar invois allaqachon (hech bo'lmasa qisman) to'langan bo'lsa,
+      // eskisini o'zgartirmaymiz — yangi xizmatlar uchun alohida invois
+      // ochamiz (to'lov tarixini buzmaslik uchun).
+      const existingInvoice = await this.prisma.invoice.findFirst({
+        where: {
           sourceType: InvoiceSourceType.LAB_ORDER,
           sourceId: order.caseStep.id,
-          totalAmount: finalTotal,
           status: InvoiceStatus.ISSUED,
-          createdById: user.userId,
-          items: { create: invoiceItemsData },
         },
       });
+
+      if (existingInvoice) {
+        await this.prisma.invoice.update({
+          where: { id: existingInvoice.id },
+          data: {
+            totalAmount: existingInvoice.totalAmount.add(finalTotal),
+            items: { create: invoiceItemsData },
+          },
+        });
+      } else {
+        await this.prisma.invoice.create({
+          data: {
+            patientId: order.patientId,
+            sourceType: InvoiceSourceType.LAB_ORDER,
+            sourceId: order.caseStep.id,
+            totalAmount: finalTotal,
+            status: InvoiceStatus.ISSUED,
+            createdById: user.userId,
+            items: { create: invoiceItemsData },
+          },
+        });
+      }
     }
 
     await this.repo.recalcOrderStatus(orderId);
@@ -282,17 +314,37 @@ export class LabOrdersService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.invoice.create({
-        data: {
-          patientId: order.patientId,
+      // addItems'dagi kabi — hali to'lanmagan (ISSUED) invois bo'lsa, shu
+      // invoisga qo'shamiz, aks holda yangisini ochamiz.
+      const existingInvoice = await tx.invoice.findFirst({
+        where: {
           sourceType: InvoiceSourceType.LAB_ORDER,
           sourceId: order.caseStep.id,
-          totalAmount: finalTotal,
           status: InvoiceStatus.ISSUED,
-          createdById: user.userId,
-          items: { create: invoiceItemsData },
         },
       });
+
+      if (existingInvoice) {
+        await tx.invoice.update({
+          where: { id: existingInvoice.id },
+          data: {
+            totalAmount: existingInvoice.totalAmount.add(finalTotal),
+            items: { create: invoiceItemsData },
+          },
+        });
+      } else {
+        await tx.invoice.create({
+          data: {
+            patientId: order.patientId,
+            sourceType: InvoiceSourceType.LAB_ORDER,
+            sourceId: order.caseStep.id,
+            totalAmount: finalTotal,
+            status: InvoiceStatus.ISSUED,
+            createdById: user.userId,
+            items: { create: invoiceItemsData },
+          },
+        });
+      }
 
       await tx.labOrderItem.updateMany({
         where: { id: { in: pendingItems.map((i) => i.id) } },
