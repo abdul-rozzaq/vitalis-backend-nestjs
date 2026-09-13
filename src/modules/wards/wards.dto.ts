@@ -10,6 +10,13 @@ export class CreateWardDto {
   @IsUUID()
   roomId: string;
 
+  // Bemorning qaysi ishiga (case) tegishli ekanini xodim qo'lda tanlaydi.
+  // Berilmasa — bemorning faol case'i topiladi (yo'q bo'lsa yaratiladi),
+  // hozirgidek.
+  @IsOptional()
+  @IsUUID()
+  caseId?: string;
+
   // Bemor rasman biriktirilgan bo'lim. Berilmasa — xonaning bo'limi olinadi.
   // Xona bo'limi to'lib qolganda, boshqa bo'lim xonasiga yotqizib, shu bo'limni belgilash mumkin.
   @IsOptional()

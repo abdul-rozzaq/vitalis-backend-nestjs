@@ -8,6 +8,7 @@ export interface WardCreateData {
   patientId: string;
   roomId: string;
   departmentId?: string | null;
+  caseId?: string | null;
   checkIn?: string;
   expectedOut?: string;
   cardNumber?: number | null;
@@ -88,6 +89,7 @@ export class WardsRepository {
         patientId: data.patientId,
         roomId: data.roomId,
         departmentId: data.departmentId ?? null,
+        caseId: data.caseId ?? null,
         cardNumber: data.cardNumber ?? null,
         doctorId: data.doctorId ?? null,
         checkIn: data.checkIn ? new Date(data.checkIn) : new Date(),

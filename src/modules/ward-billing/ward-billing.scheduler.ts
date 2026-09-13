@@ -87,18 +87,66 @@ export class WardBillingScheduler implements OnModuleInit {
 
     if (totalDaily.equals(zero)) return;
 
-    // Idempotency: one WARD_DAILY charge per ward per clinic day
-    const existing = await this.prisma.balanceTransaction.findFirst({
-      where: {
-        source: BalanceTxSource.WARD_DAILY,
-        sourceId: ward.id,
-        createdAt: { gte: todayStart, lte: todayEnd },
-      },
-    });
+    // Idempotency: one WARD_DAILY charge per ward per clinic day. Checked
+    // two ways — a MASTER-mode case (see below) never creates a
+    // BalanceTransaction here (payment is deferred to the cashier), so the
+    // Master Invoice line item is the only record of that charge in that case.
+    const [existingTx, existingMasterItem] = await Promise.all([
+      this.prisma.balanceTransaction.findFirst({
+        where: {
+          source: BalanceTxSource.WARD_DAILY,
+          sourceId: ward.id,
+          createdAt: { gte: todayStart, lte: todayEnd },
+        },
+      }),
+      this.prisma.invoiceItem.findFirst({
+        where: {
+          sourceType: InvoiceItemSourceType.WARD_DAILY,
+          sourceId: ward.id,
+          dateFrom: todayStart,
+        },
+      }),
+    ]);
 
-    if (existing) {
+    if (existingTx || existingMasterItem) {
       this.logger.log(`Ward ${ward.id} already charged today — skipping.`);
       return;
+    }
+
+    // If this admission is linked to a case in MASTER billing mode, append
+    // today's charge as a line item on the case's Master Invoice instead of
+    // creating/auto-paying a standalone WARD invoice. Master Invoice payment
+    // is deferred — settled by the cashier from the patient's deposit at
+    // any time — so we deliberately do NOT auto-charge the balance here.
+    if (ward.caseId) {
+      const masterInvoice = await this.prisma.$transaction((tx) =>
+        this.invoiceService.billCaseService(tx, {
+          caseId: ward.caseId!,
+          patientId: ward.patientId,
+          items: [
+            {
+              description: `Palata narxi (${ward.room.name})`,
+              quantity: 1,
+              unitPrice: totalDaily,
+              sourceType: InvoiceItemSourceType.WARD_DAILY,
+              sourceId: ward.id,
+              dateFrom: todayStart,
+              dateTo: todayEnd,
+            },
+          ],
+          createdById: this.systemUserId!,
+        }),
+      );
+
+      if (masterInvoice) {
+        await this.prisma.wards.update({
+          where: { id: ward.id },
+          data: { totalCharged: { increment: totalDaily } },
+        });
+        return;
+      }
+      // masterInvoice === null → case exists but is PER_SERVICE, fall
+      // through to the legacy per-ward invoice + auto-charge flow below.
     }
 
     // Compute Bonus → Balance split

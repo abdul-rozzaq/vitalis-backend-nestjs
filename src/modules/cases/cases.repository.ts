@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { CaseStatus, CaseStepStatus, CaseStepType, Prisma } from "../../generated/prisma/client";
+import { CaseBillingMode, CaseStatus, CaseStepStatus, CaseStepType, Prisma } from "../../generated/prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 
 export const STEP_INCLUDE = {
@@ -96,6 +96,25 @@ export class CasesRepository {
         // ...(isDoctor ? doctorWhere(userId) : {}),
       },
       include: CASE_INCLUDE,
+    });
+  }
+
+  /**
+   * Bemorga bog'lanmagan, klinika bo'yicha ro'yxat — masalan "To'lov
+   * jurnali" sahifasi uchun hozir ochiq (yoki filtrga mos) barcha
+   * case'larni topadi. `findByPatientId`dan farqli, bu yerda patientId
+   * bo'yicha cheklov yo'q.
+   */
+  async findAll(filters: { billingMode?: CaseBillingMode; status?: CaseStatus }) {
+    return this.prisma.patientCase.findMany({
+      where: {
+        ...(filters.billingMode ? { billingMode: filters.billingMode } : {}),
+        ...(filters.status ? { status: filters.status } : {}),
+      },
+      include: {
+        patient: { select: { id: true, first_name: true, last_name: true, phone_number: true } },
+      },
+      orderBy: { openedAt: "desc" },
     });
   }
 
