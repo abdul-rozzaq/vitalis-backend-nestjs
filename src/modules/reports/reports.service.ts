@@ -165,6 +165,10 @@ export class ReportsService {
     // sun'iy ko'payib ketardi).
     const byMethodMap = new Map<string, { amount: number; count: number }>();
     const byStaffMap = new Map<string, { staffId: string; staffName: string; cash: number; bonus: number; total: number; count: number }>();
+    const byDepartmentMap = new Map<
+      string,
+      { departmentId: string | null; departmentName: string; cash: number; bonus: number; total: number; count: number }
+    >();
 
     for (const p of payments) {
       const cash = Number(p.cashAmount);
@@ -196,6 +200,22 @@ export class ReportsService {
       staffEntry.total += Number(p.totalAmount);
       staffEntry.count += 1;
       byStaffMap.set(p.createdById, staffEntry);
+
+      const dept = departmentMap.get(`${p.invoice.sourceType}:${p.invoice.sourceId}`) ?? null;
+      const deptKey = dept?.id ?? "__none__";
+      const deptEntry = byDepartmentMap.get(deptKey) ?? {
+        departmentId: dept?.id ?? null,
+        departmentName: dept?.name ?? "Boshqa",
+        cash: 0,
+        bonus: 0,
+        total: 0,
+        count: 0,
+      };
+      deptEntry.cash += Number(p.cashAmount);
+      deptEntry.bonus += Number(p.bonusAmount);
+      deptEntry.total += Number(p.totalAmount);
+      deptEntry.count += 1;
+      byDepartmentMap.set(deptKey, deptEntry);
     }
 
     const bySource = Array.from(bySourceMap.entries())
