@@ -22,7 +22,8 @@
     "load-lab-templates": "ts-node -r tsconfig-paths/register prisma/seeds/load_lab_templates.ts",
     "load-places": "ts-node -r tsconfig-paths/register prisma/seeds/load_places.ts",
     "load-roles": "ts-node -r tsconfig-paths/register prisma/seeds/load_roles.ts",
-    "load-test-data": "ts-node -r tsconfig-paths/register prisma/seeds/load_test_data.ts"
+    "load-test-data": "ts-node -r tsconfig-paths/register prisma/seeds/load_test_data.ts",
+    "test:journal": "node --test --require ts-node/register test/journal-invoices.integration.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",

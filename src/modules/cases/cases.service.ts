@@ -5,6 +5,7 @@ import { JwtPayload } from "../../common/types/jwt-payload.type";
 import { CaseBillingMode, CaseStatus, CaseStepStatus, CaseStepType, Prisma } from "../../generated/prisma/client";
 import { InvoiceItemSourceType, InvoiceSourceType, InvoiceStatus } from "../../generated/prisma/enums";
 import { PrismaService } from "../../prisma/prisma.service";
+import { IssueJournalInvoicesDto } from "../invoice/dto/issue-journal-invoices.dto";
 import { InvoiceService } from "../invoice/invoice.service";
 import { generateOperationContractDocx, OperationContractRow } from "../operations/generators/operation-contract-docx";
 import { AddCaseStepDto, CreateCaseDto, UpdateCaseStepDto } from "./cases.dto";
@@ -33,13 +34,7 @@ export class CasesService {
     const cases = await this.repo.findAll(filters);
     if (cases.length === 0) return [];
 
-    const invoices = await this.prisma.invoice.findMany({
-      where: {
-        sourceType: InvoiceSourceType.CASE,
-        sourceId: { in: cases.map((c) => c.id) },
-      },
-      select: { id: true, sourceId: true, status: true, totalAmount: true, paidCash: true, paidBonus: true },
-    });
+    const invoices = await this.invoiceService.getJournals(cases.map(c => c.id));
     const invoiceByCaseId = new Map(invoices.map((inv) => [inv.sourceId, inv]));
 
     return cases.map((c) => ({ ...c, invoice: invoiceByCaseId.get(c.id) ?? null }));
@@ -424,7 +419,6 @@ export class CasesService {
     }
 
     if (dto.type === CaseStepType.DISCHARGE) {
-      await this.attemptMasterInvoiceSettlement(caseId, user.userId);
       await this.repo.closeCase(caseId, "COMPLETED");
       return this.repo.createStep(caseId, {
         type: CaseStepType.DISCHARGE,
@@ -465,6 +459,7 @@ export class CasesService {
           patientId: patientCase.patientId,
           sourceType: InvoiceSourceType.CASE,
           sourceId: caseId,
+          isJournal: true,
           status: InvoiceStatus.DRAFT,
           totalAmount: new Prisma.Decimal(0),
           createdById: user.userId,
@@ -510,74 +505,18 @@ export class CasesService {
   async closeCase(caseId: string, status: "COMPLETED" | "CANCELLED", user: JwtPayload) {
     const patientCase = await this.repo.findById(caseId, user.userId, user.role === RoleName.DOCTOR);
     if (!patientCase) throw new NotFoundException("Case not found");
-    if (status === "COMPLETED") {
-      await this.attemptMasterInvoiceSettlement(caseId, user.userId);
-    }
     return this.repo.closeCase(caseId, status);
   }
 
-  /**
-   * Case MASTER rejimida bo'lsa, chiqishda (Discharge/COMPLETED) hamyonda
-   * (bonus + naqd balans) qolgan qarzni to'liq yopish uchun yetarli mablag'
-   * bo'lsa, avtomatik yakuniy hisob-kitob qiladi — reja hujjatidagi "hamyonda
-   * yetarli bo'lsa bir tugma bilan avtomatik yopiladi" qoidasi. Yetarli
-   * bo'lmasa hech narsa qilinmaydi: invoice ISSUED/PARTIALLY_PAID holida
-   * qoladi, kassir keyinroq mavjud to'lov oynasi (topUp bilan naqd/karta)
-   * orqali yopadi. Chiqishning o'zi hech qachon shu tekshiruv tufayli
-   * bloklanmaydi — bu metod hech qachon throw qilmaydi.
-   */
-  private async attemptMasterInvoiceSettlement(caseId: string, staffId: string) {
-    const patientCase = await this.prisma.patientCase.findUnique({
-      where: { id: caseId },
-      select: { billingMode: true },
-    });
-    if (!patientCase || patientCase.billingMode !== "MASTER") return;
+  async getJournals(patientId: string, user: JwtPayload) {
+    const cases = await this.findByPatientId(patientId, user);
+    return this.invoiceService.getJournals(cases.map(c => c.id));
+  }
 
-    const invoice = await this.prisma.invoice.findFirst({
-      where: {
-        sourceType: InvoiceSourceType.CASE,
-        sourceId: caseId,
-        // DRAFT ham kiradi: agar xodim davolash davomida hech qachon
-        // "Invois yaratish" bosmagan bo'lsa ham, chiqishda bu hisob-kitob
-        // baribir amalga oshishi kerak (qarang: pastdagi DRAFT->ISSUED band).
-        status: { in: [InvoiceStatus.DRAFT, InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID] },
-      },
-    });
-    if (!invoice) return;
-
-    const remaining = invoice.totalAmount.sub(invoice.paidCash.add(invoice.paidBonus));
-    if (remaining.lessThanOrEqualTo(0)) return;
-
-    const [cashBal, bonusBal] = await Promise.all([
-      this.prisma.patientBalance.findUnique({ where: { patientId: invoice.patientId } }),
-      this.prisma.patientBonusBalance.findUnique({ where: { patientId: invoice.patientId } }),
-    ]);
-
-    const zero = new Prisma.Decimal(0);
-    const availableBonus = bonusBal?.balance ?? zero;
-    const bonusToUse = Prisma.Decimal.min(availableBonus, remaining);
-    const cashNeeded = remaining.sub(bonusToUse);
-    const availableCash = cashBal?.balance ?? zero;
-
-    if (availableCash.lessThan(cashNeeded)) {
-      // Hamyon yetarli emas — avtomatik to'lay olmaymiz. Lekin invois hali
-      // DRAFT bo'lsa, "chiqarilgan" (ISSUED) holatga o'tkazamiz — aks holda
-      // kassir uni standart to'lov ekranlarida (Balans, Invoicelar) topa
-      // olmaydi, chunki ular faqat ISSUED/PARTIALLY_PAID'ni ko'rsatadi.
-      // Chiqishning o'zi baribir bloklanmaydi.
-      if (invoice.status === InvoiceStatus.DRAFT) {
-        await this.prisma.invoice.update({ where: { id: invoice.id }, data: { status: InvoiceStatus.ISSUED } });
-      }
-      return;
-    }
-
-    await this.invoiceService.payInvoice({
-      invoiceId: invoice.id,
-      cashAmount: cashNeeded,
-      bonusAmount: bonusToUse,
-      staffId,
-      note: "Chiqishda avtomatik yakuniy hisob-kitob (hamyondan)",
-    });
+  async issueJournalInvoices(caseId: string, dto: IssueJournalInvoicesDto, user: JwtPayload) {
+    const patientCase = await this.findById(caseId, user);
+    if (patientCase.status === CaseStatus.CANCELLED) throw new AppException('Bekor qilingan jurnaldan invois yaratib bo‘lmaydi', 400);
+    return this.invoiceService.issueJournalInvoices(caseId, dto, user.userId);
   }
 
   async deleteStep(caseId: string, stepId: string, user: JwtPayload) {
@@ -620,6 +559,7 @@ export class CasesService {
       where: {
         sourceType: InvoiceSourceType.CASE,
         sourceId: caseId,
+        isJournal: true,
         status: { not: InvoiceStatus.CANCELLED },
       },
       include: { items: { orderBy: { createdAt: "asc" } } },

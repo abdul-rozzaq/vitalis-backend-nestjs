@@ -11,6 +11,8 @@ import {
 } from '../../generated/prisma/enums';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BalanceService } from '../balance/balance.service';
+import { allocateJournal } from './journal-allocation';
+import { IssueJournalInvoicesDto } from './dto/issue-journal-invoices.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 
 type PrismaTx = Prisma.TransactionClient;
@@ -24,10 +26,6 @@ export type MasterInvoiceItemInput = {
   dateFrom?: Date;
   dateTo?: Date;
 };
-
-// Unique index name from migration 20260911033703 — kept here purely so the
-// P2002 catch below documents which constraint it's guarding against.
-const ONE_ACTIVE_MASTER_PER_CASE_CONSTRAINT = 'invoices_one_active_master_per_case';
 
 const INVOICE_INCLUDE = {
   items: { orderBy: { createdAt: "asc" as const } },
@@ -55,7 +53,7 @@ export class InvoiceService {
     amountMin?: number;
     amountMax?: number;
   }) {
-    const where: Prisma.InvoiceWhereInput = {};
+    const where: Prisma.InvoiceWhereInput = { isJournal: false };
     if (params.status) where.status = params.status;
     if (params.patientId) where.patientId = params.patientId;
     if (params.patientSearch) {
@@ -304,6 +302,7 @@ export class InvoiceService {
     note?: string;
     staffId: string;
   }) {
+    if (params.sourceType === InvoiceSourceType.CASE) throw new BadRequestException('Jurnal orqali invois yarating');
     const totalAmount = params.items.reduce((sum, item) => {
       return sum.add(item.unitPrice.mul(item.quantity));
     }, new Prisma.Decimal(0));
@@ -335,20 +334,7 @@ export class InvoiceService {
     });
   }
 
-  /**
-   * Single entry point every billing module (cases, lab-orders, operations,
-   * ward-billing) routes through before creating its own per-service
-   * invoice. If the case is in MASTER billing mode, the items are appended
-   * to (or used to create) the case's one running Master Invoice and that
-   * invoice is returned — the caller must skip its normal per-service
-   * invoice creation in that case. Returns null for PER_SERVICE cases, so
-   * existing per-module behaviour is untouched by default.
-   *
-   * A PAID Master Invoice that receives new items is recomputed back to
-   * ISSUED/PARTIALLY_PAID automatically (same status-from-totals logic as
-   * updateInvoice/syncOperationInvoice elsewhere in this file) — this is
-   * the agreed "auto-reopen" behaviour, no separate branch needed.
-   */
+  /** Append services to the non-payable journal. Issued invoices are immutable snapshots. */
   async billCaseService(
     tx: PrismaTx,
     params: {
@@ -358,6 +344,10 @@ export class InvoiceService {
       createdById: string;
     },
   ) {
+    if (tx === this.prisma) {
+      return this.prisma.$transaction(client => this.billCaseService(client, params));
+    }
+    await tx.$queryRaw`SELECT id FROM patient_cases WHERE id = ${params.caseId} FOR UPDATE`;
     if (params.items.length === 0) return null;
 
     const patientCase = await tx.patientCase.findUnique({
@@ -384,6 +374,7 @@ export class InvoiceService {
       where: {
         sourceType: InvoiceSourceType.CASE,
         sourceId: params.caseId,
+        isJournal: true,
         status: { not: InvoiceStatus.CANCELLED },
       },
       orderBy: { createdAt: 'desc' },
@@ -394,41 +385,20 @@ export class InvoiceService {
       return this.appendToMasterInvoice(tx, existing, itemsData, addedTotal);
     }
 
-    // Defensive fallback: "convert to master" should already have created a
-    // DRAFT Master Invoice for this case, so we normally never reach here.
-    // If we do, create one now instead of silently falling back to
-    // per-service billing (which would re-fragment the bill). Status stays
-    // DRAFT — same reasoning as appendToMasterInvoice below: the journal
-    // accumulates quietly, becoming a real (ISSUED) invoice only when
-    // someone deliberately does that via PATCH /invoices/:id. Guarded by
-    // the invoices_one_active_master_per_case unique index against a
-    // concurrent request doing the same thing.
-    try {
-      return await tx.invoice.create({
-        data: {
-          patientId: params.patientId,
-          sourceType: InvoiceSourceType.CASE,
-          sourceId: params.caseId,
-          status: InvoiceStatus.DRAFT,
-          totalAmount: addedTotal,
-          createdById: params.createdById,
-          items: { create: itemsData },
-        },
-        include: { items: true },
-      });
-    } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        // Lost the race to another concurrent call — the constraint named
-        // in ONE_ACTIVE_MASTER_PER_CASE_CONSTRAINT means one now exists.
-        const winner = await tx.invoice.findFirstOrThrow({
-          where: { sourceType: InvoiceSourceType.CASE, sourceId: params.caseId, status: { not: InvoiceStatus.CANCELLED } },
-          orderBy: { createdAt: 'desc' },
-          include: { items: true },
-        });
-        return this.appendToMasterInvoice(tx, winner, itemsData, addedTotal);
-      }
-      throw err;
-    }
+    // Recovery for older cases without a journal header.
+    return await tx.invoice.create({
+      data: {
+        patientId: params.patientId,
+        sourceType: InvoiceSourceType.CASE,
+        sourceId: params.caseId,
+        isJournal: true,
+        status: InvoiceStatus.DRAFT,
+        totalAmount: addedTotal,
+        createdById: params.createdById,
+        items: { create: itemsData },
+      },
+      include: { items: true },
+    });
   }
 
   private async appendToMasterInvoice(
@@ -446,34 +416,107 @@ export class InvoiceService {
     }>,
     addedTotal: Prisma.Decimal,
   ) {
-    const newTotal = invoice.totalAmount.add(addedTotal);
-    const paidTotal = invoice.paidCash.add(invoice.paidBonus);
-
-    // Hali DRAFT bo'lsa (hech kim "Invois yaratish" bosmagan) — jurnal
-    // shunchaki summasi o'sib, itemlar qo'shilib boraveradi, lekin holat
-    // DRAFT'da qoladi. Faqat xodim qo'lda invoisni "chiqargandan" keyin
-    // (status boshqa qiymatga o'tgach) yangi itemlar avtomatik
-    // ISSUED/PARTIALLY_PAID/PAID orasida qayta hisoblanadi (masalan PAID'dan
-    // keyin avtomatik qayta ochish uchun). Bu — reja hujjatidagi talab:
-    // invois "qachon shuncha to'lanadi" deb qo'lda yaratilishi kerak,
-    // xizmat qo'shilgan zahoti emas.
-    const newStatus =
-      invoice.status === InvoiceStatus.DRAFT
-        ? InvoiceStatus.DRAFT
-        : newTotal.greaterThan(0) && paidTotal.greaterThanOrEqualTo(newTotal)
-          ? InvoiceStatus.PAID
-          : paidTotal.greaterThan(0)
-            ? InvoiceStatus.PARTIALLY_PAID
-            : InvoiceStatus.ISSUED;
-
     return tx.invoice.update({
       where: { id: invoice.id },
       data: {
-        totalAmount: newTotal,
-        status: newStatus,
+        totalAmount: { increment: addedTotal },
+        status: InvoiceStatus.DRAFT,
         items: { create: itemsData },
       },
       include: { items: true },
+    });
+  }
+
+  async getJournals(caseIds: string[]) {
+    const journals = await this.prisma.invoice.findMany({
+      where: { isJournal: true, sourceId: { in: caseIds }, status: { not: InvoiceStatus.CANCELLED } },
+      include: {
+        items: {
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          include: { allocations: { where: { invoice: { status: { not: InvoiceStatus.CANCELLED } } }, select: { totalPrice: true } } },
+        },
+        issuedInvoices: { orderBy: { createdAt: 'desc' }, include: INVOICE_INCLUDE },
+      },
+    });
+    return journals.map(journal => {
+      const active = journal.issuedInvoices.filter(i => i.status !== InvoiceStatus.CANCELLED);
+      const billedAmount = active.reduce((sum, i) => sum.add(i.totalAmount), new Prisma.Decimal(0));
+      const paidCash = active.reduce((sum, i) => sum.add(i.paidCash), new Prisma.Decimal(0));
+      const paidBonus = active.reduce((sum, i) => sum.add(i.paidBonus), new Prisma.Decimal(0));
+      return {
+        ...journal, paidCash, paidBonus, billedAmount,
+        unbilledAmount: Prisma.Decimal.max(0, journal.totalAmount.sub(billedAmount)),
+        unpaidAmount: Prisma.Decimal.max(0, billedAmount.sub(paidCash).sub(paidBonus)),
+        items: journal.items.map(({ allocations, ...item }) => {
+          const billed = allocations.reduce((sum, a) => sum.add(a.totalPrice), new Prisma.Decimal(0));
+          return { ...item, billedAmount: billed, remainingAmount: Prisma.Decimal.max(0, item.totalPrice.sub(billed)) };
+        }),
+      };
+    });
+  }
+
+  async issueJournalInvoices(caseId: string, dto: IssueJournalInvoicesDto, staffId: string) {
+    return this.prisma.$transaction(async tx => {
+      // Serialize allocation and cancellation for this journal. The second request
+      // reads the first request's committed allocations after acquiring the lock.
+      await tx.$queryRaw`SELECT id FROM invoices WHERE "sourceId" = ${caseId} AND "isJournal" = true FOR UPDATE`;
+      const journal = await tx.invoice.findFirst({
+        where: { sourceId: caseId, isJournal: true, status: InvoiceStatus.DRAFT },
+        include: {
+          items: {
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+            include: { allocations: { where: { invoice: { status: { not: InvoiceStatus.CANCELLED } } } } },
+          },
+        },
+      });
+      if (!journal) throw new NotFoundException('Jurnal topilmadi');
+      const previous = await tx.auditLog.findFirst({
+        where: { entity: 'JournalInvoiceRequest', entityId: dto.requestId, action: journal.id, userId: staffId },
+      });
+      if (previous) {
+        const saved = previous.newValues as { invoiceIds: string[] };
+        return tx.invoice.findMany({ where: { id: { in: saved.invoiceIds } }, include: INVOICE_INCLUDE });
+      }
+      const available = journal.items.map(item => ({
+        ...item,
+        remainingAmount: item.totalPrice.sub(item.allocations.reduce((sum, a) => sum.add(a.totalPrice), new Prisma.Decimal(0))),
+      }));
+      const batches = allocateJournal(available, dto);
+      const created = [];
+      for (const batch of batches) {
+        const items = batch.map(allocation => {
+          const original = journal.items.find(i => i.id === allocation.itemId)!;
+          const full = allocation.amount.eq(original.totalPrice);
+          return {
+            journalItemId: original.id,
+            description: original.description,
+            quantity: full ? original.quantity : 1,
+            unitPrice: full ? original.unitPrice : allocation.amount,
+            totalPrice: allocation.amount,
+            sourceType: original.sourceType,
+            sourceId: original.sourceId,
+            dateFrom: original.dateFrom,
+            dateTo: original.dateTo,
+          };
+        });
+        created.push(await tx.invoice.create({
+          data: {
+            patientId: journal.patientId, journalId: journal.id,
+            sourceType: InvoiceSourceType.CASE, sourceId: caseId,
+            status: InvoiceStatus.ISSUED, createdById: staffId,
+            totalAmount: batch.reduce((sum, a) => sum.add(a.amount), new Prisma.Decimal(0)),
+            items: { create: items },
+          },
+          include: INVOICE_INCLUDE,
+        }));
+      }
+      await tx.auditLog.create({
+        data: {
+          userId: staffId, entity: 'JournalInvoiceRequest', entityId: dto.requestId, action: journal.id,
+          newValues: { mode: dto.mode, invoiceIds: created.map(i => i.id) },
+        },
+      });
+      return created;
     });
   }
 
@@ -487,6 +530,7 @@ export class InvoiceService {
     topUp?: boolean;
   }) {
     return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM invoices WHERE id = ${params.invoiceId} FOR UPDATE`;
       const invoice = await tx.invoice.findUnique({
         where: { id: params.invoiceId },
       });
@@ -501,7 +545,12 @@ export class InvoiceService {
         throw new BadRequestException(`Invoice is already ${invoice.status}`);
       }
 
+      if (invoice.isJournal) throw new BadRequestException('Jurnaldan avval alohida invois yarating');
       const totalPayment = params.cashAmount.add(params.bonusAmount);
+      if (invoice.journalId && (params.cashAmount.lt(0) || params.bonusAmount.lt(0) || totalPayment.lte(0) ||
+          totalPayment.gt(invoice.totalAmount.sub(invoice.paidCash).sub(invoice.paidBonus)))) {
+        throw new BadRequestException("To'lov summasi invois qoldig'iga mos emas");
+      }
 
       // "To'g'ridan-to'g'ri" to'lov: naqd summani avval balansga tashlab,
       // keyin darhol shu tranzaksiya ichida sarflaymiz — ikkalasi ham bir xil
@@ -686,16 +735,7 @@ export class InvoiceService {
   }
 
   async cancelInvoice(id: string) {
-    const inv = await this.prisma.invoice.findUnique({ where: { id } });
-    if (!inv) throw new NotFoundException('Invoice not found');
-    if (inv.status === InvoiceStatus.PAID) {
-      throw new BadRequestException('Cannot cancel a paid invoice');
-    }
-    return this.prisma.invoice.update({
-      where: { id },
-      data: { status: InvoiceStatus.CANCELLED },
-      include: INVOICE_INCLUDE,
-    });
+    return this.updateInvoice(id, { status: InvoiceStatus.CANCELLED });
   }
 
   async getPatientInvoices(
@@ -704,7 +744,7 @@ export class InvoiceService {
   ) {
     const { page, limit } = params;
     const skip = (page - 1) * limit;
-    const where: Prisma.InvoiceWhereInput = { patientId };
+    const where: Prisma.InvoiceWhereInput = { patientId, isJournal: false };
     if (params.sourceType && params.sourceType.length > 0) {
       where.sourceType =
         params.sourceType.length === 1
@@ -726,6 +766,9 @@ export class InvoiceService {
 
   async updateInvoice(id: string, dto: UpdateInvoiceDto) {
     return this.prisma.$transaction(async (tx) => {
+      const ref = await tx.invoice.findUnique({ where: { id }, select: { journalId: true } });
+      if (ref?.journalId) await tx.$queryRaw`SELECT id FROM invoices WHERE id = ${ref.journalId} FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM invoices WHERE id = ${id} FOR UPDATE`;
       const invoice = await tx.invoice.findUnique({
         where: { id },
         include: { items: true },
@@ -733,6 +776,18 @@ export class InvoiceService {
 
       if (!invoice) {
         throw new NotFoundException('Invoice not found');
+      }
+
+      if (invoice.isJournal) throw new BadRequestException('Jurnal hisobini bevosita tahrirlab bo‘lmaydi');
+      if (dto.sourceType === InvoiceSourceType.CASE && !invoice.journalId) throw new BadRequestException('Jurnal orqali invois yarating');
+      if (invoice.journalId) {
+        if (dto.items || dto.patientId || dto.sourceType || dto.sourceId ||
+            (dto.status && dto.status !== InvoiceStatus.CANCELLED)) {
+          throw new BadRequestException('Jurnaldan yaratilgan invois tarkibini o‘zgartirib bo‘lmaydi');
+        }
+        if (dto.status === InvoiceStatus.CANCELLED && invoice.paidCash.add(invoice.paidBonus).gt(0)) {
+          throw new BadRequestException('To‘lov mavjud invoisni bekor qilib bo‘lmaydi');
+        }
       }
 
       // If status is being updated to CANCELLED, use the cancel logic

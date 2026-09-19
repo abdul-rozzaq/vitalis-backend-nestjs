@@ -73,11 +73,17 @@ model Invoice {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   createdById String
+  // Journal headers accumulate services; only their issued child invoices are payable.
+  isJournal   Boolean           @default(false)
+  journalId   String?
+  journal     Invoice?          @relation("JournalInvoices", fields: [journalId], references: [id], onDelete: Restrict)
+  issuedInvoices Invoice[]      @relation("JournalInvoices")
   items       InvoiceItem[]
   payments    InvoicePayment[]
   createdBy   User              @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
   patient     Patient           @relation(fields: [patientId], references: [id])
 
+  @@index([journalId])
   @@index([patientId])
   @@index([sourceType, sourceId])
   @@map("invoices")
@@ -96,6 +102,11 @@ model InvoiceItem {
   sourceId    String?
   createdAt   DateTime              @default(now())
   invoice     Invoice               @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  journalItemId String?
+  journalItem InvoiceItem?          @relation("JournalAllocations", fields: [journalItemId], references: [id], onDelete: Restrict)
+  allocations InvoiceItem[]         @relation("JournalAllocations")
+
+  @@index([journalItemId])
 
   @@index([invoiceId])
   @@map("invoice_items")

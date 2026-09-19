@@ -6,6 +6,7 @@ import { Roles } from "../../common/decorators/roles.decorator";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
 import { AddCaseStepDto, CreateCaseDto, UpdateCaseStepDto } from "./cases.dto";
+import { IssueJournalInvoicesDto } from "../invoice/dto/issue-journal-invoices.dto";
 import { CasesService } from "./cases.service";
 
 @Roles(RoleName.ADMIN, RoleName.DOCTOR, RoleName.HAMSHIRA, RoleName.KASSIR, RoleName.LABARANT)
@@ -71,6 +72,12 @@ export class CasesController {
     return this.service.convertToMaster(id, user);
   }
 
+  @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.DOCTOR)
+  @Post(":id/journal/invoices")
+  issueJournalInvoices(@Param("id") id: string, @Body() dto: IssueJournalInvoicesDto, @CurrentUser() user: JwtPayload) {
+    return this.service.issueJournalInvoices(id, dto, user);
+  }
+
   @Get(":id/journal/print")
   async printJournal(@Param("id") id: string, @Res() res: Response) {
     const { buffer, patientCase } = await this.service.generateJournalDocument(id);
@@ -89,6 +96,11 @@ export class CasesController {
 @Controller("patients/:patientId/cases")
 export class PatientCasesController {
   constructor(private readonly service: CasesService) {}
+
+  @Get("journals")
+  getJournals(@Param("patientId") patientId: string, @CurrentUser() user: JwtPayload) {
+    return this.service.getJournals(patientId, user);
+  }
 
   @Get()
   findByPatient(@Param("patientId") patientId: string, @CurrentUser() user: JwtPayload) {
