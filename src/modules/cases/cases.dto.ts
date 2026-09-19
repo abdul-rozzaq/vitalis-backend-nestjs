@@ -1,5 +1,5 @@
 import { IsArray, IsBoolean, IsEnum, IsISO8601, IsNumber, IsOptional, IsString, IsUUID, Min } from "class-validator";
-import { CaseStepStatus, CaseStepType } from "../../generated/prisma/client";
+import { CaseBillingMode, CaseStepStatus, CaseStepType } from "../../generated/prisma/client";
 
 export class CreateCaseDto {
   @IsUUID()
@@ -8,6 +8,14 @@ export class CreateCaseDto {
   @IsOptional()
   @IsString()
   chiefComplaint?: string;
+
+  // Berilmasa PER_SERVICE (hozirgidek, har xizmat alohida hisoblanadi).
+  // MASTER berilsa, case yaratilishi bilanoq bo'sh jurnal (Master Invoice)
+  // ham ochiladi — xodim buni case yaratayotgan paytda tanlaydi, keyinroq
+  // alohida "o'tkazish" amali kerak bo'lmaydi.
+  @IsOptional()
+  @IsEnum(CaseBillingMode)
+  billingMode?: CaseBillingMode;
 }
 
 export class AddCaseStepDto {

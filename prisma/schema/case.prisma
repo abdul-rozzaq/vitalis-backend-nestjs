@@ -1,14 +1,16 @@
 model PatientCase {
-  id             String     @id @default(uuid())
+  id             String          @id @default(uuid())
   patientId      String
-  status         CaseStatus @default(ACTIVE)
+  status         CaseStatus      @default(ACTIVE)
+  billingMode    CaseBillingMode @default(PER_SERVICE)
   chiefComplaint String?
-  openedAt       DateTime   @default(now())
+  openedAt       DateTime        @default(now())
   closedAt       DateTime?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   steps          CaseStep[]
-  patient        Patient    @relation(fields: [patientId], references: [id])
+  wards          Wards[]
+  patient        Patient         @relation(fields: [patientId], references: [id])
 
   @@map("patient_cases")
 }
@@ -41,6 +43,13 @@ enum CaseStatus {
   CANCELLED
 
   @@map("case_statuses")
+}
+
+enum CaseBillingMode {
+  PER_SERVICE
+  MASTER
+
+  @@map("case_billing_modes")
 }
 
 enum CaseStepType {

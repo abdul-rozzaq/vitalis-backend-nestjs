@@ -3,6 +3,7 @@ import { Prisma } from '../../generated/prisma/client';
 import {
   BalanceTxSource,
   BalanceTxType,
+  CaseBillingMode,
   InvoiceItemSourceType,
   InvoiceSourceType,
   InvoiceStatus,
@@ -10,10 +11,24 @@ import {
 } from '../../generated/prisma/enums';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BalanceService } from '../balance/balance.service';
+import { allocateJournal } from './journal-allocation';
+import { IssueJournalInvoicesDto } from './dto/issue-journal-invoices.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 
+type PrismaTx = Prisma.TransactionClient;
+
+export type MasterInvoiceItemInput = {
+  description: string;
+  quantity: number;
+  unitPrice: Prisma.Decimal;
+  sourceType: InvoiceItemSourceType;
+  sourceId?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+};
+
 const INVOICE_INCLUDE = {
-  items: true,
+  items: { orderBy: { createdAt: "asc" as const } },
   payments: { orderBy: { createdAt: "desc" as const } },
   patient: true,
 } as const;
@@ -38,7 +53,7 @@ export class InvoiceService {
     amountMin?: number;
     amountMax?: number;
   }) {
-    const where: Prisma.InvoiceWhereInput = {};
+    const where: Prisma.InvoiceWhereInput = { isJournal: false };
     if (params.status) where.status = params.status;
     if (params.patientId) where.patientId = params.patientId;
     if (params.patientSearch) {
@@ -287,6 +302,7 @@ export class InvoiceService {
     note?: string;
     staffId: string;
   }) {
+    if (params.sourceType === InvoiceSourceType.CASE) throw new BadRequestException('Jurnal orqali invois yarating');
     const totalAmount = params.items.reduce((sum, item) => {
       return sum.add(item.unitPrice.mul(item.quantity));
     }, new Prisma.Decimal(0));
@@ -318,6 +334,192 @@ export class InvoiceService {
     });
   }
 
+  /** Append services to the non-payable journal. Issued invoices are immutable snapshots. */
+  async billCaseService(
+    tx: PrismaTx,
+    params: {
+      caseId: string;
+      patientId: string;
+      items: MasterInvoiceItemInput[];
+      createdById: string;
+    },
+  ) {
+    if (tx === this.prisma) {
+      return this.prisma.$transaction(client => this.billCaseService(client, params));
+    }
+    await tx.$queryRaw`SELECT id FROM patient_cases WHERE id = ${params.caseId} FOR UPDATE`;
+    if (params.items.length === 0) return null;
+
+    const patientCase = await tx.patientCase.findUnique({
+      where: { id: params.caseId },
+      select: { billingMode: true },
+    });
+    if (!patientCase || patientCase.billingMode !== CaseBillingMode.MASTER) {
+      return null;
+    }
+
+    const itemsData = params.items.map((item) => ({
+      description: item.description,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      totalPrice: item.unitPrice.mul(item.quantity),
+      sourceType: item.sourceType,
+      sourceId: item.sourceId,
+      dateFrom: item.dateFrom,
+      dateTo: item.dateTo,
+    }));
+    const addedTotal = itemsData.reduce((sum, i) => sum.add(i.totalPrice), new Prisma.Decimal(0));
+
+    const existing = await tx.invoice.findFirst({
+      where: {
+        sourceType: InvoiceSourceType.CASE,
+        sourceId: params.caseId,
+        isJournal: true,
+        status: { not: InvoiceStatus.CANCELLED },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: { items: true },
+    });
+
+    if (existing) {
+      return this.appendToMasterInvoice(tx, existing, itemsData, addedTotal);
+    }
+
+    // Recovery for older cases without a journal header.
+    return await tx.invoice.create({
+      data: {
+        patientId: params.patientId,
+        sourceType: InvoiceSourceType.CASE,
+        sourceId: params.caseId,
+        isJournal: true,
+        status: InvoiceStatus.DRAFT,
+        totalAmount: addedTotal,
+        createdById: params.createdById,
+        items: { create: itemsData },
+      },
+      include: { items: true },
+    });
+  }
+
+  private async appendToMasterInvoice(
+    tx: PrismaTx,
+    invoice: { id: string; status: InvoiceStatus; totalAmount: Prisma.Decimal; paidCash: Prisma.Decimal; paidBonus: Prisma.Decimal },
+    itemsData: Array<{
+      description: string;
+      quantity: number;
+      unitPrice: Prisma.Decimal;
+      totalPrice: Prisma.Decimal;
+      sourceType: InvoiceItemSourceType;
+      sourceId?: string;
+      dateFrom?: Date;
+      dateTo?: Date;
+    }>,
+    addedTotal: Prisma.Decimal,
+  ) {
+    return tx.invoice.update({
+      where: { id: invoice.id },
+      data: {
+        totalAmount: { increment: addedTotal },
+        status: InvoiceStatus.DRAFT,
+        items: { create: itemsData },
+      },
+      include: { items: true },
+    });
+  }
+
+  async getJournals(caseIds: string[]) {
+    const journals = await this.prisma.invoice.findMany({
+      where: { isJournal: true, sourceId: { in: caseIds }, status: { not: InvoiceStatus.CANCELLED } },
+      include: {
+        items: {
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          include: { allocations: { where: { invoice: { status: { not: InvoiceStatus.CANCELLED } } }, select: { totalPrice: true } } },
+        },
+        issuedInvoices: { orderBy: { createdAt: 'desc' }, include: INVOICE_INCLUDE },
+      },
+    });
+    return journals.map(journal => {
+      const active = journal.issuedInvoices.filter(i => i.status !== InvoiceStatus.CANCELLED);
+      const billedAmount = active.reduce((sum, i) => sum.add(i.totalAmount), new Prisma.Decimal(0));
+      const paidCash = active.reduce((sum, i) => sum.add(i.paidCash), new Prisma.Decimal(0));
+      const paidBonus = active.reduce((sum, i) => sum.add(i.paidBonus), new Prisma.Decimal(0));
+      return {
+        ...journal, paidCash, paidBonus, billedAmount,
+        unbilledAmount: Prisma.Decimal.max(0, journal.totalAmount.sub(billedAmount)),
+        unpaidAmount: Prisma.Decimal.max(0, billedAmount.sub(paidCash).sub(paidBonus)),
+        items: journal.items.map(({ allocations, ...item }) => {
+          const billed = allocations.reduce((sum, a) => sum.add(a.totalPrice), new Prisma.Decimal(0));
+          return { ...item, billedAmount: billed, remainingAmount: Prisma.Decimal.max(0, item.totalPrice.sub(billed)) };
+        }),
+      };
+    });
+  }
+
+  async issueJournalInvoices(caseId: string, dto: IssueJournalInvoicesDto, staffId: string) {
+    return this.prisma.$transaction(async tx => {
+      // Serialize allocation and cancellation for this journal. The second request
+      // reads the first request's committed allocations after acquiring the lock.
+      await tx.$queryRaw`SELECT id FROM invoices WHERE "sourceId" = ${caseId} AND "isJournal" = true FOR UPDATE`;
+      const journal = await tx.invoice.findFirst({
+        where: { sourceId: caseId, isJournal: true, status: InvoiceStatus.DRAFT },
+        include: {
+          items: {
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+            include: { allocations: { where: { invoice: { status: { not: InvoiceStatus.CANCELLED } } } } },
+          },
+        },
+      });
+      if (!journal) throw new NotFoundException('Jurnal topilmadi');
+      const previous = await tx.auditLog.findFirst({
+        where: { entity: 'JournalInvoiceRequest', entityId: dto.requestId, action: journal.id, userId: staffId },
+      });
+      if (previous) {
+        const saved = previous.newValues as { invoiceIds: string[] };
+        return tx.invoice.findMany({ where: { id: { in: saved.invoiceIds } }, include: INVOICE_INCLUDE });
+      }
+      const available = journal.items.map(item => ({
+        ...item,
+        remainingAmount: item.totalPrice.sub(item.allocations.reduce((sum, a) => sum.add(a.totalPrice), new Prisma.Decimal(0))),
+      }));
+      const batches = allocateJournal(available, dto);
+      const created = [];
+      for (const batch of batches) {
+        const items = batch.map(allocation => {
+          const original = journal.items.find(i => i.id === allocation.itemId)!;
+          const full = allocation.amount.eq(original.totalPrice);
+          return {
+            journalItemId: original.id,
+            description: original.description,
+            quantity: full ? original.quantity : 1,
+            unitPrice: full ? original.unitPrice : allocation.amount,
+            totalPrice: allocation.amount,
+            sourceType: original.sourceType,
+            sourceId: original.sourceId,
+            dateFrom: original.dateFrom,
+            dateTo: original.dateTo,
+          };
+        });
+        created.push(await tx.invoice.create({
+          data: {
+            patientId: journal.patientId, journalId: journal.id,
+            sourceType: InvoiceSourceType.CASE, sourceId: caseId,
+            status: InvoiceStatus.ISSUED, createdById: staffId,
+            totalAmount: batch.reduce((sum, a) => sum.add(a.amount), new Prisma.Decimal(0)),
+            items: { create: items },
+          },
+          include: INVOICE_INCLUDE,
+        }));
+      }
+      await tx.auditLog.create({
+        data: {
+          userId: staffId, entity: 'JournalInvoiceRequest', entityId: dto.requestId, action: journal.id,
+          newValues: { mode: dto.mode, invoiceIds: created.map(i => i.id) },
+        },
+      });
+      return created;
+    });
+  }
+
   async payInvoice(params: {
     invoiceId: string;
     cashAmount: Prisma.Decimal;
@@ -328,6 +530,7 @@ export class InvoiceService {
     topUp?: boolean;
   }) {
     return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM invoices WHERE id = ${params.invoiceId} FOR UPDATE`;
       const invoice = await tx.invoice.findUnique({
         where: { id: params.invoiceId },
       });
@@ -342,7 +545,12 @@ export class InvoiceService {
         throw new BadRequestException(`Invoice is already ${invoice.status}`);
       }
 
+      if (invoice.isJournal) throw new BadRequestException('Jurnaldan avval alohida invois yarating');
       const totalPayment = params.cashAmount.add(params.bonusAmount);
+      if (invoice.journalId && (params.cashAmount.lt(0) || params.bonusAmount.lt(0) || totalPayment.lte(0) ||
+          totalPayment.gt(invoice.totalAmount.sub(invoice.paidCash).sub(invoice.paidBonus)))) {
+        throw new BadRequestException("To'lov summasi invois qoldig'iga mos emas");
+      }
 
       // "To'g'ridan-to'g'ri" to'lov: naqd summani avval balansga tashlab,
       // keyin darhol shu tranzaksiya ichida sarflaymiz — ikkalasi ham bir xil
@@ -527,16 +735,7 @@ export class InvoiceService {
   }
 
   async cancelInvoice(id: string) {
-    const inv = await this.prisma.invoice.findUnique({ where: { id } });
-    if (!inv) throw new NotFoundException('Invoice not found');
-    if (inv.status === InvoiceStatus.PAID) {
-      throw new BadRequestException('Cannot cancel a paid invoice');
-    }
-    return this.prisma.invoice.update({
-      where: { id },
-      data: { status: InvoiceStatus.CANCELLED },
-      include: INVOICE_INCLUDE,
-    });
+    return this.updateInvoice(id, { status: InvoiceStatus.CANCELLED });
   }
 
   async getPatientInvoices(
@@ -545,7 +744,7 @@ export class InvoiceService {
   ) {
     const { page, limit } = params;
     const skip = (page - 1) * limit;
-    const where: Prisma.InvoiceWhereInput = { patientId };
+    const where: Prisma.InvoiceWhereInput = { patientId, isJournal: false };
     if (params.sourceType && params.sourceType.length > 0) {
       where.sourceType =
         params.sourceType.length === 1
@@ -567,6 +766,9 @@ export class InvoiceService {
 
   async updateInvoice(id: string, dto: UpdateInvoiceDto) {
     return this.prisma.$transaction(async (tx) => {
+      const ref = await tx.invoice.findUnique({ where: { id }, select: { journalId: true } });
+      if (ref?.journalId) await tx.$queryRaw`SELECT id FROM invoices WHERE id = ${ref.journalId} FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM invoices WHERE id = ${id} FOR UPDATE`;
       const invoice = await tx.invoice.findUnique({
         where: { id },
         include: { items: true },
@@ -574,6 +776,18 @@ export class InvoiceService {
 
       if (!invoice) {
         throw new NotFoundException('Invoice not found');
+      }
+
+      if (invoice.isJournal) throw new BadRequestException('Jurnal hisobini bevosita tahrirlab bo‘lmaydi');
+      if (dto.sourceType === InvoiceSourceType.CASE && !invoice.journalId) throw new BadRequestException('Jurnal orqali invois yarating');
+      if (invoice.journalId) {
+        if (dto.items || dto.patientId || dto.sourceType || dto.sourceId ||
+            (dto.status && dto.status !== InvoiceStatus.CANCELLED)) {
+          throw new BadRequestException('Jurnaldan yaratilgan invois tarkibini o‘zgartirib bo‘lmaydi');
+        }
+        if (dto.status === InvoiceStatus.CANCELLED && invoice.paidCash.add(invoice.paidBonus).gt(0)) {
+          throw new BadRequestException('To‘lov mavjud invoisni bekor qilib bo‘lmaydi');
+        }
       }
 
       // If status is being updated to CANCELLED, use the cancel logic

@@ -74,12 +74,42 @@ export class WardsService {
         ? new Prisma.Decimal(dto.companionPricePerDay)
         : department?.companionDailyPrice ?? null;
 
+    // Wards yozuvini PatientCase'ga bog'lash — shu orqali Master Invoice
+    // rejimida bo'lsa, kunlik palata narxi ham o'sha case'ning jurnaliga
+    // yoziladi (qarang: ward-billing.scheduler.ts). Xodim aniq caseId
+    // yuborsa (bemorning bir nechta ishi bo'lishi mumkin), o'sha ishlatiladi
+    // va tekshiriladi; berilmasa — bemorning faol ishi topiladi (yo'q
+    // bo'lsa pastda yaratiladi), xuddi appointments.service.ts'dagi kabi.
+    let patientCase: { id: string; patientId: string; status: string } | null = null;
+    if (dto.caseId) {
+      patientCase = await this.prisma.patientCase.findUnique({ where: { id: dto.caseId } });
+      if (!patientCase) throw new NotFoundException("Tanlangan ish (case) topilmadi");
+      if (patientCase.patientId !== dto.patientId) {
+        throw new BadRequestException("Tanlangan ish bu bemorga tegishli emas");
+      }
+      if (patientCase.status !== "ACTIVE") {
+        throw new BadRequestException("Tanlangan ish faol emas");
+      }
+    } else {
+      patientCase = await this.prisma.patientCase.findFirst({
+        where: { patientId: dto.patientId, status: "ACTIVE" },
+        orderBy: { createdAt: "desc" },
+      });
+    }
+
     // Atomic: ward creation + optional bonus grant in ONE transaction
     return this.prisma.$transaction(async (tx) => {
+      if (!patientCase) {
+        patientCase = await tx.patientCase.create({
+          data: { patient: { connect: { id: dto.patientId } }, status: "ACTIVE" },
+        });
+      }
+
       const ward = await this.repository.createInTx(tx, {
         patientId: dto.patientId,
         roomId: dto.roomId,
         departmentId,
+        caseId: patientCase.id,
         cardNumber: dto.cardNumber ?? null,
         doctorId: dto.doctorId ?? null,
         checkIn: dto.checkIn,
