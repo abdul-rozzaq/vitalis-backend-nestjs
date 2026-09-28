@@ -8,6 +8,7 @@ import { JwtPayload } from "../../common/types/jwt-payload.type";
 import { AddCaseStepDto, AddJournalServiceDto, CreateCaseDto, UpdateCaseStepDto } from "./cases.dto";
 import { PayJournalDto } from "../invoice/dto/pay-journal.dto";
 import { PayJournalSelectionDto } from "../invoice/dto/pay-journal-selection.dto";
+import { IssueJournalInvoicesDto } from "../invoice/dto/issue-journal-invoices.dto";
 import { CasesService } from "./cases.service";
 
 @Roles(RoleName.ADMIN, RoleName.DOCTOR, RoleName.HAMSHIRA, RoleName.KASSIR, RoleName.LABARANT)
@@ -71,6 +72,12 @@ export class CasesController {
   @Post(":id/convert-to-master")
   convertToMaster(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
     return this.service.convertToMaster(id, user);
+  }
+
+  @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.DOCTOR)
+  @Post(":id/journal/invoices")
+  issueJournalInvoices(@Param("id") id: string, @Body() dto: IssueJournalInvoicesDto, @CurrentUser() user: JwtPayload) {
+    return this.service.issueJournalInvoices(id, dto, user);
   }
 
   @Roles(RoleName.ADMIN, RoleName.KASSIR)
