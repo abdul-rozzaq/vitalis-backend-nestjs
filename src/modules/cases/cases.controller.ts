@@ -5,7 +5,9 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
-import { AddCaseStepDto, CreateCaseDto, UpdateCaseStepDto } from "./cases.dto";
+import { AddCaseStepDto, AddJournalServiceDto, CreateCaseDto, UpdateCaseStepDto } from "./cases.dto";
+import { PayJournalDto } from "../invoice/dto/pay-journal.dto";
+import { PayJournalSelectionDto } from "../invoice/dto/pay-journal-selection.dto";
 import { IssueJournalInvoicesDto } from "../invoice/dto/issue-journal-invoices.dto";
 import { CasesService } from "./cases.service";
 
@@ -76,6 +78,30 @@ export class CasesController {
   @Post(":id/journal/invoices")
   issueJournalInvoices(@Param("id") id: string, @Body() dto: IssueJournalInvoicesDto, @CurrentUser() user: JwtPayload) {
     return this.service.issueJournalInvoices(id, dto, user);
+  }
+
+  @Roles(RoleName.ADMIN, RoleName.KASSIR)
+  @Post(":id/journal/pay")
+  payJournal(@Param("id") id: string, @Body() dto: PayJournalDto, @CurrentUser() user: JwtPayload) {
+    return this.service.payJournal(id, dto, user);
+  }
+
+  @Roles(RoleName.ADMIN, RoleName.KASSIR)
+  @Post(":id/journal/pay-selection")
+  payJournalSelection(@Param("id") id: string, @Body() dto: PayJournalSelectionDto, @CurrentUser() user: JwtPayload) {
+    return this.service.payJournalSelection(id, dto, user);
+  }
+
+  @Roles(RoleName.ADMIN, RoleName.DOCTOR, RoleName.HAMSHIRA)
+  @Post(":id/journal/services")
+  addJournalService(@Param("id") id: string, @Body() dto: AddJournalServiceDto, @CurrentUser() user: JwtPayload) {
+    return this.service.addJournalService(id, dto, user);
+  }
+
+  @Roles(RoleName.ADMIN, RoleName.DOCTOR)
+  @Delete(":id/journal/services/:itemId")
+  cancelJournalService(@Param("id") id: string, @Param("itemId") itemId: string, @CurrentUser() user: JwtPayload) {
+    return this.service.cancelJournalService(id, itemId, user);
   }
 
   @Get(":id/journal/print")

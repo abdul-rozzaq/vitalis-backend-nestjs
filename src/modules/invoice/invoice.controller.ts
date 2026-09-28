@@ -26,6 +26,7 @@ export class InvoiceController {
     @Query('patientSearch') patientSearch?: string,
     @Query('amountMin') amountMin?: string,
     @Query('amountMax') amountMax?: string,
+    @Query('invoiceKind') invoiceKind?: string,
   ) {
     return this.invoiceService.listInvoices({
       status: status as InvoiceStatus | undefined,
@@ -44,6 +45,7 @@ export class InvoiceController {
       patientSearch,
       amountMin: amountMin ? parseFloat(amountMin) : undefined,
       amountMax: amountMax ? parseFloat(amountMax) : undefined,
+      invoiceKind: invoiceKind === 'JOURNAL' || invoiceKind === 'SINGLE' ? invoiceKind : undefined,
     });
   }
 

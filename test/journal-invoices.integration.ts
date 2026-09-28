@@ -34,8 +34,10 @@ test('journal invoices with PostgreSQL', { skip: !testUrl }, async t => {
     await append(100);
     await append(200, Source.WARD_DAILY);
 
-    await t.test('draft journal is excluded from payable lists and cannot be paid or issued directly', async () => {
-      assert.equal((await service.listInvoices({ patientId: patient.id })).length, 0);
+    await t.test('draft journal appears once in the grouped list and cannot be paid or issued directly', async () => {
+      const rows = await service.listInvoices({ patientId: patient.id });
+      assert.equal(rows.length, 1);
+      assert.equal(rows[0].invoiceKind, 'JOURNAL');
       assert.equal((await service.getPatientInvoices(patient.id, { page: 1, limit: 20 })).total, 0);
       const journal = await read();
       assert.equal(journal.totalAmount.toString(), '300');
@@ -104,6 +106,47 @@ test('journal invoices with PostgreSQL', { skip: !testUrl }, async t => {
       assert.equal(journal.totalAmount.toString(), '380');
       assert.equal(journal.unbilledAmount.toString(), '30');
       assert.equal(journal.items.reduce((sum, item) => sum.add(item.totalPrice), decimal(0)).toString(), '380');
+    });
+
+    await t.test('direct journal payment issues and pays atomically, and retries do not charge twice', async () => {
+      const dto = { mode: Mode.AMOUNT, amount: '30', requestId: randomUUID(), paymentMethod: PaymentMethod.CARD };
+      const [paid] = await service.payJournal(patientCase.id, dto, user.id);
+      assert.equal(paid.status, InvoiceStatus.PAID);
+      assert.equal(paid.paidCash.toString(), '30');
+      assert.equal(paid.payments.length, 1);
+      const [retried] = await service.payJournal(patientCase.id, dto, user.id);
+      assert.equal(retried.id, paid.id);
+      assert.equal(retried.payments.length, 1);
+      assert.equal((await read()).unbilledAmount.toString(), '0');
+      assert.equal((await read()).paidCash.toString(), '31');
+    });
+
+    await t.test('selected services accept a partial payment without charging twice', async () => {
+      const before = await read();
+      const outstanding = before.issuedInvoices.find(invoice => invoice.status === InvoiceStatus.ISSUED || invoice.status === InvoiceStatus.PARTIALLY_PAID)!;
+      const itemIds = [...new Set(outstanding.items.map(item => item.journalItemId).filter((id): id is string => Boolean(id)))];
+      const dto = { itemIds, amount: '10.00', paymentMethod: PaymentMethod.CARD, requestId: randomUUID() };
+      const paid = await service.payJournalSelection(patientCase.id, dto, user.id);
+      assert.equal(paid.reduce((sum, invoice) => sum.add(invoice.payments[0].totalAmount), decimal(0)).toString(), '10');
+      assert.equal((await read()).paidCash.sub(before.paidCash).toString(), '10');
+      const retried = await service.payJournalSelection(patientCase.id, dto, user.id);
+      assert.deepEqual(retried.map(invoice => invoice.id), paid.map(invoice => invoice.id));
+      assert.equal((await read()).paidCash.sub(before.paidCash).toString(), '10');
+    });
+
+    await t.test('selected journal payment settles balances and is safe to retry', async () => {
+      const before = await read();
+      const dto = { itemIds: before.items.filter(item => !item.isPaid && item.totalPrice.gt(0)).map(item => item.id), amount: before.totalAmount.sub(before.paidCash).sub(before.paidBonus).toFixed(2), paymentMethod: PaymentMethod.CASH, requestId: randomUUID() };
+      const paid = await service.payJournalSelection(patientCase.id, dto, user.id);
+      assert.ok(paid.length > 0);
+      assert.ok(paid.every(invoice => invoice.status === InvoiceStatus.PAID));
+      const journal = await read();
+      assert.equal(journal.paidCash.toString(), journal.totalAmount.toString());
+      assert.equal(journal.unbilledAmount.toString(), '0');
+      assert.ok(journal.items.every(item => item.isPaid));
+      const retried = await service.payJournalSelection(patientCase.id, dto, user.id);
+      assert.deepEqual(retried.map(invoice => invoice.id).sort(), paid.map(invoice => invoice.id).sort());
+      assert.equal((await read()).paidCash.toString(), journal.totalAmount.toString());
     });
 
     await t.test('closing the journal preserves balance and leaves unbilled services unissued', async () => {

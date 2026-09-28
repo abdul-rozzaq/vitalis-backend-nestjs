@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsEnum, IsISO8601, IsNumber, IsOptional, IsString, IsUUID, Min } from "class-validator";
+import { IsArray, IsBoolean, IsEnum, IsISO8601, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min } from "class-validator";
 import { CaseBillingMode, CaseStepStatus, CaseStepType } from "../../generated/prisma/client";
 
 export class CreateCaseDto {
@@ -16,6 +16,16 @@ export class CreateCaseDto {
   @IsOptional()
   @IsEnum(CaseBillingMode)
   billingMode?: CaseBillingMode;
+}
+
+export class AddJournalServiceDto {
+  @IsString()
+  @MaxLength(255)
+  name: string;
+
+  @IsNumber()
+  @Min(0.01)
+  price: number;
 }
 
 export class AddCaseStepDto {
