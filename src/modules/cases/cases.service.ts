@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { RoleName } from "../../common/enums/role-name.enum";
 import { AppException } from "../../common/exceptions/app.exception";
 import { JwtPayload } from "../../common/types/jwt-payload.type";
@@ -6,9 +6,11 @@ import { CaseBillingMode, CaseStatus, CaseStepStatus, CaseStepType, Prisma } fro
 import { InvoiceItemSourceType, InvoiceSourceType, InvoiceStatus } from "../../generated/prisma/enums";
 import { PrismaService } from "../../prisma/prisma.service";
 import { IssueJournalInvoicesDto } from "../invoice/dto/issue-journal-invoices.dto";
+import { PayJournalDto } from "../invoice/dto/pay-journal.dto";
+import { PayJournalSelectionDto } from "../invoice/dto/pay-journal-selection.dto";
 import { InvoiceService } from "../invoice/invoice.service";
 import { generateOperationContractDocx, OperationContractRow } from "../operations/generators/operation-contract-docx";
-import { AddCaseStepDto, CreateCaseDto, UpdateCaseStepDto } from "./cases.dto";
+import { AddCaseStepDto, AddJournalServiceDto, CreateCaseDto, UpdateCaseStepDto } from "./cases.dto";
 import { CasesRepository, STEP_INCLUDE } from "./cases.repository";
 
 @Injectable()
@@ -44,6 +46,59 @@ export class CasesService {
     const c = await this.repo.findById(id, user.userId, user.role === RoleName.DOCTOR);
     if (!c) throw new NotFoundException("Case not found");
     return c;
+  }
+
+  async addJournalService(caseId: string, dto: AddJournalServiceDto, user: JwtPayload) {
+    const patientCase = await this.findById(caseId, user);
+    if (patientCase.status !== CaseStatus.ACTIVE || patientCase.billingMode !== CaseBillingMode.MASTER) {
+      throw new BadRequestException("Xizmatni faqat faol jurnalga qo'shish mumkin");
+    }
+    const name = dto.name.trim();
+    if (!name || !Number.isFinite(dto.price) || dto.price <= 0) {
+      throw new BadRequestException("Xizmat nomi va narxini kiriting");
+    }
+    return this.invoiceService.billCaseService(this.prisma, {
+      caseId,
+      patientId: patientCase.patientId,
+      createdById: user.userId,
+      items: [{
+        description: name,
+        quantity: 1,
+        unitPrice: new Prisma.Decimal(dto.price),
+        sourceType: InvoiceItemSourceType.MANUAL,
+        sourceId: caseId,
+      }],
+    });
+  }
+
+  async payJournalSelection(caseId: string, dto: PayJournalSelectionDto, user: JwtPayload) {
+    const patientCase = await this.findById(caseId, user);
+    if (patientCase.status === CaseStatus.CANCELLED) throw new BadRequestException("Bekor qilingan jurnalni to'lab bo'lmaydi");
+    return this.invoiceService.payJournalSelection(caseId, dto, user.userId);
+  }
+
+  async cancelJournalService(caseId: string, itemId: string, user: JwtPayload) {
+    const patientCase = await this.findById(caseId, user);
+    if (patientCase.status !== CaseStatus.ACTIVE || patientCase.billingMode !== CaseBillingMode.MASTER) {
+      throw new BadRequestException("Xizmatni faqat faol jurnaldan bekor qilish mumkin");
+    }
+    return this.prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM invoices WHERE "sourceId" = ${caseId} AND "isJournal" = true FOR UPDATE`;
+      const journal = await tx.invoice.findFirst({
+        where: { sourceId: caseId, isJournal: true, status: { not: InvoiceStatus.CANCELLED } },
+        select: { id: true },
+      });
+      if (!journal) throw new NotFoundException("Jurnal topilmadi");
+      const item = await tx.invoiceItem.findFirst({
+        where: { id: itemId, invoiceId: journal.id, sourceType: InvoiceItemSourceType.MANUAL },
+        include: { allocations: { select: { id: true } } },
+      });
+      if (!item) throw new NotFoundException("Xizmat topilmadi");
+      if (item.allocations.length) throw new BadRequestException("To'lovga ajratilgan xizmatni bekor qilib bo'lmaydi");
+      await tx.invoiceItem.delete({ where: { id: item.id } });
+      await tx.invoice.update({ where: { id: journal.id }, data: { totalAmount: { decrement: item.totalPrice } } });
+      return { success: true };
+    });
   }
 
   async create(dto: CreateCaseDto, user: JwtPayload) {
@@ -517,6 +572,12 @@ export class CasesService {
     const patientCase = await this.findById(caseId, user);
     if (patientCase.status === CaseStatus.CANCELLED) throw new AppException('Bekor qilingan jurnaldan invois yaratib bo‘lmaydi', 400);
     return this.invoiceService.issueJournalInvoices(caseId, dto, user.userId);
+  }
+
+  async payJournal(caseId: string, dto: PayJournalDto, user: JwtPayload) {
+    const patientCase = await this.findById(caseId, user);
+    if (patientCase.status === CaseStatus.CANCELLED) throw new AppException('Bekor qilingan jurnalni to‘lab bo‘lmaydi', 400);
+    return this.invoiceService.payJournal(caseId, dto, user.userId);
   }
 
   async deleteStep(caseId: string, stepId: string, user: JwtPayload) {
