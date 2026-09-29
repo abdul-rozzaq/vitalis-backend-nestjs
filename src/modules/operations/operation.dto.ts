@@ -143,6 +143,10 @@ export class UpdateOperationItemDto {
 export class UpdateOperationDto {
   @IsOptional()
   @IsUUID()
+  operationTypeId?: string;
+
+  @IsOptional()
+  @IsUUID()
   roomId?: string;
 
   @IsOptional()
