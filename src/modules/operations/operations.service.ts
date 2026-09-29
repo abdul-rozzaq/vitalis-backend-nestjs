@@ -40,7 +40,7 @@ export class OperationsService {
     return op;
   }
 
-  async create(dto: CreateOperationDto) {
+  async create(dto: CreateOperationDto, staffId: string) {
     // Agar jarrohlar belgilangan bo'lsa, kamida 1 ta LEAD bo'lishi kerak
     if (dto.surgeons && dto.surgeons.length > 0) {
       const hasLead = dto.surgeons.some((s) => s.role === 'LEAD');
@@ -49,11 +49,18 @@ export class OperationsService {
       }
     }
 
-    // Invois operatsiya yaratilishi bilan avtomatik yaratilmaydi — bu
-    // operatsiya tafsilotlari sahifasida alohida amal sifatida ("Invois
-    // yaratish" tugmasi) bajariladi, chunki har xil bemorlar operatsiyadan
-    // oldin, keyin yoki qisman to'lashni xohlashi mumkin.
-    return this.repo.create(dto);
+    // Record journal services atomically with the referral. Payment invoices
+    // are still issued separately; non-MASTER cases keep manual billing.
+    return this.repo.create(dto, async (tx, operation) => {
+      const caseId = operation.caseStep?.caseId;
+      if (!caseId) return;
+      await this.invoiceService.billCaseService(tx, {
+        caseId,
+        patientId: operation.patientId,
+        createdById: staffId,
+        items: this.buildInvoiceItems(operation),
+      });
+    });
   }
 
   private buildInvoiceItems(op: Awaited<ReturnType<OperationsRepository['findOne']>>) {
