@@ -523,6 +523,31 @@ export class InvoiceService {
         issuedInvoices: { orderBy: { createdAt: 'desc' }, include: INVOICE_INCLUDE },
       },
     });
+    const [operations, labOrders] = await Promise.all([
+      this.prisma.operation.findMany({
+        where: { caseStep: { caseId: { in: caseIds } } },
+        select: { id: true, items: { select: { id: true } } },
+      }),
+      this.prisma.labOrder.findMany({
+        where: { caseStep: { caseId: { in: caseIds } } },
+        select: { id: true, caseStep: { select: { caseId: true } }, items: { select: { serviceId: true } } },
+      }),
+    ]);
+    const operationLinks = new Map<string, string>();
+    for (const operation of operations) {
+      operationLinks.set(operation.id, `/operations/${operation.id}`);
+      for (const item of operation.items) operationLinks.set(item.id, `/operations/${operation.id}`);
+    }
+    const detailHref = (caseId: string, item: { sourceType: string; sourceId: string | null }) => {
+      if (!item.sourceId) return null;
+      if (item.sourceType === 'OPERATION') return operationLinks.get(item.sourceId) ?? null;
+      if (item.sourceType === 'APPOINTMENT') return `/appointments/${item.sourceId}`;
+      if (item.sourceType === 'LAB_SERVICE') {
+        const matches = labOrders.filter(order => order.caseStep.caseId === caseId && order.items.some(service => service.serviceId === item.sourceId));
+        if (matches.length === 1) return `/lab/${matches[0].id}/results`;
+      }
+      return null;
+    };
     return journals.map(journal => {
       const active = journal.issuedInvoices.filter(i => i.status !== InvoiceStatus.CANCELLED);
       const billedAmount = active.reduce((sum, i) => sum.add(i.totalAmount), new Prisma.Decimal(0));
@@ -543,6 +568,7 @@ export class InvoiceService {
           }, new Prisma.Decimal(0));
           return {
             ...item,
+            detailHref: detailHref(journal.sourceId, item),
             billedAmount: billed,
             remainingAmount: Prisma.Decimal.max(0, item.totalPrice.sub(billed)),
             paidAmount: paid,

@@ -11,6 +11,7 @@
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test:shifts": "node --test --require ts-node/register \"src/modules/shifts/*.spec.ts\"",
     "test:attendance": "node --test --require ts-node/register \"src/modules/attendance/*.spec.ts\"",
+    "test:operations": "node --require ts-node/register --require tsconfig-paths/register src/modules/operations/operations.service.spec.ts",
     "test:unit": "node --test --require ts-node/register \"src/modules/*/*.spec.ts\"",
     "test": "jest",
     "test:watch": "jest --watch",

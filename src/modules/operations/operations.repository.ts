@@ -4,6 +4,7 @@ import {
   OperationStatus,
 } from '@/generated/prisma/enums';
 import { PrismaService } from '@/prisma/prisma.service';
+import { Prisma } from '@/generated/prisma/client';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateOperationDto, UpdateOperationDto } from './operation.dto';
 
@@ -70,7 +71,13 @@ export class OperationsRepository {
     });
   }
 
-async create(dto: CreateOperationDto) {
+async create(
+  dto: CreateOperationDto,
+  onCreated?: (
+    tx: Prisma.TransactionClient,
+    operation: NonNullable<Awaited<ReturnType<OperationsRepository['findOne']>>>,
+  ) => Promise<void>,
+) {
   return this.prisma.$transaction(async (tx) => {
     const operationType = dto.operationTypeId
       ? await tx.operationType.findUniqueOrThrow({
@@ -185,6 +192,7 @@ async create(dto: CreateOperationDto) {
       include: this.includeAll,
     });
 
+    await onCreated?.(tx, operation);
     return operation;
   });
 }

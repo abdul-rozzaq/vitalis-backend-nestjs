@@ -62,8 +62,8 @@ export class OperationsController {
   }
 
   @Post()
-  create(@Body() dto: CreateOperationDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateOperationDto, @CurrentUser() user: JwtPayload) {
+    return this.service.create(dto, user.userId);
   }
 
   @Patch(':id')
