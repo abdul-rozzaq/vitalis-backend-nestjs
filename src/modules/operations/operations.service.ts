@@ -131,51 +131,16 @@ export class OperationsService {
     const op = await this.findOne(id);
     const caseId = op.caseStep?.caseId;
 
-    // Master-mode case: the split/"remaining balance" tracking below is
-    // Invoice-level and assumes every partial invoice keeps
-    // sourceType=OPERATION — that stops being true once billing moves to
-    // the case's Master Invoice, which would silently let staff re-bill
-    // the same operation on a second click. So Master-mode operations are
-    // billed in one shot, in full, with no partial `amount` — idempotency
-    // is just "does this operation already have an item on the master
-    // invoice", which is trivial and can't drift out of sync.
+    // Journal allocations own billing for MASTER cases, including partial payments.
     if (caseId) {
       const patientCase = await this.prisma.patientCase.findUnique({
         where: { id: caseId },
         select: { billingMode: true },
       });
       if (patientCase?.billingMode === CaseBillingMode.MASTER) {
-        if (amount !== undefined) {
-          throw new BadRequestException(
-            "Master hisob rejimida operatsiya narxi qisman emas, faqat to'liq holda qo'shiladi",
-          );
-        }
-
-        const fullInvoiceItems = this.buildInvoiceItems(op);
-        return this.prisma.$transaction(async (tx) => {
-          const alreadyBilled = await tx.invoiceItem.findFirst({
-            where: {
-              sourceType: InvoiceItemSourceType.OPERATION,
-              sourceId: op.id,
-              invoice: { sourceType: InvoiceSourceType.CASE, sourceId: caseId },
-            },
-          });
-          if (alreadyBilled) {
-            throw new BadRequestException(
-              "Bu operatsiya narxi umumiy (Master) hisobga allaqachon qo'shilgan",
-            );
-          }
-
-          const masterInvoice = await this.invoiceService.billCaseService(tx, {
-            caseId,
-            patientId: op.patientId,
-            createdById: staffId,
-            items: fullInvoiceItems,
-          });
-          // billCaseService only returns null for non-MASTER cases, and we
-          // just confirmed MASTER above, so this is always populated.
-          return masterInvoice!;
-        });
+        throw new BadRequestException(
+          "Bu operatsiya to'lovini bemorning jurnalidan qabul qiling. Summani bo'lib to'lash mumkin",
+        );
       }
     }
 
@@ -262,6 +227,10 @@ export class OperationsService {
       );
     }
 
+    if (dto.status && dto.status !== op.status) {
+      throw new BadRequestException("Holatni tegishli boshlash, yakunlash yoki bekor qilish amali orqali o'zgartiring");
+    }
+
     if (dto.surgeons) {
       const hasLead = dto.surgeons.some((s) => s.role === 'LEAD');
       if (!hasLead) {
@@ -338,6 +307,17 @@ export class OperationsService {
       throw new BadRequestException(
         'Faqat SCHEDULED operatsiyani boshlash mumkin',
       );
+    }
+
+    const missing: string[] = [];
+    if (!op.operationTypeId) missing.push('operatsiya turi');
+    if (!op.departmentId) missing.push('bo‘lim');
+    if (!op.contractNumber?.trim()) missing.push('shartnoma raqami');
+    if (!op.roomId) missing.push('xona');
+    if (!op.scheduledAt) missing.push('sana va vaqt');
+    if (!op.surgeons.some(surgeon => surgeon.role === 'LEAD')) missing.push('bosh jarroh');
+    if (missing.length) {
+      throw new BadRequestException(`Operatsiyani boshlashdan oldin quyidagilarni to‘ldiring: ${missing.join(', ')}`);
     }
 
     return this.repo.updateStatus(id, OperationStatus.IN_PROGRESS, {
