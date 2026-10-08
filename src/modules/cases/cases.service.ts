@@ -498,7 +498,21 @@ export class CasesService {
    * majburiy.
    */
   async convertToMaster(caseId: string, user: JwtPayload) {
-    const patientCase = await this.prisma.patientCase.findUnique({ where: { id: caseId } });
+    const patientCase = await this.prisma.patientCase.findUnique({
+      where: { id: caseId },
+      include: {
+        wards: { select: { id: true } },
+        steps: {
+          select: {
+            appointmentId: true,
+            labOrders: { select: { id: true } },
+            diagnosticOrder: { select: { id: true } },
+            procedureOrder: { select: { id: true } },
+            operation: { select: { id: true } },
+          },
+        },
+      },
+    });
     if (!patientCase) throw new NotFoundException("Case not found");
 
     if (patientCase.billingMode === "MASTER") {
@@ -526,6 +540,65 @@ export class CasesService {
         data: { billingMode: "MASTER" },
       });
 
+      // Case jurnal ochilmasidan oldin PER_SERVICE rejimida yaratilgan
+      // invoice'larni ham jurnalga biriktiramiz. Payment yozuvlari o'z
+      // invoice'ida qoladi; journalId orqali jurnal ularni umumiy to'lov
+      // sifatida hisoblaydi. Har bir eski item uchun jurnal headerida
+      // canonical item ochilib, eski item allocation sifatida bog'lanadi.
+      const sourceIdsByType: Partial<Record<InvoiceSourceType, string[]>> = {
+        [InvoiceSourceType.WARD]: patientCase.wards.map((ward) => ward.id),
+        [InvoiceSourceType.APPOINTMENT]: patientCase.steps.flatMap((step) => step.appointmentId ? [step.appointmentId] : []),
+        [InvoiceSourceType.LAB_ORDER]: patientCase.steps.flatMap((step) => step.labOrders.map((order) => order.id)),
+        [InvoiceSourceType.DIAGNOSTIC_ORDER]: patientCase.steps.flatMap((step) => step.diagnosticOrder ? [step.diagnosticOrder.id] : []),
+        [InvoiceSourceType.PROCEDURE_ORDER]: patientCase.steps.flatMap((step) => step.procedureOrder ? [step.procedureOrder.id] : []),
+        [InvoiceSourceType.OPERATION]: patientCase.steps.flatMap((step) => step.operation ? [step.operation.id] : []),
+      };
+      const sourceFilters: Prisma.InvoiceWhereInput[] = [];
+      for (const [sourceType, sourceIds] of Object.entries(sourceIdsByType)) {
+        if (sourceIds?.length) {
+          sourceFilters.push({ sourceType: sourceType as InvoiceSourceType, sourceId: { in: sourceIds } });
+        }
+      }
+
+      const previousInvoices = sourceFilters.length === 0 ? [] : await tx.invoice.findMany({
+        where: {
+          patientId: patientCase.patientId,
+          isJournal: false,
+          journalId: null,
+          status: { not: InvoiceStatus.CANCELLED },
+          OR: sourceFilters,
+        },
+        include: { items: true },
+      });
+
+      let migratedTotal = new Prisma.Decimal(0);
+      for (const invoice of previousInvoices) {
+        for (const item of invoice.items) {
+          const journalItem = await tx.invoiceItem.create({
+            data: {
+              invoiceId: masterInvoice.id,
+              description: item.description,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              totalPrice: item.totalPrice,
+              dateFrom: item.dateFrom,
+              dateTo: item.dateTo,
+              sourceType: item.sourceType,
+              sourceId: item.sourceId,
+            },
+          });
+          await tx.invoiceItem.update({
+            where: { id: item.id },
+            data: { journalItemId: journalItem.id },
+          });
+          migratedTotal = migratedTotal.add(item.totalPrice);
+        }
+        await tx.invoice.update({ where: { id: invoice.id }, data: { journalId: masterInvoice.id } });
+      }
+      const updatedMasterInvoice = migratedTotal.gt(0)
+        ? await tx.invoice.update({ where: { id: masterInvoice.id }, data: { totalAmount: migratedTotal } })
+        : masterInvoice;
+
       await tx.auditLog.create({
         data: {
           userId: user.userId,
@@ -533,11 +606,15 @@ export class CasesService {
           entityId: caseId,
           action: "CONVERT_TO_MASTER_INVOICE",
           oldValues: { billingMode: patientCase.billingMode },
-          newValues: { billingMode: "MASTER", masterInvoiceId: masterInvoice.id },
+          newValues: {
+            billingMode: "MASTER",
+            masterInvoiceId: masterInvoice.id,
+            migratedInvoiceIds: previousInvoices.map((invoice) => invoice.id),
+          },
         },
       });
 
-      return { case: updatedCase, masterInvoice };
+      return { case: updatedCase, masterInvoice: updatedMasterInvoice };
     });
   }
 
