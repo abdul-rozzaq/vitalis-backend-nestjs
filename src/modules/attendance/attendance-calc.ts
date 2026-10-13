@@ -199,7 +199,7 @@ export interface ManualOverrides {
  * to'ldiradi, mavjudini almashtirmaydi. Aks holda smena o'rtasidagi
  * segmentlar buzilardi.
  */
-function withManualPunches(events: PunchEvent[], overrides?: ManualOverrides): PunchEvent[] {
+export function withManualPunches(events: PunchEvent[], overrides?: ManualOverrides): PunchEvent[] {
   if (!overrides) return events;
   const result = [...events];
 
@@ -260,6 +260,31 @@ export function computeAttendance(
     insideNow,
     status: resolveStatus({ checkInAt, checkOutAt, lateMinutes, earlyLeaveMinutes, isFinalized }),
   };
+}
+
+/**
+ * Smena oynasidan TASHQARI ishlangan vaqt (HR hisoboti uchun) — saqlangan
+ * `workedMinutes` / `status` ga tegmaydi, mavjud hisob-kitobga qo'shimcha.
+ *
+ * Chegara `MATCH_WINDOW_MIN` bilan bir xil ataylab: webhook shundan
+ * uzoqroqdagi skanni bu smenaga umuman ulamaydi (`attendance.service.ts`
+ * `processEvent`), shuning uchun undan tashqarisini qidirishning ma'nosi
+ * yo'q — bu smenaning eventlari orasida bo'lishi mumkin emas.
+ */
+export function computeOvertimeMinutes(
+  shiftStart: Date,
+  shiftEnd: Date,
+  rawEvents: PunchEvent[],
+  now: Date,
+  workedMinutes: number,
+  overrides?: ManualOverrides,
+): number {
+  const events = withManualPunches(rawEvents, overrides);
+  const segments = pairSegments(events);
+  const extendedStart = subMinutes(shiftStart, MATCH_WINDOW_MIN);
+  const extendedEnd = addMinutes(shiftEnd, MATCH_WINDOW_MIN);
+  const totalMinutes = minutesWithin(segments, extendedStart, extendedEnd, now);
+  return Math.max(0, totalMinutes - workedMinutes);
 }
 
 /**

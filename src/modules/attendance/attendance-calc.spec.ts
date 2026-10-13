@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { AttendanceRecordStatus } from '../../generated/prisma/enums';
 import {
   computeAttendance,
+  computeOvertimeMinutes,
   distanceToShift,
   minutesWithin,
   pairSegments,
@@ -247,5 +248,46 @@ describe('computeAttendance', () => {
     assert.equal(r.lateMinutes, 0);
     assert.equal(r.earlyLeaveMinutes, 0);
     assert.equal(r.status, AttendanceRecordStatus.PRESENT);
+  });
+});
+
+describe('computeOvertimeMinutes', () => {
+  it('smena chegarasi ichidagina ishlasa overtime 0', () => {
+    const shiftStart = at(1, 9);
+    const shiftEnd = at(1, 17);
+    const events = [IN(at(1, 9)), OUT(at(1, 17))];
+    const r = computeAttendance(shiftStart, shiftEnd, events, at(1, 18));
+    const overtime = computeOvertimeMinutes(shiftStart, shiftEnd, events, at(1, 18), r.workedMinutes);
+    assert.equal(overtime, 0);
+  });
+
+  it('smena tugagandan keyin qolib ishlagan vaqtni overtime deb hisoblaydi', () => {
+    const shiftStart = at(1, 9);
+    const shiftEnd = at(1, 17);
+    const events = [IN(at(1, 9)), OUT(at(1, 18, 30))];
+    const r = computeAttendance(shiftStart, shiftEnd, events, at(1, 19));
+    const overtime = computeOvertimeMinutes(shiftStart, shiftEnd, events, at(1, 19), r.workedMinutes);
+    assert.equal(overtime, 90);
+  });
+
+  it('smena boshlanishidan oldin kelgan vaqtni ham overtime deb hisoblaydi', () => {
+    const shiftStart = at(1, 9);
+    const shiftEnd = at(1, 17);
+    const events = [IN(at(1, 8, 15)), OUT(at(1, 17))];
+    const r = computeAttendance(shiftStart, shiftEnd, events, at(1, 18));
+    const overtime = computeOvertimeMinutes(shiftStart, shiftEnd, events, at(1, 18), r.workedMinutes);
+    assert.equal(overtime, 45);
+  });
+
+  it('MATCH_WINDOW_MIN dan tashqaridagi vaqtni hisobga olmaydi', () => {
+    // Webhook bu kabi skanni bu smenaga umuman ulamaydi, shuning uchun
+    // overtime ham undan tashqarini qidirmasligi kerak.
+    const shiftStart = at(1, 9);
+    const shiftEnd = at(1, 17);
+    const events = [IN(at(1, 6)), OUT(at(1, 17))]; // 9:00 dan 3 soat oldin
+    const r = computeAttendance(shiftStart, shiftEnd, events, at(1, 18));
+    const overtime = computeOvertimeMinutes(shiftStart, shiftEnd, events, at(1, 18), r.workedMinutes);
+    // Faqat MATCH_WINDOW_MIN (90 daq) ichidagi qism — 7:30 dan 9:00 gacha.
+    assert.equal(overtime, 90);
   });
 });

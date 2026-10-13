@@ -16,6 +16,7 @@ import {
   AdjustAttendanceRecordDto,
   AttendanceEventsQueryDto,
   AttendanceRecordsQueryDto,
+  HrSummaryQueryDto,
   LinkEmployeeDto,
   PatchAttendanceRecordDto,
   ResolveToShiftDto,
@@ -65,6 +66,16 @@ export class AttendanceController {
   @Get('events')
   listEvents(@Query() query: AttendanceEventsQueryDto) {
     return this.service.listEvents(query);
+  }
+
+  /**
+   * Admin / Direktor / Hisobchi: davr bo'yicha xodimlar davomatining
+   * jamlangan xulosasi (HR nazorat sahifasi uchun). Faqat o'qish.
+   */
+  @Roles(RoleName.ADMIN, RoleName.DIREKTOR, RoleName.HISOBCHI)
+  @Get('hr-summary')
+  getHrSummary(@Query() query: HrSummaryQueryDto) {
+    return this.service.getHrSummary(query);
   }
 
   // ── Istisnolar navbati ──────────────────────────────────────────────────────

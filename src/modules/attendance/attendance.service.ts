@@ -2,9 +2,9 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from "@nes
 import { Cron } from "@nestjs/schedule";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CLINIC_TZ } from "../../common/clinic-time";
-import { AttendanceEventStatus, AttendanceRecordStatus } from "../../generated/prisma/enums";
-import { AdjustAttendanceRecordDto, AttendanceEventsQueryDto, AttendanceRecordsQueryDto, HikvisionEventDto, PatchAttendanceRecordDto } from "./attendance.dto";
-import { addMinutes, computeAttendance, FINALIZE_BUFFER_MIN, MATCH_WINDOW_MIN, pickShiftForEvent, subMinutes } from "./attendance-calc";
+import { AttendanceEventStatus, AttendanceRecordStatus, UserRole } from "../../generated/prisma/enums";
+import { AdjustAttendanceRecordDto, AttendanceEventsQueryDto, AttendanceRecordsQueryDto, HikvisionEventDto, HrSummaryQueryDto, PatchAttendanceRecordDto } from "./attendance.dto";
+import { addMinutes, computeAttendance, computeOvertimeMinutes, FINALIZE_BUFFER_MIN, MATCH_WINDOW_MIN, pickShiftForEvent, subMinutes } from "./attendance-calc";
 
 /** Shift tugagandan keyingi buffer (ABSENT belgilash uchun) */
 const ABSENT_BUFFER_MIN = FINALIZE_BUFFER_MIN;
@@ -30,6 +30,25 @@ const UNRESOLVED_SCAN_LIMIT = 500;
 
 /** Navbatdagi bitta guruh ichida ko'rsatiladigan maksimal skan vaqti. */
 const SCAN_SAMPLE_LIMIT = 10;
+
+export interface HrSummaryRow {
+  user: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    role: UserRole;
+    employeeNo: string | null;
+  };
+  shiftsScheduled: number;
+  shiftsAttended: number;
+  shiftsMissed: number;
+  incompleteCount: number;
+  workedMinutes: number;
+  lateMinutes: number;
+  earlyLeaveMinutes: number;
+  absentMinutes: number;
+  overtimeMinutes: number;
+}
 
 interface ScanRow {
   id: string;
@@ -384,6 +403,98 @@ export class AttendanceService {
       where: { id },
       data: { note: dto.note },
     });
+  }
+
+  /**
+   * HR xulosasi — berilgan davrda har bir xodim bo'yicha jamlangan
+   * davomat: nechta smenaga chiqdi/chiqmadi, jami ishlangan/kechikkan/
+   * erta ketgan/yo'q bo'lgan daqiqa va smenadan tashqari (overtime)
+   * daqiqa. Faqat o'qish — hech narsa yozmaydi, hech narsani o'zgartirmaydi.
+   *
+   * Eslatma: `listRecords` kabi, faqat allaqachon yaratilgan
+   * `AttendanceRecord` larni hisoblaydi. Kechagi tungi cron hali
+   * yakunlamagan juda yangi smenalar bu yerda ko'rinmaydi — bu
+   * `/attendance/records` bilan bir xil cheklov, yangi kamchilik emas.
+   */
+  async getHrSummary(query: HrSummaryQueryDto): Promise<HrSummaryRow[]> {
+    const dayStart = new Date(`${query.from}T00:00:00+05:00`);
+    const dayEnd = new Date(`${query.to}T23:59:59+05:00`);
+
+    const records = await this.prisma.attendanceRecord.findMany({
+      where: {
+        shift: {
+          startAt: { lte: dayEnd },
+          endAt: { gte: dayStart },
+        },
+      },
+      include: {
+        user: {
+          select: { id: true, first_name: true, last_name: true, role: true, employeeNo: true },
+        },
+        shift: {
+          select: {
+            id: true,
+            startAt: true,
+            endAt: true,
+            department: { select: { id: true, name: true } },
+          },
+        },
+        events: { select: { eventAt: true, rawStatus: true } },
+      },
+      orderBy: { shift: { startAt: "asc" } },
+    });
+
+    const byUser = new Map<string, HrSummaryRow>();
+    const now = new Date();
+
+    for (const record of records) {
+      let row = byUser.get(record.userId);
+      if (!row) {
+        row = {
+          user: record.user,
+          shiftsScheduled: 0,
+          shiftsAttended: 0,
+          shiftsMissed: 0,
+          incompleteCount: 0,
+          workedMinutes: 0,
+          lateMinutes: 0,
+          earlyLeaveMinutes: 0,
+          absentMinutes: 0,
+          overtimeMinutes: 0,
+        };
+        byUser.set(record.userId, row);
+      }
+
+      row.shiftsScheduled++;
+      if (record.status === AttendanceRecordStatus.ABSENT) {
+        row.shiftsMissed++;
+      } else {
+        row.shiftsAttended++;
+      }
+      if (
+        record.status === AttendanceRecordStatus.MISSING_CHECKIN ||
+        record.status === AttendanceRecordStatus.MISSING_CHECKOUT
+      ) {
+        row.incompleteCount++;
+      }
+
+      row.workedMinutes += record.workedMinutes;
+      row.lateMinutes += record.lateMinutes;
+      row.earlyLeaveMinutes += record.earlyLeaveMinutes;
+      row.absentMinutes += record.absentMinutes;
+      row.overtimeMinutes += computeOvertimeMinutes(
+        record.shift.startAt,
+        record.shift.endAt,
+        record.events,
+        now,
+        record.workedMinutes,
+        { manualCheckInAt: record.manualCheckInAt, manualCheckOutAt: record.manualCheckOutAt },
+      );
+    }
+
+    return [...byUser.values()].sort((a, b) =>
+      a.user.last_name.localeCompare(b.user.last_name),
+    );
   }
 
   async listEvents(query: AttendanceEventsQueryDto) {

@@ -96,6 +96,19 @@ export class AdjustAttendanceRecordDto {
   note?: string;
 }
 
+/** HR xulosasi uchun davr filtri — ikkisi ham majburiy. */
+export class HrSummaryQueryDto {
+  /** YYYY-MM-DD */
+  @IsString()
+  @IsNotEmpty()
+  from: string;
+
+  /** YYYY-MM-DD */
+  @IsString()
+  @IsNotEmpty()
+  to: string;
+}
+
 export class AttendanceEventsQueryDto {
   @IsOptional()
   @IsString()
