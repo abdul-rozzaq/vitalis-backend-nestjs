@@ -119,6 +119,14 @@ export class AttendanceService {
       where: { deviceIp, employeeNoStr, eventAt },
     });
     if (duplicate) {
+      // Oldingi urinish xom eventni yozib, record'ga ulashdan oldin yiqilgan
+      // bo'lishi mumkin. Retry kelganda bunday PENDING eventni tashlab
+      // yubormaymiz — qayta ishlaymiz.
+      if (duplicate.status === AttendanceEventStatus.PENDING) {
+        await this.reprocessEvent(duplicate.id);
+        this.logger.log(`Pending event recovered: eventId=${duplicate.id}`);
+        return;
+      }
       this.logger.warn(
         `Duplicate event ignored: employee=${employeeNoStr} at=${eventAt.toISOString()}`,
       );
@@ -231,6 +239,28 @@ export class AttendanceService {
     this.logger.log(
       `Event processed: userId=${user.id} shiftId=${shift.id} status=${rawStatus}`,
     );
+  }
+
+  /** Vaqtinchalik xatodan keyin terminal retry qilmagan PENDING eventlar zaxirasi. */
+  @Cron('*/5 * * * *', { timeZone: CLINIC_TZ })
+  async recoverPendingEvents(): Promise<void> {
+    const pending = await this.prisma.attendanceEvent.findMany({
+      where: {
+        status: AttendanceEventStatus.PENDING,
+        createdAt: { lte: subMinutes(new Date(), 1) },
+      },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    });
+
+    for (const { id } of pending) {
+      try {
+        await this.reprocessEvent(id);
+      } catch (error: any) {
+        this.logger.error(`Pending attendance recovery failed: eventId=${id}: ${error.message}`);
+      }
+    }
   }
 
   // ── Nightly ABSENT cron ─────────────────────────────────────────────────────
@@ -722,7 +752,13 @@ export class AttendanceService {
         ? await this.prisma.user.findUnique({ where: { id: event.userId } })
         : await this.prisma.user.findFirst({ where: { employeeNo: event.employeeNoStr } });
 
-    if (!user) return false;
+    if (!user) {
+      await this.prisma.attendanceEvent.update({
+        where: { id: event.id },
+        data: { status: AttendanceEventStatus.UNKNOWN_EMPLOYEE },
+      });
+      return false;
+    }
 
     const candidates = await this.prisma.shiftStaff.findMany({
       where: {

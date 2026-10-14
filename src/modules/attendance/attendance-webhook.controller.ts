@@ -10,6 +10,7 @@ import {
   Body,
   Logger,
   HttpCode,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import {
   AnyFilesInterceptor,
@@ -71,6 +72,9 @@ export class AttendanceWebhookController {
     @UploadedFiles() files: Express.Multer.File[],
     @Body() body: any,
   ) {
+    let dto: HikvisionEventDto;
+    let picturePath: string | null;
+
     try {
       // 1. Secret tekshiruvi — timing-safe comparison
       this.validateSecret(secret);
@@ -79,24 +83,31 @@ export class AttendanceWebhookController {
       this.validateIp(clientIp);
 
       // 3. event_log parse
-      const dto = this.parseEventLog(body, clientIp);
+      dto = this.parseEventLog(body, clientIp);
 
       // 4. Rasm yo'lini topish (Picture.jpg yoki birinchi fayl)
       const pictureFile = (files ?? []).find(
         (f) => f.fieldname === 'Picture' || f.mimetype.startsWith('image/'),
       );
       
-      const picturePath = pictureFile
+      picturePath = pictureFile
         ? `/uploads/attendance/${pictureFile.filename}`
         : null;
+    } catch (error: any) {
+      // Yaroqsiz payload qayta yuborilsa ham tuzalmaydi. Terminalning cheksiz
+      // retry loop'iga tushmasligi uchun bunday so'rovga 200 qaytaramiz.
+      this.logger.warn(`Webhook payload rejected: ${error.message}`);
+      return { ok: false, error: error.message };
+    }
 
-      // 5. Service'ga topshirish
+    try {
+      // DB yoki ichki ishlov vaqtincha yiqilsa 5xx qaytishi shart: aks holda
+      // terminal hodisani yetkazilgan deb hisoblab, uni boshqa yubormaydi.
       await this.service.processEvent(dto, picturePath);
-
       return { ok: true };
     } catch (error: any) {
-      this.logger.warn(`Webhook error ignored (returning 200 to stop loop): ${error.message}`);
-      return { ok: false, error: error.message };
+      this.logger.error(`Webhook processing failed; requesting retry: ${error.message}`);
+      throw new ServiceUnavailableException('Attendance event could not be persisted');
     }
   }
 
@@ -160,8 +171,13 @@ export class AttendanceWebhookController {
       throw new Error('employeeNoString bo\'sh');
     }
 
-    // Qurilmadan kelgan ISO timestamp (+05:00 bilan)
-    const eventAt = new Date(log.dateTime ?? log.DateTime);
+    // Ayrim Hikvision firmware'lari lokal vaqtni UTC offsetsiz yuboradi.
+    // Bunday qiymat Node serverining TZ'iga bog'lanib qolmasligi uchun uni
+    // klinika vaqti (Asia/Tashkent, UTC+5) deb aniq belgilaymiz.
+    const rawDateTime = String(log.dateTime ?? log.DateTime ?? '').trim();
+    const hasTimeZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(rawDateTime);
+    const normalizedDateTime = hasTimeZone ? rawDateTime : `${rawDateTime}+05:00`;
+    const eventAt = new Date(normalizedDateTime);
     if (isNaN(eventAt.getTime())) {
       throw new Error(`Noto'g'ri dateTime: ${log.dateTime}`);
     }
