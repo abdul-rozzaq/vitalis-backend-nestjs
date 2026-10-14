@@ -1,4 +1,4 @@
-import { AttendanceRecordStatus } from '../../generated/prisma/enums';
+import { AttendanceRecordStatus } from "../../generated/prisma/enums";
 
 /**
  * Davomat hisob-kitobi — sof funksiyalar.
@@ -14,7 +14,7 @@ import { AttendanceRecordStatus } from '../../generated/prisma/enums';
  * Kechikish chegarasi. Xodim smena boshlanishidan shuncha daqiqa keyin
  * kelsa ham "o'z vaqtida" hisoblanadi.
  */
-export const GRACE_MIN = parseInt(process.env.ATTENDANCE_GRACE_PERIOD_MIN ?? '5', 10);
+export const GRACE_MIN = parseInt(process.env.ATTENDANCE_GRACE_PERIOD_MIN ?? "5", 10);
 
 /**
  * Skanni smenaga ulash oynasi. `GRACE_MIN` dan ATAYLAB ajratilgan: grace
@@ -25,13 +25,13 @@ export const GRACE_MIN = parseInt(process.env.ATTENDANCE_GRACE_PERIOD_MIN ?? '5'
  * 20 daqiqa oldin kelgan xodimning skani hech qaysi smenaga tushmay
  * `NO_SHIFT` bo'lib qolar, keyin cron uni ABSENT deb belgilardi.
  */
-export const MATCH_WINDOW_MIN = parseInt(process.env.ATTENDANCE_MATCH_WINDOW_MIN ?? '90', 10);
+export const MATCH_WINDOW_MIN = parseInt(process.env.ATTENDANCE_MATCH_WINDOW_MIN ?? "90", 10);
 
 /**
  * Smena tugagandan keyin yozuv "yakunlangan" deb hisoblanadigan buffer.
  * Shu vaqtgacha `checkOut` yo'qligi normal holat — xodim hali ishlayapti.
  */
-export const FINALIZE_BUFFER_MIN = parseInt(process.env.ATTENDANCE_ABSENT_BUFFER_MIN ?? '30', 10);
+export const FINALIZE_BUFFER_MIN = parseInt(process.env.ATTENDANCE_ABSENT_BUFFER_MIN ?? "30", 10);
 
 const MS_PER_MIN = 60_000;
 
@@ -77,22 +77,16 @@ export function distanceToShift(shift: ShiftBounds, eventAt: Date): number {
  *   2. `checkIn` bo'lsa boshlanishi eng yaqin, `checkOut` bo'lsa tugashi
  *   3. determinizm uchun `startAt` bo'yicha
  */
-export function pickShiftForEvent<T extends ShiftBounds>(
-  shifts: T[],
-  eventAt: Date,
-  rawStatus: string,
-): T | null {
+export function pickShiftForEvent<T extends ShiftBounds>(shifts: T[], eventAt: Date, rawStatus: string): T | null {
   if (!shifts.length) return null;
 
-  const anchorOf = (s: T) => (rawStatus === 'checkOut' ? s.endAt : s.startAt);
+  const anchorOf = (s: T) => (rawStatus === "checkOut" ? s.endAt : s.startAt);
 
   return [...shifts].sort((a, b) => {
     const byDistance = distanceToShift(a, eventAt) - distanceToShift(b, eventAt);
     if (byDistance !== 0) return byDistance;
 
-    const byAnchor =
-      Math.abs(anchorOf(a).getTime() - eventAt.getTime()) -
-      Math.abs(anchorOf(b).getTime() - eventAt.getTime());
+    const byAnchor = Math.abs(anchorOf(a).getTime() - eventAt.getTime()) - Math.abs(anchorOf(b).getTime() - eventAt.getTime());
     if (byAnchor !== 0) return byAnchor;
 
     return a.startAt.getTime() - b.startAt.getTime();
@@ -126,7 +120,7 @@ export function pairSegments(events: PunchEvent[]): WorkSegment[] {
   let openFrom: Date | null = null;
 
   for (const e of sorted) {
-    if (e.rawStatus === 'checkIn') {
+    if (e.rawStatus === "checkIn") {
       if (openFrom === null) openFrom = e.eventAt;
       continue;
     }
@@ -144,12 +138,7 @@ export function pairSegments(events: PunchEvent[]): WorkSegment[] {
  * Segmentlarning [from, to] oynasi bilan kesishgan qismini daqiqada qaytaradi.
  * Ochiq segment `now` gacha hisoblanadi.
  */
-export function minutesWithin(
-  segments: WorkSegment[],
-  windowStart: Date,
-  windowEnd: Date,
-  now: Date,
-): number {
+export function minutesWithin(segments: WorkSegment[], windowStart: Date, windowEnd: Date, now: Date): number {
   let total = 0;
   for (const seg of segments) {
     const segEnd = seg.to ?? now;
@@ -199,35 +188,29 @@ export interface ManualOverrides {
  * to'ldiradi, mavjudini almashtirmaydi. Aks holda smena o'rtasidagi
  * segmentlar buzilardi.
  */
-function withManualPunches(events: PunchEvent[], overrides?: ManualOverrides): PunchEvent[] {
+export function withManualPunches(events: PunchEvent[], overrides?: ManualOverrides): PunchEvent[] {
   if (!overrides) return events;
   const result = [...events];
 
-  const hasCheckIn = events.some((e) => e.rawStatus === 'checkIn');
+  const hasCheckIn = events.some((e) => e.rawStatus === "checkIn");
   if (overrides.manualCheckInAt && !hasCheckIn) {
-    result.push({ eventAt: overrides.manualCheckInAt, rawStatus: 'checkIn' });
+    result.push({ eventAt: overrides.manualCheckInAt, rawStatus: "checkIn" });
   }
 
   // Ochiq segment bo'lsagina chiqish qo'shiladi.
   const hasOpenSegment = pairSegments(result).some((s) => s.to === null);
   if (overrides.manualCheckOutAt && hasOpenSegment) {
-    result.push({ eventAt: overrides.manualCheckOutAt, rawStatus: 'checkOut' });
+    result.push({ eventAt: overrides.manualCheckOutAt, rawStatus: "checkOut" });
   }
 
   return result;
 }
 
-export function computeAttendance(
-  shiftStart: Date,
-  shiftEnd: Date,
-  rawEvents: PunchEvent[],
-  now: Date = new Date(),
-  overrides?: ManualOverrides,
-): AttendanceComputation {
+export function computeAttendance(shiftStart: Date, shiftEnd: Date, rawEvents: PunchEvent[], now: Date = new Date(), overrides?: ManualOverrides): AttendanceComputation {
   const events = withManualPunches(rawEvents, overrides);
   const sorted = [...events].sort((a, b) => a.eventAt.getTime() - b.eventAt.getTime());
-  const checkInAt = sorted.find((e) => e.rawStatus === 'checkIn')?.eventAt ?? null;
-  const checkOutAt = [...sorted].reverse().find((e) => e.rawStatus === 'checkOut')?.eventAt ?? null;
+  const checkInAt = sorted.find((e) => e.rawStatus === "checkIn")?.eventAt ?? null;
+  const checkOutAt = [...sorted].reverse().find((e) => e.rawStatus === "checkOut")?.eventAt ?? null;
 
   const segments = pairSegments(sorted);
   const workedMinutes = minutesWithin(segments, shiftStart, shiftEnd, now);
@@ -263,6 +246,24 @@ export function computeAttendance(
 }
 
 /**
+ * Smena oynasidan TASHQARI ishlangan vaqt (HR hisoboti uchun) — saqlangan
+ * `workedMinutes` / `status` ga tegmaydi, mavjud hisob-kitobga qo'shimcha.
+ *
+ * Chegara `MATCH_WINDOW_MIN` bilan bir xil ataylab: webhook shundan
+ * uzoqroqdagi skanni bu smenaga umuman ulamaydi (`attendance.service.ts`
+ * `processEvent`), shuning uchun undan tashqarisini qidirishning ma'nosi
+ * yo'q — bu smenaning eventlari orasida bo'lishi mumkin emas.
+ */
+export function computeOvertimeMinutes(shiftStart: Date, shiftEnd: Date, rawEvents: PunchEvent[], now: Date, workedMinutes: number, overrides?: ManualOverrides): number {
+  const events = withManualPunches(rawEvents, overrides);
+  const segments = pairSegments(events);
+  const extendedStart = subMinutes(shiftStart, MATCH_WINDOW_MIN);
+  const extendedEnd = addMinutes(shiftEnd, MATCH_WINDOW_MIN);
+  const totalMinutes = minutesWithin(segments, extendedStart, extendedEnd, now);
+  return Math.max(0, totalMinutes - workedMinutes);
+}
+
+/**
  * Statusni aniqlaydi.
  *
  * To'liqsiz yozuv (kirish yoki chiqish skani yo'q) kechikishdan USTUN turadi —
@@ -273,13 +274,7 @@ export function computeAttendance(
  * To'liqsizlik faqat smena YAKUNLANGANDAN keyin belgilanadi — faol smenada
  * chiqish skanining yo'qligi mutlaqo normal.
  */
-function resolveStatus(input: {
-  checkInAt: Date | null;
-  checkOutAt: Date | null;
-  lateMinutes: number;
-  earlyLeaveMinutes: number;
-  isFinalized: boolean;
-}): AttendanceRecordStatus {
+function resolveStatus(input: { checkInAt: Date | null; checkOutAt: Date | null; lateMinutes: number; earlyLeaveMinutes: number; isFinalized: boolean }): AttendanceRecordStatus {
   const { checkInAt, checkOutAt, lateMinutes, earlyLeaveMinutes, isFinalized } = input;
 
   if (!checkInAt && !checkOutAt) return AttendanceRecordStatus.ABSENT;

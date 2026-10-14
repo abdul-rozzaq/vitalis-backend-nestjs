@@ -1,4 +1,4 @@
-import { IsISO8601, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsISO8601, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
 
 // ─── Webhook Event DTO ────────────────────────────────────────────────────────
 
@@ -94,6 +94,19 @@ export class AdjustAttendanceRecordDto {
   @IsString()
   @MaxLength(500)
   note?: string;
+}
+
+/** HR xulosasi uchun davr filtri — ikkisi ham majburiy. */
+export class HrSummaryQueryDto {
+  /** YYYY-MM-DD */
+  @IsString()
+  @IsNotEmpty()
+  from: string;
+
+  /** YYYY-MM-DD */
+  @IsString()
+  @IsNotEmpty()
+  to: string;
 }
 
 export class AttendanceEventsQueryDto {
