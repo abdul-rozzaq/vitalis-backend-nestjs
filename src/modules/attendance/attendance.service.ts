@@ -471,10 +471,7 @@ export class AttendanceService {
       } else {
         row.shiftsAttended++;
       }
-      if (
-        record.status === AttendanceRecordStatus.MISSING_CHECKIN ||
-        record.status === AttendanceRecordStatus.MISSING_CHECKOUT
-      ) {
+      if (record.status === AttendanceRecordStatus.MISSING_CHECKIN || record.status === AttendanceRecordStatus.MISSING_CHECKOUT) {
         row.incompleteCount++;
       }
 
@@ -482,19 +479,13 @@ export class AttendanceService {
       row.lateMinutes += record.lateMinutes;
       row.earlyLeaveMinutes += record.earlyLeaveMinutes;
       row.absentMinutes += record.absentMinutes;
-      row.overtimeMinutes += computeOvertimeMinutes(
-        record.shift.startAt,
-        record.shift.endAt,
-        record.events,
-        now,
-        record.workedMinutes,
-        { manualCheckInAt: record.manualCheckInAt, manualCheckOutAt: record.manualCheckOutAt },
-      );
+      row.overtimeMinutes += computeOvertimeMinutes(record.shift.startAt, record.shift.endAt, record.events, now, record.workedMinutes, {
+        manualCheckInAt: record.manualCheckInAt,
+        manualCheckOutAt: record.manualCheckOutAt,
+      });
     }
 
-    return [...byUser.values()].sort((a, b) =>
-      a.user.last_name.localeCompare(b.user.last_name),
-    );
+    return [...byUser.values()].sort((a, b) => a.user.last_name.localeCompare(b.user.last_name));
   }
 
   async listEvents(query: AttendanceEventsQueryDto) {

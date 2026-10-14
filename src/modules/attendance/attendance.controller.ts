@@ -1,29 +1,12 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Post,
-  Query,
-} from '@nestjs/common';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { RoleName } from '../../common/enums/role-name.enum';
-import { JwtPayload } from '../../common/types/jwt-payload.type';
-import {
-  AdjustAttendanceRecordDto,
-  AttendanceEventsQueryDto,
-  AttendanceRecordsQueryDto,
-  HrSummaryQueryDto,
-  LinkEmployeeDto,
-  PatchAttendanceRecordDto,
-  ResolveToShiftDto,
-} from './attendance.dto';
-import { AttendanceService } from './attendance.service';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from "@nestjs/common";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { RoleName } from "../../common/enums/role-name.enum";
+import { JwtPayload } from "../../common/types/jwt-payload.type";
+import { AdjustAttendanceRecordDto, AttendanceEventsQueryDto, AttendanceRecordsQueryDto, HrSummaryQueryDto, LinkEmployeeDto, PatchAttendanceRecordDto, ResolveToShiftDto } from "./attendance.dto";
+import { AttendanceService } from "./attendance.service";
 
-@Controller('attendance')
+@Controller("attendance")
 export class AttendanceController {
   constructor(private readonly service: AttendanceService) {}
 
@@ -32,7 +15,7 @@ export class AttendanceController {
    * Filtrlar: date (YYYY-MM-DD), from/to, userId, shiftId, status.
    */
   @Roles(RoleName.ADMIN, RoleName.DIREKTOR)
-  @Get('records')
+  @Get("records")
   listRecords(@Query() query: AttendanceRecordsQueryDto) {
     return this.service.listRecords(query);
   }
@@ -41,8 +24,8 @@ export class AttendanceController {
    * Admin / Direktor: bir davomat yozuvi — bog'liq event'lar bilan.
    */
   @Roles(RoleName.ADMIN, RoleName.DIREKTOR)
-  @Get('records/:id')
-  getRecord(@Param('id') id: string) {
+  @Get("records/:id")
+  getRecord(@Param("id") id: string) {
     return this.service.getRecord(id);
   }
 
@@ -50,11 +33,8 @@ export class AttendanceController {
    * Admin: davomat yozuviga izoh yozish (manual tuzatish uchun).
    */
   @Roles(RoleName.ADMIN)
-  @Patch('records/:id')
-  patchRecord(
-    @Param('id') id: string,
-    @Body() dto: PatchAttendanceRecordDto,
-  ) {
+  @Patch("records/:id")
+  patchRecord(@Param("id") id: string, @Body() dto: PatchAttendanceRecordDto) {
     return this.service.patchRecord(id, dto);
   }
 
@@ -63,7 +43,7 @@ export class AttendanceController {
    * Filtrlar: status, from, to.
    */
   @Roles(RoleName.ADMIN)
-  @Get('events')
+  @Get("events")
   listEvents(@Query() query: AttendanceEventsQueryDto) {
     return this.service.listEvents(query);
   }
@@ -73,7 +53,7 @@ export class AttendanceController {
    * jamlangan xulosasi (HR nazorat sahifasi uchun). Faqat o'qish.
    */
   @Roles(RoleName.ADMIN, RoleName.DIREKTOR, RoleName.HISOBCHI)
-  @Get('hr-summary')
+  @Get("hr-summary")
   getHrSummary(@Query() query: HrSummaryQueryDto) {
     return this.service.getHrSummary(query);
   }
@@ -85,7 +65,7 @@ export class AttendanceController {
    * Ilgari bular faqat log'ga tushib, hech kimga ko'rinmasdi.
    */
   @Roles(RoleName.ADMIN, RoleName.DIREKTOR)
-  @Get('unresolved')
+  @Get("unresolved")
   listUnresolved() {
     return this.service.listUnresolved();
   }
@@ -95,11 +75,8 @@ export class AttendanceController {
    * hal qilinmagan skanlarni qayta ishlaydi.
    */
   @Roles(RoleName.ADMIN)
-  @Post('events/:id/link-user')
-  linkEmployee(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: LinkEmployeeDto,
-  ) {
+  @Post("events/:id/link-user")
+  linkEmployee(@Param("id", ParseUUIDPipe) id: string, @Body() dto: LinkEmployeeDto) {
     return this.service.linkEmployeeNo(id, dto.userId);
   }
 
@@ -108,11 +85,8 @@ export class AttendanceController {
    * smenaga biriktirib).
    */
   @Roles(RoleName.ADMIN)
-  @Post('events/:id/assign-shift')
-  resolveToShift(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: ResolveToShiftDto,
-  ) {
+  @Post("events/:id/assign-shift")
+  resolveToShift(@Param("id", ParseUUIDPipe) id: string, @Body() dto: ResolveToShiftDto) {
     return this.service.resolveEventToShift(id, dto.shiftId);
   }
 
@@ -121,19 +95,15 @@ export class AttendanceController {
    * audit yozuvi sifatida saqlanadi.
    */
   @Roles(RoleName.ADMIN)
-  @Post('records/:id/adjust')
-  adjustRecord(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: AdjustAttendanceRecordDto,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  @Post("records/:id/adjust")
+  adjustRecord(@Param("id", ParseUUIDPipe) id: string, @Body() dto: AdjustAttendanceRecordDto, @CurrentUser() user: JwtPayload) {
     return this.service.adjustRecord(id, dto, user.userId);
   }
 
   /**
    * Har bir xodim o'z davomati tarixini ko'rishi mumkin.
    */
-  @Get('my')
+  @Get("my")
   getMyRecords(@CurrentUser() user: JwtPayload) {
     return this.service.getMyRecords(user.userId);
   }
