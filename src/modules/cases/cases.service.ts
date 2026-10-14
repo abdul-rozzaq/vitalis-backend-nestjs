@@ -9,6 +9,7 @@ import { IssueJournalInvoicesDto } from "../invoice/dto/issue-journal-invoices.d
 import { PayJournalDto } from "../invoice/dto/pay-journal.dto";
 import { PayJournalSelectionDto } from "../invoice/dto/pay-journal-selection.dto";
 import { InvoiceService } from "../invoice/invoice.service";
+import { combineLabInvoiceItems } from "../lab-common/lab-invoice-pricing";
 import { generateOperationContractDocx, OperationContractRow } from "../operations/generators/operation-contract-docx";
 import { AddCaseStepDto, AddJournalServiceDto, CreateCaseDto, UpdateCaseStepDto } from "./cases.dto";
 import { CasesRepository, STEP_INCLUDE } from "./cases.repository";
@@ -275,26 +276,13 @@ export class CasesService {
           const nominalTotal = allInvoiceItems.reduce((sum, item) => sum.add(item.unitPrice), new Prisma.Decimal(0));
           const finalTotal = dto.labTotalPrice != null ? new Prisma.Decimal(dto.labTotalPrice) : nominalTotal;
 
-          // Yuboruvchi umumiy summani o'zgartirgan bo'lsa (masalan chegirma
-          // uchun), farq alohida qator sifatida qo'shiladi — shunda har bir
-          // xizmat o'z nominal narxida ko'rinib turadi (qarang: lab-orders
-          // moduli addItems'dagi bir xil naqsh).
-          const diff = finalTotal.sub(nominalTotal);
-          if (!diff.isZero()) {
-            allInvoiceItems.push({
-              description: diff.isNegative() ? "Chegirma" : "Qo'shimcha to'lov",
-              quantity: 1,
-              unitPrice: diff,
-              totalPrice: diff,
-              sourceType: InvoiceItemSourceType.MANUAL,
-            });
-          }
+          const pricedInvoiceItems = combineLabInvoiceItems(allInvoiceItems, finalTotal);
 
           const billedToMaster = await this.invoiceService.billCaseService(tx, {
             caseId,
             patientId: patientCase.patientId,
             createdById: user.userId,
-            items: allInvoiceItems,
+            items: pricedInvoiceItems,
           });
 
           if (!billedToMaster) {
@@ -306,7 +294,7 @@ export class CasesService {
                 totalAmount: finalTotal,
                 status: InvoiceStatus.ISSUED,
                 createdById: user.userId,
-                items: { create: allInvoiceItems },
+                items: { create: pricedInvoiceItems },
               },
             });
           }
