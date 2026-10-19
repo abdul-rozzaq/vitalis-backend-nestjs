@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { clinicDayUTC } from "../../common/clinic-time";
 import { BalanceTxSource, BalanceTxType, InvoiceItemSourceType, InvoiceSourceType, PaymentMethod } from "../../generated/prisma/enums";
 import { PrismaService } from "../../prisma/prisma.service";
 
@@ -46,6 +47,7 @@ export class ReportsService {
         cashAmount: true,
         bonusAmount: true,
         totalAmount: true,
+        createdAt: true,
         invoice: {
           select: {
             sourceType: true,
@@ -129,10 +131,7 @@ export class ReportsService {
     // qo'shishi mumkinligi uchun "count" — slice soni emas, shu bucketga
     // hissa qo'shgan DISTINCT to'lovlar soni (paymentIds to'plami orqali).
     const bySourceMap = new Map<InvoiceSourceType, { cash: number; bonus: number; total: number; paymentIds: Set<string> }>();
-    const byDepartmentMap = new Map<
-      string,
-      { departmentId: string | null; departmentName: string; cash: number; bonus: number; total: number; paymentIds: Set<string> }
-    >();
+    const byDepartmentMap = new Map<string, { departmentId: string | null; departmentName: string; cash: number; bonus: number; total: number; paymentIds: Set<string> }>();
 
     for (const s of sourceSlices) {
       const sourceEntry = bySourceMap.get(s.sourceType) ?? { cash: 0, bonus: 0, total: 0, paymentIds: new Set<string>() };
@@ -165,8 +164,19 @@ export class ReportsService {
     // sun'iy ko'payib ketardi).
     const byMethodMap = new Map<string, { amount: number; count: number }>();
     const byStaffMap = new Map<string, { staffId: string; staffName: string; cash: number; bonus: number; total: number; count: number }>();
+    // Kunlik taqsimot (soliq/hisobchi uchun) — klinika mintaqasi (Asia/Tashkent)
+    // bo'yicha kalendar kun, server qaysi TZ'da ishlashidan qat'i nazar to'g'ri
+    // bo'lishi uchun clinicDayUTC ishlatiladi (shifts/attendance moduli bilan bir xil yondashuv).
+    const byDayMap = new Map<string, { cash: number; bonus: number; total: number; count: number; byMethod: Record<string, number> }>();
 
     for (const p of payments) {
+      const dayKey = clinicDayUTC(p.createdAt).toISOString().slice(0, 10);
+      const dayEntry = byDayMap.get(dayKey) ?? { cash: 0, bonus: 0, total: 0, count: 0, byMethod: {} };
+      dayEntry.cash += Number(p.cashAmount);
+      dayEntry.bonus += Number(p.bonusAmount);
+      dayEntry.total += Number(p.totalAmount);
+      dayEntry.count += 1;
+
       const cash = Number(p.cashAmount);
       if (cash > 0) {
         const method = methodMap.get(p.id) ?? PaymentMethod.CASH;
@@ -174,6 +184,7 @@ export class ReportsService {
         methodEntry.amount += cash;
         methodEntry.count += 1;
         byMethodMap.set(method, methodEntry);
+        dayEntry.byMethod[method] = (dayEntry.byMethod[method] ?? 0) + cash;
       }
       const bonus = Number(p.bonusAmount);
       if (bonus > 0) {
@@ -181,7 +192,9 @@ export class ReportsService {
         methodEntry.amount += bonus;
         methodEntry.count += 1;
         byMethodMap.set("BONUS", methodEntry);
+        dayEntry.byMethod["BONUS"] = (dayEntry.byMethod["BONUS"] ?? 0) + bonus;
       }
+      byDayMap.set(dayKey, dayEntry);
 
       const staffEntry = byStaffMap.get(p.createdById) ?? {
         staffId: p.createdById,
@@ -212,6 +225,10 @@ export class ReportsService {
       .map((v) => ({ departmentId: v.departmentId, departmentName: v.departmentName, cash: v.cash, bonus: v.bonus, total: v.total, count: v.paymentIds.size }))
       .sort((a, b) => b.total - a.total);
 
+    const byDay = Array.from(byDayMap.entries())
+      .map(([date, v]) => ({ date, ...v }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
     return {
       from,
       to,
@@ -220,6 +237,7 @@ export class ReportsService {
       byPaymentMethod,
       byStaff,
       byDepartment,
+      byDay,
     };
   }
 
@@ -239,9 +257,7 @@ export class ReportsService {
    *
    * Natija: `"${sourceType}:${sourceId}"` -> {id, name} xaritasi.
    */
-  private async resolveDepartments(
-    refs: { sourceType: InvoiceSourceType; sourceId: string }[],
-  ): Promise<Map<string, { id: string; name: string }>> {
+  private async resolveDepartments(refs: { sourceType: InvoiceSourceType; sourceId: string }[]): Promise<Map<string, { id: string; name: string }>> {
     const idsByType = new Map<InvoiceSourceType, Set<string>>();
     for (const r of refs) {
       const set = idsByType.get(r.sourceType) ?? new Set<string>();
@@ -380,12 +396,7 @@ export class ReportsService {
       where: {
         createdAt: { gte: from, lte: to },
         invoice: {
-          OR: [
-            { sourceType },
-            ...(matchingItemSourceTypes.length
-              ? [{ sourceType: InvoiceSourceType.CASE, items: { some: { sourceType: { in: matchingItemSourceTypes } } } }]
-              : []),
-          ],
+          OR: [{ sourceType }, ...(matchingItemSourceTypes.length ? [{ sourceType: InvoiceSourceType.CASE, items: { some: { sourceType: { in: matchingItemSourceTypes } } } }] : [])],
         },
       },
       select: {
@@ -406,10 +417,7 @@ export class ReportsService {
       const paid = Number(p.totalAmount);
       const ratio = invoiceTotal > 0 ? paid / invoiceTotal : 0;
 
-      const relevantItems =
-        p.invoice.sourceType === InvoiceSourceType.CASE
-          ? p.invoice.items.filter((i) => matchingItemSourceTypes.includes(i.sourceType))
-          : p.invoice.items;
+      const relevantItems = p.invoice.sourceType === InvoiceSourceType.CASE ? p.invoice.items.filter((i) => matchingItemSourceTypes.includes(i.sourceType)) : p.invoice.items;
 
       for (const item of relevantItems) {
         const key = item.description;

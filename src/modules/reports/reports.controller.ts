@@ -42,6 +42,21 @@ function presetRange(preset: string): { from: Date; to: Date } | null {
         from: new Date(now.getFullYear(), now.getMonth() - 1, 1),
         to: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999),
       };
+    case "quarter": {
+      const q = Math.floor(now.getMonth() / 3);
+      return { from: new Date(now.getFullYear(), q * 3, 1), to: endOfDay(now) };
+    }
+    case "lastQuarter": {
+      const q = Math.floor(now.getMonth() / 3) - 1;
+      const year = now.getFullYear() + (q < 0 ? -1 : 0);
+      const normalizedQ = (q + 4) % 4;
+      return {
+        from: new Date(year, normalizedQ * 3, 1),
+        to: new Date(year, normalizedQ * 3 + 3, 0, 23, 59, 59, 999),
+      };
+    }
+    case "year":
+      return { from: new Date(now.getFullYear(), 0, 1), to: endOfDay(now) };
     default:
       return null;
   }
@@ -67,12 +82,7 @@ export class ReportsController {
   }
 
   @Get("revenue/by-source-detail")
-  getSourceDetail(
-    @Query("sourceType") sourceType?: string,
-    @Query("preset") preset?: string,
-    @Query("from") from?: string,
-    @Query("to") to?: string,
-  ) {
+  getSourceDetail(@Query("sourceType") sourceType?: string, @Query("preset") preset?: string, @Query("from") from?: string, @Query("to") to?: string) {
     if (!sourceType || !(sourceType in InvoiceSourceType)) {
       throw new BadRequestException("sourceType noto'g'ri yoki berilmagan");
     }
