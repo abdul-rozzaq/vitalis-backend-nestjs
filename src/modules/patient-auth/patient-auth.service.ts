@@ -80,10 +80,7 @@ export class PatientAuthService {
       return this.issueFinalToken(patients[0].id, phone, patients[0]);
     }
 
-    const preAuthToken = this.jwtService.sign(
-      { type: "patient-preauth", phone } satisfies PatientPreAuthJwtPayload,
-      { secret: process.env.PATIENT_JWT_SECRET, expiresIn: PREAUTH_TOKEN_TTL },
-    );
+    const preAuthToken = this.jwtService.sign({ type: "patient-preauth", phone } satisfies PatientPreAuthJwtPayload, { secret: process.env.PATIENT_JWT_SECRET, expiresIn: PREAUTH_TOKEN_TTL });
     return { preAuthToken, patients };
   }
 
@@ -110,10 +107,7 @@ export class PatientAuthService {
   }
 
   private issueFinalToken(patientId: string, phone: string, patient: { id: string; first_name: string; last_name: string; birth_date: Date }) {
-    const accessToken = this.jwtService.sign(
-      { type: "patient", patientId, phone } satisfies PatientJwtPayload,
-      { secret: process.env.PATIENT_JWT_SECRET, expiresIn: FINAL_TOKEN_TTL },
-    );
+    const accessToken = this.jwtService.sign({ type: "patient", patientId, phone } satisfies PatientJwtPayload, { secret: process.env.PATIENT_JWT_SECRET, expiresIn: FINAL_TOKEN_TTL });
     return { accessToken, patient };
   }
 }

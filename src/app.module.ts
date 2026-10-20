@@ -32,12 +32,12 @@ import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { RequestLoggerMiddleware } from "./common/middleware/request-logger.middleware";
-import { WardsModule } from './modules/wards/wards.module';
-import { BalanceModule } from './modules/balance/balance.module';
-import { InvoiceModule } from './modules/invoice/invoice.module';
-import { WardBillingModule } from './modules/ward-billing/ward-billing.module';
-import { ShiftsModule } from './modules/shifts/shifts.module';
-import { WardRoundsModule } from './modules/ward-rounds/ward-rounds.module';
+import { WardsModule } from "./modules/wards/wards.module";
+import { BalanceModule } from "./modules/balance/balance.module";
+import { InvoiceModule } from "./modules/invoice/invoice.module";
+import { WardBillingModule } from "./modules/ward-billing/ward-billing.module";
+import { ShiftsModule } from "./modules/shifts/shifts.module";
+import { WardRoundsModule } from "./modules/ward-rounds/ward-rounds.module";
 import { OperationsModule } from "./modules/operations/operations.module";
 import { OperationTypesModule } from "./modules/operation-types/operation-types.module";
 import { DiagnosticsModule } from "./modules/diagnostics/diagnostics.module";
@@ -65,7 +65,7 @@ import { PatientAuthModule } from "./modules/patient-auth/patient-auth.module";
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), "uploads"),
       serveRoot: "/uploads",
-      serveStaticOptions: { index: false }
+      serveStaticOptions: { index: false },
     }),
     AuthModule,
     UsersModule,
