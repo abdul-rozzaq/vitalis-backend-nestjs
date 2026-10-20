@@ -47,6 +47,7 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { ProceduresModule } from "./modules/procedures/procedures.module";
 import { AttendanceModule } from "./modules/attendance/attendance.module";
 import { ReportsModule } from "./modules/reports/reports.module";
+import { PatientAuthModule } from "./modules/patient-auth/patient-auth.module";
 
 @Module({
   imports: [
@@ -100,6 +101,7 @@ import { ReportsModule } from "./modules/reports/reports.module";
     ProceduresModule,
     AttendanceModule,
     ReportsModule,
+    PatientAuthModule,
   ],
   controllers: [AppController],
   providers: [

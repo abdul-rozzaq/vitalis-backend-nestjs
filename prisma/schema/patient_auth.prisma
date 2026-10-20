@@ -1,0 +1,14 @@
+// Bemorlar ilovasi uchun telefon+SMS-kod orqali kirish. Xodimlar autentifikatsiyasidan
+// butunlay ajratilgan — alohida JWT sekret va guard bilan ishlaydi (PatientAuthModule).
+model PatientOtpCode {
+  id         String    @id @default(uuid())
+  phone      String    @db.VarChar(20)
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone])
+  @@map("patient_otp_codes")
+}
