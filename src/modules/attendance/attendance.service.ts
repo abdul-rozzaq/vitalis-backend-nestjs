@@ -1,31 +1,10 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
-import { PrismaService } from '../../prisma/prisma.service';
-import { CLINIC_TZ } from '../../common/clinic-time';
-import {
-  AttendanceEventStatus,
-  AttendanceRecordStatus,
-} from '../../generated/prisma/enums';
-import {
-  AdjustAttendanceRecordDto,
-  AttendanceEventsQueryDto,
-  AttendanceRecordsQueryDto,
-  HikvisionEventDto,
-  PatchAttendanceRecordDto,
-} from './attendance.dto';
-import {
-  addMinutes,
-  computeAttendance,
-  FINALIZE_BUFFER_MIN,
-  MATCH_WINDOW_MIN,
-  pickShiftForEvent,
-  subMinutes,
-} from './attendance-calc';
+import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Cron } from "@nestjs/schedule";
+import { PrismaService } from "../../prisma/prisma.service";
+import { CLINIC_TZ } from "../../common/clinic-time";
+import { AttendanceEventStatus, AttendanceRecordStatus, UserRole } from "../../generated/prisma/enums";
+import { AdjustAttendanceRecordDto, AttendanceEventsQueryDto, AttendanceRecordsQueryDto, HikvisionEventDto, HrSummaryQueryDto, PatchAttendanceRecordDto } from "./attendance.dto";
+import { addMinutes, computeAttendance, computeOvertimeMinutes, FINALIZE_BUFFER_MIN, MATCH_WINDOW_MIN, pickShiftForEvent, subMinutes } from "./attendance-calc";
 
 /** Shift tugagandan keyingi buffer (ABSENT belgilash uchun) */
 const ABSENT_BUFFER_MIN = FINALIZE_BUFFER_MIN;
@@ -44,13 +23,32 @@ const ABSENT_LOOKBACK_MIN = 2 * 24 * 60;
 const SUGGEST_WINDOW_MIN = 6 * 60;
 
 /** `$transaction` callback'i beradigan Prisma klienti. */
-type PrismaTx = Parameters<Parameters<PrismaService['$transaction']>[0]>[0];
+type PrismaTx = Parameters<Parameters<PrismaService["$transaction"]>[0]>[0];
 
 /** Guruhlashdan oldin olinadigan xom skanlar chegarasi. */
 const UNRESOLVED_SCAN_LIMIT = 500;
 
 /** Navbatdagi bitta guruh ichida ko'rsatiladigan maksimal skan vaqti. */
 const SCAN_SAMPLE_LIMIT = 10;
+
+export interface HrSummaryRow {
+  user: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    role: UserRole;
+    employeeNo: string | null;
+  };
+  shiftsScheduled: number;
+  shiftsAttended: number;
+  shiftsMissed: number;
+  incompleteCount: number;
+  workedMinutes: number;
+  lateMinutes: number;
+  earlyLeaveMinutes: number;
+  absentMinutes: number;
+  overtimeMinutes: number;
+}
 
 interface ScanRow {
   id: string;
@@ -65,11 +63,7 @@ interface ScanRow {
  * `latestEventId` — amal shu event ustidan bajariladi; qolganlari yechim
  * qo'llanganda birga qayta ishlanadi.
  */
-function groupScans<T extends ScanRow, E>(
-  rows: T[],
-  keyOf: (row: T) => string,
-  extra: (key: string, group: T[]) => E,
-) {
+function groupScans<T extends ScanRow, E>(rows: T[], keyOf: (row: T) => string, extra: (key: string, group: T[]) => E) {
   const groups = new Map<string, T[]>();
   for (const row of rows) {
     const key = keyOf(row);
@@ -108,10 +102,7 @@ export class AttendanceService {
 
   // ── Webhook processor ───────────────────────────────────────────────────────
 
-  async processEvent(
-    dto: HikvisionEventDto,
-    picturePath: string | null,
-  ): Promise<void> {
+  async processEvent(dto: HikvisionEventDto, picturePath: string | null): Promise<void> {
     const { deviceIp, employeeNoStr, eventAt, rawStatus } = dto;
 
     // 1. Idempotency check — service darajasida (DB darajasida ham @@unique bor)
@@ -182,9 +173,7 @@ export class AttendanceService {
     );
 
     if (!bestShift) {
-      this.logger.warn(
-        `No matching shift for userId=${user.id} at=${eventAt.toISOString()}`,
-      );
+      this.logger.warn(`No matching shift for userId=${user.id} at=${eventAt.toISOString()}`);
       await this.prisma.attendanceEvent.update({
         where: { id: event.id },
         data: { userId: user.id, status: AttendanceEventStatus.NO_SHIFT },
@@ -236,9 +225,7 @@ export class AttendanceService {
       });
     });
 
-    this.logger.log(
-      `Event processed: userId=${user.id} shiftId=${shift.id} status=${rawStatus}`,
-    );
+    this.logger.log(`Event processed: userId=${user.id} shiftId=${shift.id} status=${rawStatus}`);
   }
 
   /** Vaqtinchalik xatodan keyin terminal retry qilmagan PENDING eventlar zaxirasi. */
@@ -271,9 +258,9 @@ export class AttendanceService {
    *   2. mavjud yozuvlar qayta hisoblanadi → chiqish skani yo'qligi endi
    *      jimgina PRESENT emas, MISSING_CHECKOUT bo'lib ko'rinadi
    */
-  @Cron('0 1 * * *', { timeZone: CLINIC_TZ })
+  @Cron("0 1 * * *", { timeZone: CLINIC_TZ })
   async markAbsentForCompletedShifts(): Promise<void> {
-    this.logger.log('Running attendance finalization cron...');
+    this.logger.log("Running attendance finalization cron...");
 
     const now = new Date();
     const buffer = addMinutes(now, -ABSENT_BUFFER_MIN);
@@ -311,10 +298,7 @@ export class AttendanceService {
               userId,
               shiftId: shift.id,
               status: AttendanceRecordStatus.ABSENT,
-              absentMinutes: Math.max(
-                0,
-                Math.round((shift.endAt.getTime() - shift.startAt.getTime()) / 60_000),
-              ),
+              absentMinutes: Math.max(0, Math.round((shift.endAt.getTime() - shift.startAt.getTime()) / 60_000)),
             },
             update: {
               // Allaqachon yozilgan bo'lsa tegmaymiz — quyidagi yakunlash bosqichi
@@ -323,21 +307,14 @@ export class AttendanceService {
           });
           absentCount++;
         } catch (err: any) {
-          this.logger.error(
-            `Failed to mark absent: userId=${userId} shiftId=${shift.id}: ${err.message}`,
-          );
+          this.logger.error(`Failed to mark absent: userId=${userId} shiftId=${shift.id}: ${err.message}`);
         }
       }
 
       // 2. Mavjud yozuvlarni yakuniy holatga keltirish
       for (const record of shift.attendanceRecords) {
         try {
-          const computed = computeAttendance(
-            shift.startAt,
-            shift.endAt,
-            record.events,
-            now,
-          );
+          const computed = computeAttendance(shift.startAt, shift.endAt, record.events, now);
           await this.prisma.attendanceRecord.update({
             where: { id: record.id },
             data: {
@@ -352,16 +329,12 @@ export class AttendanceService {
           });
           finalizedCount++;
         } catch (err: any) {
-          this.logger.error(
-            `Failed to finalize record=${record.id}: ${err.message}`,
-          );
+          this.logger.error(`Failed to finalize record=${record.id}: ${err.message}`);
         }
       }
     }
 
-    this.logger.log(
-      `Attendance finalization completed: ${absentCount} absent, ${finalizedCount} finalized.`,
-    );
+    this.logger.log(`Attendance finalization completed: ${absentCount} absent, ${finalizedCount} finalized.`);
   }
 
   // ── Admin API ───────────────────────────────────────────────────────────────
@@ -413,13 +386,10 @@ export class AttendanceService {
         },
         events: {
           select: { id: true, rawStatus: true, eventAt: true, status: true },
-          orderBy: { eventAt: 'asc' },
+          orderBy: { eventAt: "asc" },
         },
       },
-      orderBy: [
-        { shift: { startAt: 'desc' } },
-        { user: { last_name: 'asc' } },
-      ],
+      orderBy: [{ shift: { startAt: "desc" } }, { user: { last_name: "asc" } }],
     });
   }
 
@@ -441,16 +411,16 @@ export class AttendanceService {
             department: { select: { id: true, name: true } },
           },
         },
-        events: { orderBy: { eventAt: 'asc' } },
+        events: { orderBy: { eventAt: "asc" } },
         adjustments: {
           include: {
             user: { select: { id: true, first_name: true, last_name: true } },
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
         },
       },
     });
-    if (!record) throw new NotFoundException('Davomat yozuvi topilmadi');
+    if (!record) throw new NotFoundException("Davomat yozuvi topilmadi");
     return record;
   }
 
@@ -459,12 +429,95 @@ export class AttendanceService {
       where: { id },
       select: { id: true },
     });
-    if (!existing) throw new NotFoundException('Davomat yozuvi topilmadi');
+    if (!existing) throw new NotFoundException("Davomat yozuvi topilmadi");
 
     return this.prisma.attendanceRecord.update({
       where: { id },
       data: { note: dto.note },
     });
+  }
+
+  /**
+   * HR xulosasi — berilgan davrda har bir xodim bo'yicha jamlangan
+   * davomat: nechta smenaga chiqdi/chiqmadi, jami ishlangan/kechikkan/
+   * erta ketgan/yo'q bo'lgan daqiqa va smenadan tashqari (overtime)
+   * daqiqa. Faqat o'qish — hech narsa yozmaydi, hech narsani o'zgartirmaydi.
+   *
+   * Eslatma: `listRecords` kabi, faqat allaqachon yaratilgan
+   * `AttendanceRecord` larni hisoblaydi. Kechagi tungi cron hali
+   * yakunlamagan juda yangi smenalar bu yerda ko'rinmaydi — bu
+   * `/attendance/records` bilan bir xil cheklov, yangi kamchilik emas.
+   */
+  async getHrSummary(query: HrSummaryQueryDto): Promise<HrSummaryRow[]> {
+    const dayStart = new Date(`${query.from}T00:00:00+05:00`);
+    const dayEnd = new Date(`${query.to}T23:59:59+05:00`);
+
+    const records = await this.prisma.attendanceRecord.findMany({
+      where: {
+        shift: {
+          startAt: { lte: dayEnd },
+          endAt: { gte: dayStart },
+        },
+      },
+      include: {
+        user: {
+          select: { id: true, first_name: true, last_name: true, role: true, employeeNo: true },
+        },
+        shift: {
+          select: {
+            id: true,
+            startAt: true,
+            endAt: true,
+            department: { select: { id: true, name: true } },
+          },
+        },
+        events: { select: { eventAt: true, rawStatus: true } },
+      },
+      orderBy: { shift: { startAt: "asc" } },
+    });
+
+    const byUser = new Map<string, HrSummaryRow>();
+    const now = new Date();
+
+    for (const record of records) {
+      let row = byUser.get(record.userId);
+      if (!row) {
+        row = {
+          user: record.user,
+          shiftsScheduled: 0,
+          shiftsAttended: 0,
+          shiftsMissed: 0,
+          incompleteCount: 0,
+          workedMinutes: 0,
+          lateMinutes: 0,
+          earlyLeaveMinutes: 0,
+          absentMinutes: 0,
+          overtimeMinutes: 0,
+        };
+        byUser.set(record.userId, row);
+      }
+
+      row.shiftsScheduled++;
+      if (record.status === AttendanceRecordStatus.ABSENT) {
+        row.shiftsMissed++;
+      } else {
+        row.shiftsAttended++;
+      }
+      if (record.status === AttendanceRecordStatus.MISSING_CHECKIN || record.status === AttendanceRecordStatus.MISSING_CHECKOUT) {
+        row.incompleteCount++;
+      }
+
+      row.workedMinutes += record.workedMinutes;
+      row.lateMinutes += record.lateMinutes;
+      row.earlyLeaveMinutes += record.earlyLeaveMinutes;
+      row.absentMinutes += record.absentMinutes;
+      row.overtimeMinutes += computeOvertimeMinutes(record.shift.startAt, record.shift.endAt, record.events, now, record.workedMinutes, {
+        manualCheckInAt: record.manualCheckInAt,
+        manualCheckOutAt: record.manualCheckOutAt,
+      });
+    }
+
+    return [...byUser.values()].sort((a, b) => a.user.last_name.localeCompare(b.user.last_name));
   }
 
   async listEvents(query: AttendanceEventsQueryDto) {
@@ -480,7 +533,7 @@ export class AttendanceService {
       include: {
         user: { select: { id: true, first_name: true, last_name: true } },
       },
-      orderBy: { eventAt: 'desc' },
+      orderBy: { eventAt: "desc" },
       take: 200,
     });
   }
@@ -499,16 +552,13 @@ export class AttendanceService {
       this.prisma.attendanceEvent.findMany({
         where: {
           status: {
-            in: [
-              AttendanceEventStatus.UNKNOWN_EMPLOYEE,
-              AttendanceEventStatus.NO_SHIFT,
-            ],
+            in: [AttendanceEventStatus.UNKNOWN_EMPLOYEE, AttendanceEventStatus.NO_SHIFT],
           },
         },
         include: {
           user: { select: { id: true, first_name: true, last_name: true, role: true } },
         },
-        orderBy: { eventAt: 'desc' },
+        orderBy: { eventAt: "desc" },
         // Guruhlashdan OLDINGI xom chegara — bitta terminal ID o'nlab marta
         // skanerlagan bo'lishi mumkin, shuning uchun keng olamiz.
         take: UNRESOLVED_SCAN_LIMIT,
@@ -516,10 +566,7 @@ export class AttendanceService {
       this.prisma.attendanceRecord.findMany({
         where: {
           status: {
-            in: [
-              AttendanceRecordStatus.MISSING_CHECKIN,
-              AttendanceRecordStatus.MISSING_CHECKOUT,
-            ],
+            in: [AttendanceRecordStatus.MISSING_CHECKIN, AttendanceRecordStatus.MISSING_CHECKOUT],
           },
         },
         include: {
@@ -534,20 +581,18 @@ export class AttendanceService {
             },
           },
         },
-        orderBy: { shift: { startAt: 'desc' } },
+        orderBy: { shift: { startAt: "desc" } },
         take: 100,
       }),
       // Face ID bog'lanmagan xodimlar — jimgina ishlamay qolish manbayi
       this.prisma.user.findMany({
         where: { employeeNo: null },
         select: { id: true, first_name: true, last_name: true, role: true },
-        orderBy: { last_name: 'asc' },
+        orderBy: { last_name: "asc" },
       }),
     ]);
 
-    const unknownRaw = events.filter(
-      (e) => e.status === AttendanceEventStatus.UNKNOWN_EMPLOYEE,
-    );
+    const unknownRaw = events.filter((e) => e.status === AttendanceEventStatus.UNKNOWN_EMPLOYEE);
     const noShiftRaw = events.filter((e) => e.status === AttendanceEventStatus.NO_SHIFT);
 
     // NO_SHIFT eventlari uchun eng yaqin smenani taklif qilamiz — operator
@@ -575,7 +620,7 @@ export class AttendanceService {
 
     const noShift = groupScans(
       noShiftRaw,
-      (e) => `${e.userId ?? 'anon'}|${(suggestions.get(e.id) as { id?: string })?.id ?? 'none'}`,
+      (e) => `${e.userId ?? "anon"}|${(suggestions.get(e.id) as { id?: string })?.id ?? "none"}`,
       (key, group) => ({
         key: `noshift:${key}`,
         employeeNoStr: group[0].employeeNoStr,
@@ -601,9 +646,7 @@ export class AttendanceService {
   }
 
   /** Har bir `NO_SHIFT` eventi uchun xodimning eng yaqin smenasini topadi. */
-  private async suggestShiftsFor(
-    events: { id: string; userId: string | null; eventAt: Date; rawStatus: string }[],
-  ) {
+  private async suggestShiftsFor(events: { id: string; userId: string | null; eventAt: Date; rawStatus: string }[]) {
     const result = new Map<string, unknown>();
     const withUser = events.filter((e) => e.userId);
     if (!withUser.length) return result;
@@ -636,22 +679,20 @@ export class AttendanceService {
    */
   async linkEmployeeNo(eventId: string, userId: string) {
     const event = await this.prisma.attendanceEvent.findUnique({ where: { id: eventId } });
-    if (!event) throw new NotFoundException('Hodisa topilmadi');
+    if (!event) throw new NotFoundException("Hodisa topilmadi");
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, employeeNo: true },
     });
-    if (!user) throw new NotFoundException('Xodim topilmadi');
+    if (!user) throw new NotFoundException("Xodim topilmadi");
 
     const taken = await this.prisma.user.findFirst({
       where: { employeeNo: event.employeeNoStr, NOT: { id: userId } },
       select: { id: true, first_name: true, last_name: true },
     });
     if (taken) {
-      throw new BadRequestException(
-        `Bu terminal ID allaqachon ${taken.first_name} ${taken.last_name} ga bog'langan`,
-      );
+      throw new BadRequestException(`Bu terminal ID allaqachon ${taken.first_name} ${taken.last_name} ga bog'langan`);
     }
 
     await this.prisma.user.update({
@@ -659,10 +700,21 @@ export class AttendanceService {
       data: { employeeNo: event.employeeNoStr },
     });
 
-    // Shu ID bilan kelgan barcha hal qilinmagan skanlar endi mos keladi.
+    const reprocessed = await this.reprocessUnknownEventsByEmployeeNo(event.employeeNoStr);
+
+    return { linked: true, employeeNo: event.employeeNoStr, reprocessed };
+  }
+
+  /**
+   * Terminal ID qayerdan bog'langani (navbatdagi karta yoki xodim tahrirlash
+   * sahifasi) farqi yo'q — shu ID bilan kelgan barcha `UNKNOWN_EMPLOYEE`
+   * skanlarni qayta ishlaydi. `user.employeeNo` allaqachon yozilgan deb
+   * taxmin qilinadi.
+   */
+  async reprocessUnknownEventsByEmployeeNo(employeeNo: string): Promise<number> {
     const pending = await this.prisma.attendanceEvent.findMany({
       where: {
-        employeeNoStr: event.employeeNoStr,
+        employeeNoStr: employeeNo,
         status: AttendanceEventStatus.UNKNOWN_EMPLOYEE,
       },
       select: { id: true },
@@ -672,8 +724,7 @@ export class AttendanceService {
     for (const { id } of pending) {
       if (await this.reprocessEvent(id)) reprocessed++;
     }
-
-    return { linked: true, employeeNo: event.employeeNoStr, reprocessed };
+    return reprocessed;
   }
 
   /**
@@ -682,22 +733,22 @@ export class AttendanceService {
    */
   async resolveEventToShift(eventId: string, shiftId: string) {
     const event = await this.prisma.attendanceEvent.findUnique({ where: { id: eventId } });
-    if (!event) throw new NotFoundException('Hodisa topilmadi');
+    if (!event) throw new NotFoundException("Hodisa topilmadi");
     if (!event.userId) {
-      throw new BadRequestException('Avval terminal ID ni xodimga bog\'lang');
+      throw new BadRequestException("Avval terminal ID ni xodimga bog'lang");
     }
 
     const shift = await this.prisma.shift.findUnique({
       where: { id: shiftId },
       select: { id: true },
     });
-    if (!shift) throw new NotFoundException('Smena topilmadi');
+    if (!shift) throw new NotFoundException("Smena topilmadi");
 
     const user = await this.prisma.user.findUnique({
       where: { id: event.userId },
       select: { role: true },
     });
-    if (!user) throw new NotFoundException('Xodim topilmadi');
+    if (!user) throw new NotFoundException("Xodim topilmadi");
     const role = user.role;
 
     await this.prisma.shiftStaff.upsert({
@@ -747,10 +798,7 @@ export class AttendanceService {
     const event = await this.prisma.attendanceEvent.findUnique({ where: { id: eventId } });
     if (!event) return false;
 
-    const user =
-      event.userId !== null
-        ? await this.prisma.user.findUnique({ where: { id: event.userId } })
-        : await this.prisma.user.findFirst({ where: { employeeNo: event.employeeNoStr } });
+    const user = event.userId !== null ? await this.prisma.user.findUnique({ where: { id: event.userId } }) : await this.prisma.user.findFirst({ where: { employeeNo: event.employeeNoStr } });
 
     if (!user) {
       await this.prisma.attendanceEvent.update({
@@ -817,10 +865,10 @@ export class AttendanceService {
       where: { id },
       select: { id: true, manualCheckInAt: true, manualCheckOutAt: true },
     });
-    if (!record) throw new NotFoundException('Davomat yozuvi topilmadi');
+    if (!record) throw new NotFoundException("Davomat yozuvi topilmadi");
 
     if (dto.checkInAt === undefined && dto.checkOutAt === undefined) {
-      throw new BadRequestException('Hech bo\'lmasa bitta vaqt kiritilishi kerak');
+      throw new BadRequestException("Hech bo'lmasa bitta vaqt kiritilishi kerak");
     }
 
     const changes: {
@@ -831,14 +879,14 @@ export class AttendanceService {
 
     if (dto.checkInAt !== undefined) {
       changes.push({
-        field: 'checkInAt',
+        field: "checkInAt",
         oldValue: record.manualCheckInAt,
         newValue: dto.checkInAt ? new Date(dto.checkInAt) : null,
       });
     }
     if (dto.checkOutAt !== undefined) {
       changes.push({
-        field: 'checkOutAt',
+        field: "checkOutAt",
         oldValue: record.manualCheckOutAt,
         newValue: dto.checkOutAt ? new Date(dto.checkOutAt) : null,
       });
@@ -892,16 +940,10 @@ export class AttendanceService {
     });
     if (!record) return;
 
-    const computed = computeAttendance(
-      record.shift.startAt,
-      record.shift.endAt,
-      record.events,
-      new Date(),
-      {
-        manualCheckInAt: record.manualCheckInAt,
-        manualCheckOutAt: record.manualCheckOutAt,
-      },
-    );
+    const computed = computeAttendance(record.shift.startAt, record.shift.endAt, record.events, new Date(), {
+      manualCheckInAt: record.manualCheckInAt,
+      manualCheckOutAt: record.manualCheckOutAt,
+    });
 
     await tx.attendanceRecord.update({
       where: { id: recordId },
@@ -930,7 +972,7 @@ export class AttendanceService {
           },
         },
       },
-      orderBy: { shift: { startAt: 'desc' } },
+      orderBy: { shift: { startAt: "desc" } },
       take: 100,
     });
   }
