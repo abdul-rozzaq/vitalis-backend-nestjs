@@ -1,3 +1,5 @@
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RoleName } from '../../common/enums/role-name.enum';
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtPayload } from '../../common/types/jwt-payload.type';
@@ -9,6 +11,7 @@ import { DepositDto } from './dto/deposit.dto';
 import { EarnBonusDto } from './dto/earn-bonus.dto';
 import { RefundDto } from './dto/refund.dto';
 
+@Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HISOBCHI, RoleName.DIREKTOR)
 @Controller('patients/:patientId/balance')
 export class BalanceController {
   constructor(private readonly balanceService: BalanceService) {}
@@ -78,6 +81,7 @@ export class BalanceController {
   }
 }
 
+@Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HISOBCHI, RoleName.DIREKTOR)
 @Controller('patients/:patientId/bonus')
 export class BonusController {
   constructor(private readonly balanceService: BalanceService) {}

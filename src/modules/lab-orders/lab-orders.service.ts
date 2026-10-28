@@ -8,6 +8,7 @@ import { InvoiceItemSourceType, InvoiceSourceType, InvoiceStatus } from "../../g
 import { PrismaService } from "../../prisma/prisma.service";
 import { InvoiceService } from "../invoice/invoice.service";
 import { unpackRowsPayload } from "../lab-common/result-layout";
+import { combineLabInvoiceItems } from "../lab-common/lab-invoice-pricing";
 import { generateDocx, generateCombinedDocx } from "./generators/docx-generator";
 import { generatePdf, generateCombinedPdf } from "./generators/pdf-generator";
 import {
@@ -209,22 +210,13 @@ export class LabOrdersService {
         };
       });
 
-      const diff = finalTotal.sub(nominalTotal);
-      if (!diff.isZero()) {
-        invoiceItemsData.push({
-          description: diff.isNegative() ? "Chegirma" : "Qo'shimcha to'lov",
-          quantity: 1,
-          unitPrice: diff,
-          totalPrice: diff,
-          sourceType: InvoiceItemSourceType.MANUAL,
-        });
-      }
+      const pricedInvoiceItems = combineLabInvoiceItems(invoiceItemsData, finalTotal);
 
       const billedToMaster = await this.invoiceService.billCaseService(this.prisma, {
         caseId: order.caseStep.caseId,
         patientId: order.patientId,
         createdById: user.userId,
-        items: invoiceItemsData,
+        items: pricedInvoiceItems,
       });
 
       if (!billedToMaster) {
@@ -248,7 +240,7 @@ export class LabOrdersService {
             where: { id: existingInvoice.id },
             data: {
               totalAmount: existingInvoice.totalAmount.add(finalTotal),
-              items: { create: invoiceItemsData },
+              items: { create: pricedInvoiceItems },
             },
           });
         } else {
@@ -260,7 +252,7 @@ export class LabOrdersService {
               totalAmount: finalTotal,
               status: InvoiceStatus.ISSUED,
               createdById: user.userId,
-              items: { create: invoiceItemsData },
+              items: { create: pricedInvoiceItems },
             },
           });
         }
@@ -313,23 +305,14 @@ export class LabOrdersService {
       };
     });
 
-    const diff = finalTotal.sub(nominalTotal);
-    if (!diff.isZero()) {
-      invoiceItemsData.push({
-        description: diff.isNegative() ? "Chegirma" : "Qo'shimcha to'lov",
-        quantity: 1,
-        unitPrice: diff,
-        totalPrice: diff,
-        sourceType: InvoiceItemSourceType.MANUAL,
-      });
-    }
+    const pricedInvoiceItems = combineLabInvoiceItems(invoiceItemsData, finalTotal);
 
     await this.prisma.$transaction(async (tx) => {
       const billedToMaster = await this.invoiceService.billCaseService(tx, {
         caseId: order.caseStep.caseId,
         patientId: order.patientId,
         createdById: user.userId,
-        items: invoiceItemsData,
+        items: pricedInvoiceItems,
       });
 
       if (!billedToMaster) {
@@ -348,7 +331,7 @@ export class LabOrdersService {
             where: { id: existingInvoice.id },
             data: {
               totalAmount: existingInvoice.totalAmount.add(finalTotal),
-              items: { create: invoiceItemsData },
+              items: { create: pricedInvoiceItems },
             },
           });
         } else {
@@ -360,7 +343,7 @@ export class LabOrdersService {
               totalAmount: finalTotal,
               status: InvoiceStatus.ISSUED,
               createdById: user.userId,
-              items: { create: invoiceItemsData },
+              items: { create: pricedInvoiceItems },
             },
           });
         }
