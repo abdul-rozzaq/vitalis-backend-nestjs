@@ -70,11 +70,13 @@ export class CasesController {
   // Bir yo'nalishli: keyinchalik bekor qilish (revert) endpointi ataylab yo'q.
   @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.DOCTOR)
   @Post(":id/convert-to-master")
-  convertToMaster(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
-    return this.service.convertToMaster(id, user);
+  async convertToMaster(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    const result = await this.service.convertToMaster(id, user);
+    // Shifokorga hisob summalari qaytarilmaydi.
+    return user.role === RoleName.DOCTOR && result && "case" in result ? { case: result.case } : result;
   }
 
-  @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.DOCTOR)
+  @Roles(RoleName.ADMIN, RoleName.KASSIR)
   @Post(":id/journal/invoices")
   issueJournalInvoices(@Param("id") id: string, @Body() dto: IssueJournalInvoicesDto, @CurrentUser() user: JwtPayload) {
     return this.service.issueJournalInvoices(id, dto, user);
@@ -104,6 +106,8 @@ export class CasesController {
     return this.service.cancelJournalService(id, itemId, user);
   }
 
+  // Chop etilgan hujjatda narxlar va umumiy summa bor — shifokorga berilmaydi.
+  @Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HAMSHIRA, RoleName.LABARANT)
   @Get(":id/journal/print")
   async printJournal(@Param("id") id: string, @Res() res: Response) {
     const { buffer, patientCase } = await this.service.generateJournalDocument(id);

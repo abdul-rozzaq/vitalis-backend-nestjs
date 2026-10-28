@@ -14,6 +14,22 @@ import { generateOperationContractDocx, OperationContractRow } from "../operatio
 import { AddCaseStepDto, AddJournalServiceDto, CreateCaseDto, UpdateCaseStepDto } from "./cases.dto";
 import { CasesRepository, STEP_INCLUDE } from "./cases.repository";
 
+/**
+ * Shifokor jurnalni ko'radi va unga xizmat qo'sha oladi, lekin umumiy/to'langan/
+ * qoldiq summalarni ko'rmaydi. Yakka xizmat narxi (unitPrice/totalPrice) qoladi —
+ * shifokor xizmat qo'shganda narxni o'zi kiritadi.
+ */
+function hideJournalTotals<T extends { items: Array<Record<string, unknown>> }>(journal: T) {
+  const hiddenKeys = ["totalAmount", "paidCash", "paidBonus", "billedAmount", "unbilledAmount", "unpaidAmount", "issuedInvoices"];
+  const hiddenItemKeys = ["billedAmount", "remainingAmount", "paidAmount", "isPaid"];
+  const strip = (obj: Record<string, unknown>, keys: string[]) =>
+    Object.fromEntries(Object.entries(obj).filter(([key]) => !keys.includes(key)));
+  return {
+    ...strip(journal as Record<string, unknown>, hiddenKeys),
+    items: journal.items.map((item) => strip(item, hiddenItemKeys)),
+  };
+}
+
 @Injectable()
 export class CasesService {
   constructor(
@@ -58,7 +74,7 @@ export class CasesService {
     if (!name || !Number.isFinite(dto.price) || dto.price <= 0) {
       throw new BadRequestException("Xizmat nomi va narxini kiriting");
     }
-    return this.invoiceService.billCaseService(this.prisma, {
+    const billed = await this.invoiceService.billCaseService(this.prisma, {
       caseId,
       patientId: patientCase.patientId,
       createdById: user.userId,
@@ -70,6 +86,7 @@ export class CasesService {
         sourceId: caseId,
       }],
     });
+    return user.role === RoleName.DOCTOR ? { success: true } : billed;
   }
 
   async payJournalSelection(caseId: string, dto: PayJournalSelectionDto, user: JwtPayload) {
@@ -630,7 +647,8 @@ export class CasesService {
 
   async getJournals(patientId: string, user: JwtPayload) {
     const cases = await this.findByPatientId(patientId, user);
-    return this.invoiceService.getJournals(cases.map(c => c.id));
+    const journals = await this.invoiceService.getJournals(cases.map(c => c.id));
+    return user.role === RoleName.DOCTOR ? journals.map(hideJournalTotals) : journals;
   }
 
   async issueJournalInvoices(caseId: string, dto: IssueJournalInvoicesDto, user: JwtPayload) {

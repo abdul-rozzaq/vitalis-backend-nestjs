@@ -1,4 +1,6 @@
 import { BadRequestException, Controller, Get, Query } from "@nestjs/common";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { RoleName } from "../../common/enums/role-name.enum";
 import { InvoiceSourceType } from "../../generated/prisma/enums";
 import { ReportsService } from "./reports.service";
 
@@ -47,6 +49,7 @@ function presetRange(preset: string): { from: Date; to: Date } | null {
   }
 }
 
+@Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HISOBCHI, RoleName.DIREKTOR)
 @Controller("reports")
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}

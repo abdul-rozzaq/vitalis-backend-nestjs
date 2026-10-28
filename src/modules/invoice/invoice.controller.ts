@@ -1,4 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RoleName } from '../../common/enums/role-name.enum';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtPayload } from '../../common/types/jwt-payload.type';
 import { Prisma } from '../../generated/prisma/client';
@@ -9,6 +11,7 @@ import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { UpdatePaymentMethodDto } from './dto/update-payment-method.dto';
 import { InvoiceService } from './invoice.service';
 
+@Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HISOBCHI, RoleName.DIREKTOR)
 @Controller('invoices')
 export class InvoiceController {
   constructor(private readonly invoiceService: InvoiceService) {}
@@ -153,6 +156,7 @@ export class InvoiceController {
   }
 }
 
+@Roles(RoleName.ADMIN, RoleName.KASSIR, RoleName.HISOBCHI, RoleName.DIREKTOR)
 @Controller('patients/:patientId/invoices')
 export class PatientInvoiceController {
   constructor(private readonly invoiceService: InvoiceService) {}
