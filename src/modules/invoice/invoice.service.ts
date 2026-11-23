@@ -117,12 +117,29 @@ export class InvoiceService {
       include: INVOICE_INCLUDE,
     });
 
+    const appointmentIds = ordinary
+      .filter(invoice => invoice.sourceType === InvoiceSourceType.APPOINTMENT)
+      .map(invoice => invoice.sourceId);
+    const appointments = appointmentIds.length ? await this.prisma.appointment.findMany({
+      where: { id: { in: appointmentIds } },
+      select: { id: true, assignment: { select: { user: { select: { first_name: true, last_name: true } } } } },
+    }) : [];
+    const doctorByAppointment = new Map(appointments.map(({ id, assignment }) => [
+      id, [assignment?.user.first_name, assignment?.user.last_name].filter(Boolean).join(' ').trim(),
+    ]));
+    const singleInvoices = ordinary.map(invoice => ({
+      ...invoice,
+      invoiceKind: 'SINGLE' as const,
+      appointmentDoctorName: invoice.sourceType === InvoiceSourceType.APPOINTMENT
+        ? doctorByAppointment.get(invoice.sourceId) || null : null,
+    }));
+
     // A journal's child invoices are payment records. The list shows their
     // parent once, while ordinary one-time invoices remain separate rows.
     const includeJournals = params.invoiceKind !== 'SINGLE'
       && !params.doctorId && !params.operationTypeId && !params.operationDoctorId
       && (!params.sourceType?.length || params.sourceType.includes(InvoiceSourceType.OPERATION));
-    if (!includeJournals) return ordinary.map(invoice => ({ ...invoice, invoiceKind: 'SINGLE' as const }));
+    if (!includeJournals) return singleInvoices;
 
     const journalWhere: Prisma.InvoiceWhereInput = {
       isJournal: true,
@@ -195,7 +212,7 @@ export class InvoiceService {
       && (params.amountMax === undefined || Number(journal.totalAmount) <= params.amountMax)
     );
 
-    return [...ordinary.map(invoice => ({ ...invoice, invoiceKind: 'SINGLE' as const })), ...grouped]
+    return [...singleInvoices, ...grouped]
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
