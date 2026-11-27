@@ -62,7 +62,7 @@ export class LabOrdersService {
   ) {}
 
   async findMyOrders(user: JwtPayload) {
-    if (user.role === RoleName.ADMIN) {
+    if (user.role === RoleName.ADMIN || user.role === RoleName.DOCTOR) {
       return this.repo.findAll();
     }
     const labAssignments = await this.prisma.laboratoryAssignment.findMany({
